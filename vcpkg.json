@@ -1,0 +1,22 @@
+{
+  "name": "qtmcp",
+  "version": "0.1.0",
+  "description": "Qt application introspection and automation library with MCP integration",
+  "homepage": "https://github.com/ssss2art/QtMcp",
+  "license": "MIT",
+  "dependencies": [
+    "nlohmann-json",
+    "spdlog",
+    "gtest"
+  ],
+  "builtin-baseline": "2024.01.12",
+  "overrides": [],
+  "features": {
+    "tests": {
+      "description": "Build unit tests",
+      "dependencies": [
+        "gtest"
+      ]
+    }
+  }
+}
