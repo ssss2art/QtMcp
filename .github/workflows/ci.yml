@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  QT_VERSION: '5.15.2'
+  VCPKG_DEFAULT_TRIPLET: x64-linux
+
+jobs:
+  # Lint job - check code formatting
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check clang-format
+        uses: jidicula/clang-format-action@v4.11.0
+        with:
+          clang-format-version: '17'
+          check-path: 'src'
+
+  # Linux build
+  build-linux:
+    name: Linux Build
+    runs-on: ubuntu-22.04
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: 'qtwebsockets'
+          cache: true
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '2024.01.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxcb-xinerama0
+
+      - name: Configure
+        run: |
+          cmake --preset ci-linux \
+            -DCMAKE_PREFIX_PATH=$Qt5_DIR
+
+      - name: Build
+        run: cmake --build --preset ci-linux --parallel
+
+      - name: Test
+        run: ctest --preset ci-linux --output-on-failure
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            build/ci-linux/lib/*.so*
+            build/ci-linux/bin/*
+          if-no-files-found: warn
+
+  # Windows build
+  build-windows:
+    name: Windows Build
+    runs-on: windows-2022
+    needs: lint
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: 'qtwebsockets'
+          cache: true
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '2024.01.12'
+
+      - name: Configure
+        run: |
+          cmake --preset ci-windows `
+            -DCMAKE_PREFIX_PATH="$env:Qt5_DIR"
+
+      - name: Build
+        run: cmake --build --preset ci-windows --parallel
+
+      - name: Test
+        run: ctest --preset ci-windows --output-on-failure
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            build/ci-windows/lib/Release/*.lib
+            build/ci-windows/lib/Release/*.dll
+            build/ci-windows/bin/Release/*.exe
+          if-no-files-found: warn
+
+  # Python MCP server tests
+  python:
+    name: Python Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd src/mcp_server
+          pip install -e ".[dev]"
+        continue-on-error: true  # MCP server not yet implemented
+
+      - name: Run tests
+        run: |
+          cd src/mcp_server
+          pytest -v || echo "Tests not yet implemented"
+        continue-on-error: true  # Tests not yet implemented
+
+  # CodeQL security scanning
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-22.04
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: 'qtwebsockets'
+          cache: true
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '2024.01.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxcb-xinerama0
+
+      - name: Build
+        run: |
+          cmake --preset ci-linux -DCMAKE_PREFIX_PATH=$Qt5_DIR
+          cmake --build --preset ci-linux
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
