@@ -72,6 +72,11 @@ public:
     /// @return Pointer to the handler.
     JsonRpcHandler* rpcHandler() const;
 
+    /// @brief Send a message to the connected client.
+    /// @param message The message to send.
+    /// @return true if sent successfully, false if no client connected.
+    bool sendMessage(const QString& message);
+
 signals:
     /// @brief Emitted when a client connects.
     void clientConnected();

@@ -19,6 +19,7 @@
 #endif
 
 #include "core/object_registry.h"
+#include "introspection/signal_monitor.h"
 #include "transport/websocket_server.h"
 
 #include <QGuiApplication>
@@ -146,6 +147,44 @@ bool Probe::initialize() {
     }
 
     m_running = true;
+
+    // Wire signal notifications to WebSocket client
+    connect(SignalMonitor::instance(), &SignalMonitor::signalEmitted,
+            this, [this](const QJsonObject& notification) {
+        if (m_server) {
+            QJsonObject rpcNotification;
+            rpcNotification["jsonrpc"] = "2.0";
+            rpcNotification["method"] = "qtmcp.signalEmitted";
+            rpcNotification["params"] = notification;
+            m_server->sendMessage(QString::fromUtf8(
+                QJsonDocument(rpcNotification).toJson(QJsonDocument::Compact)));
+        }
+    });
+
+    connect(SignalMonitor::instance(), &SignalMonitor::objectCreated,
+            this, [this](const QJsonObject& notification) {
+        if (m_server) {
+            QJsonObject rpcNotification;
+            rpcNotification["jsonrpc"] = "2.0";
+            rpcNotification["method"] = "qtmcp.objectCreated";
+            rpcNotification["params"] = notification;
+            m_server->sendMessage(QString::fromUtf8(
+                QJsonDocument(rpcNotification).toJson(QJsonDocument::Compact)));
+        }
+    });
+
+    connect(SignalMonitor::instance(), &SignalMonitor::objectDestroyed,
+            this, [this](const QJsonObject& notification) {
+        if (m_server) {
+            QJsonObject rpcNotification;
+            rpcNotification["jsonrpc"] = "2.0";
+            rpcNotification["method"] = "qtmcp.objectDestroyed";
+            rpcNotification["params"] = notification;
+            m_server->sendMessage(QString::fromUtf8(
+                QJsonDocument(rpcNotification).toJson(QJsonDocument::Compact)));
+        }
+    });
+
     LOG_INFO("[QtMCP] Probe initialized successfully");
     fprintf(stderr, "[QtMCP] Probe initialized on port %u\n", static_cast<unsigned>(m_port));
 

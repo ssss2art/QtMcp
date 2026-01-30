@@ -77,6 +77,15 @@ JsonRpcHandler* WebSocketServer::rpcHandler() const {
     return m_rpcHandler;
 }
 
+bool WebSocketServer::sendMessage(const QString& message) {
+    if (!m_activeClient) {
+        return false;
+    }
+    qDebug() << "[QtMCP] Sending notification:" << message;
+    m_activeClient->sendTextMessage(message);
+    return true;
+}
+
 void WebSocketServer::onNewConnection() {
     QWebSocket* socket = m_server->nextPendingConnection();
     if (!socket) {
