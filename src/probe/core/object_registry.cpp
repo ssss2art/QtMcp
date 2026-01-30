@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "core/object_registry.h"
+#include "introspection/object_id.h"
 
 #include <atomic>
 
@@ -119,6 +120,28 @@ void ObjectRegistry::registerObject(QObject* obj) {
     {
         QMutexLocker lock(&m_mutex);
         m_objects.insert(obj);
+
+        // Generate and cache the hierarchical ID
+        QString id = generateObjectId(obj);
+
+        // Handle potential ID collision by appending unique suffix
+        // This can happen if hierarchy changes or two objects have identical paths
+        if (m_idToObject.contains(id)) {
+            // Check if existing entry is for a deleted object
+            QObject* existing = m_idToObject.value(id).data();
+            if (existing && existing != obj) {
+                // Collision with live object - append suffix
+                int suffix = 1;
+                QString uniqueId;
+                do {
+                    uniqueId = id + QStringLiteral("~") + QString::number(suffix++);
+                } while (m_idToObject.contains(uniqueId));
+                id = uniqueId;
+            }
+        }
+
+        m_objectToId.insert(obj, id);
+        m_idToObject.insert(id, QPointer<QObject>(obj));
     }
 
     // Emit signal on main thread to avoid threading issues with slots
@@ -153,6 +176,12 @@ void ObjectRegistry::unregisterObject(QObject* obj) {
     {
         QMutexLocker lock(&m_mutex);
         m_objects.remove(obj);
+
+        // Remove from ID maps using cached ID (don't regenerate)
+        QString id = m_objectToId.take(obj);
+        if (!id.isEmpty()) {
+            m_idToObject.remove(id);
+        }
     }
 
     // Emit signal on main thread (skip if no event loop or during shutdown)
@@ -224,6 +253,47 @@ bool ObjectRegistry::contains(QObject* obj) const {
     return m_objects.contains(obj);
 }
 
+QString ObjectRegistry::objectId(QObject* obj) {
+    if (!obj) {
+        return QString();
+    }
+
+    QMutexLocker lock(&m_mutex);
+
+    // Return cached ID if available
+    auto it = m_objectToId.constFind(obj);
+    if (it != m_objectToId.constEnd()) {
+        return it.value();
+    }
+
+    // Object not in cache (shouldn't happen if hooks are working)
+    // Generate ID on-the-fly but don't cache (object may not be tracked)
+    return generateObjectId(obj);
+}
+
+QObject* ObjectRegistry::findById(const QString& id) {
+    if (id.isEmpty()) {
+        return nullptr;
+    }
+
+    QMutexLocker lock(&m_mutex);
+
+    // Look up in cached map first
+    auto it = m_idToObject.constFind(id);
+    if (it != m_idToObject.constEnd()) {
+        QObject* obj = it.value().data();
+        if (obj) {
+            return obj;
+        }
+        // Object was deleted but entry remains - clean it up
+        m_idToObject.remove(id);
+    }
+
+    // Fall back to tree search using object_id module
+    // This handles cases where ID wasn't cached (e.g., manual search)
+    return findByObjectId(id);
+}
+
 void ObjectRegistry::scanExistingObjects(QObject* root) {
     if (!root) {
         return;
@@ -234,6 +304,26 @@ void ObjectRegistry::scanExistingObjects(QObject* root) {
         QMutexLocker lock(&m_mutex);
         if (!m_objects.contains(root)) {
             m_objects.insert(root);
+
+            // Generate and cache ID for scanned object
+            QString id = generateObjectId(root);
+
+            // Handle potential collision (same logic as registerObject)
+            if (m_idToObject.contains(id)) {
+                QObject* existing = m_idToObject.value(id).data();
+                if (existing && existing != root) {
+                    int suffix = 1;
+                    QString uniqueId;
+                    do {
+                        uniqueId = id + QStringLiteral("~") + QString::number(suffix++);
+                    } while (m_idToObject.contains(uniqueId));
+                    id = uniqueId;
+                }
+            }
+
+            m_objectToId.insert(root, id);
+            m_idToObject.insert(id, QPointer<QObject>(root));
+
             // Don't emit signal for pre-existing objects to avoid noise
             // during initialization
         }

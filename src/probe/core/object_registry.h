@@ -4,6 +4,8 @@
 #pragma once
 
 #include <QObject>
+#include <QHash>
+#include <QPointer>
 #include <QSet>
 #include <QRecursiveMutex>
 
@@ -27,8 +29,9 @@ namespace qtmcp {
 /// Usage: Call installObjectHooks() after QCoreApplication is created to
 /// start tracking objects. Call uninstallObjectHooks() before shutdown.
 ///
-/// Note: Object IDs will be added in Plan 02-02. This class provides basic
-/// lookup by objectName and className.
+/// Object IDs: Each tracked object gets a hierarchical ID computed at
+/// registration time. IDs follow the format "parent/child/grandchild" where
+/// segments prefer objectName, then text property, then ClassName#N.
 class QTMCP_EXPORT ObjectRegistry : public QObject {
     Q_OBJECT
 
@@ -61,6 +64,24 @@ public:
     /// @param obj The object to check.
     /// @return true if the object is in the registry.
     bool contains(QObject* obj) const;
+
+    /// @brief Get the cached hierarchical ID for an object.
+    ///
+    /// Returns the ID that was computed when the object was registered.
+    /// If the object isn't tracked (shouldn't happen), generates ID on-the-fly.
+    ///
+    /// @param obj The object to get the ID for.
+    /// @return The hierarchical ID string, or empty string if obj is null.
+    QString objectId(QObject* obj);
+
+    /// @brief Find an object by its hierarchical ID.
+    ///
+    /// Looks up the object in the cached ID-to-object map. This is O(1) for
+    /// direct hits but will search the object tree if not found in cache.
+    ///
+    /// @param id The hierarchical ID (e.g., "mainWindow/central/submitBtn").
+    /// @return The object, or nullptr if not found or object was deleted.
+    QObject* findById(const QString& id);
 
     /// @brief Scan and register all existing objects in a tree.
     ///
@@ -95,8 +116,15 @@ private:
     void unregisterObject(QObject* obj);
 
     /// @brief Set of tracked objects.
-    /// Simple set for now - IDs will be added in Plan 02-02.
     QSet<QObject*> m_objects;
+
+    /// @brief Map from object pointer to its hierarchical ID.
+    /// IDs are computed once at registration time.
+    QHash<QObject*, QString> m_objectToId;
+
+    /// @brief Map from hierarchical ID to object pointer.
+    /// Uses QPointer to safely detect deleted objects.
+    QHash<QString, QPointer<QObject>> m_idToObject;
 
     /// @brief Mutex for thread-safe access.
     /// Must be recursive because hook callbacks may nest.
