@@ -52,3 +52,47 @@ if(WIN32)
         COMMENT "Copying Qt Test DLL for test_jsonrpc..."
     )
 endif()
+
+# ObjectRegistry test
+add_executable(test_object_registry
+    test_object_registry.cpp
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(test_object_registry
+        PRIVATE
+            qtmcp_probe
+            Qt6::Core
+            Qt6::Test
+    )
+else()
+    target_link_libraries(test_object_registry
+        PRIVATE
+            qtmcp_probe
+            Qt5::Core
+            Qt5::Test
+    )
+endif()
+
+target_include_directories(test_object_registry
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/probe
+)
+
+add_test(NAME test_object_registry COMMAND test_object_registry
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_object_registry>"
+)
+
+# Set environment variable to disable auto-initialization for isolated testing
+set_tests_properties(test_object_registry PROPERTIES
+    ENVIRONMENT "QTMCP_ENABLED=0"
+)
+
+if(WIN32)
+    add_custom_command(TARGET test_object_registry POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_object_registry>"
+        COMMENT "Copying Qt Test DLL for test_object_registry..."
+    )
+endif()

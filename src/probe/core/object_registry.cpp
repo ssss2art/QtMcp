@@ -3,6 +3,8 @@
 
 #include "core/object_registry.h"
 
+#include <atomic>
+
 #include <QCoreApplication>
 #include <QDebug>
 #include <QGlobalStatic>
@@ -20,13 +22,27 @@ QHooks::RemoveQObjectCallback g_previousRemoveCallback = nullptr;
 // Flag to track if hooks are installed
 bool g_hooksInstalled = false;
 
+// Flag to indicate singleton is being created (guards against re-entry)
+// Using std::atomic instead of thread_local to avoid TLS issues with injected DLLs
+std::atomic<bool> g_singletonCreating{false};
+
 }  // namespace
 
 // Hook callbacks - these are called by Qt for every QObject creation/destruction
 // They must be minimal and thread-safe.
 
 void qtmcpAddObjectHook(QObject* obj) {
-    // Register the object first
+    // Guard against re-entry during ObjectRegistry singleton creation
+    // When the singleton is being created, skip registration to avoid recursion
+    if (g_singletonCreating.load(std::memory_order_acquire)) {
+        // Chain to previous callback only
+        if (g_previousAddCallback) {
+            g_previousAddCallback(obj);
+        }
+        return;
+    }
+
+    // Register the object
     qtmcp::ObjectRegistry::instance()->registerObject(obj);
 
     // Chain to previous callback (e.g., GammaRay)
@@ -36,7 +52,15 @@ void qtmcpAddObjectHook(QObject* obj) {
 }
 
 void qtmcpRemoveObjectHook(QObject* obj) {
-    // Unregister the object first
+    // Guard against re-entry during singleton creation
+    if (g_singletonCreating.load(std::memory_order_acquire)) {
+        if (g_previousRemoveCallback) {
+            g_previousRemoveCallback(obj);
+        }
+        return;
+    }
+
+    // Unregister the object
     qtmcp::ObjectRegistry::instance()->unregisterObject(obj);
 
     // Chain to previous callback
@@ -51,22 +75,44 @@ namespace qtmcp {
 Q_GLOBAL_STATIC(ObjectRegistry, s_objectRegistryInstance)
 
 ObjectRegistry* ObjectRegistry::instance() {
-    return s_objectRegistryInstance();
+    // Set flag before accessing singleton (which may trigger creation)
+    // This guards against re-entry from hook callbacks during construction
+    bool wasCreating = g_singletonCreating.exchange(true, std::memory_order_acq_rel);
+
+    ObjectRegistry* inst = s_objectRegistryInstance();
+
+    // Only clear flag if we were the one who set it
+    if (!wasCreating) {
+        g_singletonCreating.store(false, std::memory_order_release);
+    }
+
+    return inst;
 }
 
 ObjectRegistry::ObjectRegistry()
     : QObject(nullptr)
 {
-    // Log creation for debugging
-    qDebug() << "[QtMCP] ObjectRegistry created";
+    // Log creation for debugging - use fprintf to avoid potential qDebug issues
+    // during singleton initialization
+    fprintf(stderr, "[QtMCP] ObjectRegistry created\n");
 }
 
 ObjectRegistry::~ObjectRegistry() {
-    qDebug() << "[QtMCP] ObjectRegistry destroyed";
+    // CRITICAL: Uninstall hooks before destroying the registry
+    // Otherwise, object destructions during our destruction will call
+    // into unregisterObject on a partially-destroyed object
+    uninstallObjectHooks();
+
+    fprintf(stderr, "[QtMCP] ObjectRegistry destroyed\n");
 }
 
 void ObjectRegistry::registerObject(QObject* obj) {
     if (!obj) {
+        return;
+    }
+
+    // Don't register during destruction
+    if (s_objectRegistryInstance.isDestroyed()) {
         return;
     }
 
@@ -77,21 +123,30 @@ void ObjectRegistry::registerObject(QObject* obj) {
 
     // Emit signal on main thread to avoid threading issues with slots
     // Use QueuedConnection to ensure the signal is delivered asynchronously
-    QMetaObject::invokeMethod(this, [this, obj]() {
-        // Double-check object still exists before emitting
-        // (it could have been destroyed between hook and signal delivery)
-        {
-            QMutexLocker lock(&m_mutex);
-            if (!m_objects.contains(obj)) {
-                return;
+    // Skip if no event loop (e.g., during shutdown)
+    if (QCoreApplication::instance()) {
+        QMetaObject::invokeMethod(this, [this, obj]() {
+            // Double-check object still exists before emitting
+            // (it could have been destroyed between hook and signal delivery)
+            {
+                QMutexLocker lock(&m_mutex);
+                if (!m_objects.contains(obj)) {
+                    return;
+                }
             }
-        }
-        emit objectAdded(obj);
-    }, Qt::QueuedConnection);
+            emit objectAdded(obj);
+        }, Qt::QueuedConnection);
+    }
 }
 
 void ObjectRegistry::unregisterObject(QObject* obj) {
     if (!obj) {
+        return;
+    }
+
+    // Don't try to modify the set during destruction - it may already be
+    // in an inconsistent state
+    if (s_objectRegistryInstance.isDestroyed()) {
         return;
     }
 
@@ -100,10 +155,12 @@ void ObjectRegistry::unregisterObject(QObject* obj) {
         m_objects.remove(obj);
     }
 
-    // Emit signal on main thread
-    QMetaObject::invokeMethod(this, [this, obj]() {
-        emit objectRemoved(obj);
-    }, Qt::QueuedConnection);
+    // Emit signal on main thread (skip if no event loop or during shutdown)
+    if (QCoreApplication::instance()) {
+        QMetaObject::invokeMethod(this, [this, obj]() {
+            emit objectRemoved(obj);
+        }, Qt::QueuedConnection);
+    }
 }
 
 QObject* ObjectRegistry::findByObjectName(const QString& name, QObject* root) {

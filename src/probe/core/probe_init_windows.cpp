@@ -58,6 +58,12 @@ void ensureInitialized() {
 #include <QCoreApplication>
 
 static void qtmcpAutoInit() {
+    // Check if probe is disabled via environment
+    QByteArray enabled = qgetenv("QTMCP_ENABLED");
+    if (enabled == "0") {
+        return;  // Probe disabled
+    }
+
     // QCoreApplication now exists, safe to initialize the probe
     qtmcp::ensureInitialized();
 }
