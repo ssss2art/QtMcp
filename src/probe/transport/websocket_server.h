@@ -4,11 +4,25 @@
 #pragma once
 
 #include <QObject>
-#include <QWebSocket>
-#include <QWebSocketServer>
+#include <QString>
 
-#include <memory>
-#include <vector>
+class QWebSocketServer;
+class QWebSocket;
+
+// Export macro for Windows DLL
+#if defined(QTMCP_PROBE_LIBRARY)
+#if defined(_WIN32)
+#define QTMCP_EXPORT __declspec(dllexport)
+#else
+#define QTMCP_EXPORT __attribute__((visibility("default")))
+#endif
+#else
+#if defined(_WIN32)
+#define QTMCP_EXPORT __declspec(dllimport)
+#else
+#define QTMCP_EXPORT
+#endif
+#endif
 
 namespace qtmcp {
 
@@ -16,71 +30,79 @@ class JsonRpcHandler;
 
 /// @brief WebSocket server for JSON-RPC communication.
 ///
-/// This class manages WebSocket connections from clients (e.g., MCP server,
-/// test automation tools) and routes JSON-RPC messages to the appropriate
-/// handlers.
-class WebSocketServer : public QObject {
-  Q_OBJECT
+/// This server accepts exactly one client at a time (single-client semantics).
+/// When a client is already connected, new connection attempts are rejected
+/// with a policy violation close code. The server continues listening after
+/// a client disconnects, ready for reconnection.
+///
+/// Messages received from the client are routed to a JsonRpcHandler for
+/// processing, and responses are sent back to the client.
+class QTMCP_EXPORT WebSocketServer : public QObject {
+    Q_OBJECT
 
- public:
-  /// @brief Construct a WebSocket server.
-  /// @param parent Parent QObject.
-  explicit WebSocketServer(QObject* parent = nullptr);
+public:
+    /// @brief Construct a WebSocket server.
+    /// @param port Port to listen on.
+    /// @param parent Parent QObject.
+    explicit WebSocketServer(quint16 port, QObject* parent = nullptr);
 
-  /// @brief Destructor.
-  ~WebSocketServer() override;
+    /// @brief Destructor.
+    ~WebSocketServer() override;
 
-  /// @brief Start the WebSocket server.
-  /// @param port Port to listen on.
-  /// @return true if server started successfully.
-  bool Start(int port);
+    /// @brief Start listening for connections.
+    /// @return true if server started successfully.
+    bool start();
 
-  /// @brief Stop the WebSocket server.
-  void Stop();
+    /// @brief Stop listening and disconnect any active client.
+    void stop();
 
-  /// @brief Check if server is running.
-  /// @return true if server is listening.
-  bool IsRunning() const;
+    /// @brief Check if the server is listening.
+    /// @return true if listening for connections.
+    bool isListening() const;
 
-  /// @brief Get the current port.
-  /// @return Port number, or 0 if not running.
-  int Port() const;
+    /// @brief Get the configured port.
+    /// @return The port number.
+    quint16 port() const;
 
-  /// @brief Get number of connected clients.
-  /// @return Number of active connections.
-  int ClientCount() const;
+    /// @brief Check if a client is currently connected.
+    /// @return true if a client is connected.
+    bool hasActiveClient() const;
 
- signals:
-  /// @brief Emitted when a client connects.
-  void ClientConnected();
+    /// @brief Get the JSON-RPC handler.
+    /// @return Pointer to the handler.
+    JsonRpcHandler* rpcHandler() const;
 
-  /// @brief Emitted when a client disconnects.
-  void ClientDisconnected();
+signals:
+    /// @brief Emitted when a client connects.
+    void clientConnected();
 
-  /// @brief Emitted when an error occurs.
-  /// @param message Error description.
-  void ErrorOccurred(const QString& message);
+    /// @brief Emitted when a client disconnects.
+    void clientDisconnected();
 
- private slots:
-  /// @brief Handle new client connection.
-  void OnNewConnection();
+    /// @brief Emitted when a message is received from the client.
+    /// @param message The raw message string.
+    void messageReceived(const QString& message);
 
-  /// @brief Handle client disconnection.
-  void OnClientDisconnected();
+    /// @brief Emitted when an error occurs.
+    /// @param error Error description.
+    void errorOccurred(const QString& error);
 
-  /// @brief Handle incoming text message.
-  /// @param message The received message.
-  void OnTextMessageReceived(const QString& message);
+private slots:
+    /// @brief Handle new connection attempts.
+    void onNewConnection();
 
-  /// @brief Handle WebSocket error.
-  /// @param error The error that occurred.
-  void OnSocketError(QAbstractSocket::SocketError error);
+    /// @brief Handle incoming text messages.
+    /// @param message The message text.
+    void onTextMessage(const QString& message);
 
- private:
-  std::unique_ptr<QWebSocketServer> server_;
-  std::vector<QWebSocket*> clients_;
-  std::unique_ptr<JsonRpcHandler> rpc_handler_;
-  int port_ = 0;
+    /// @brief Handle client disconnection.
+    void onClientDisconnected();
+
+private:
+    QWebSocketServer* m_server = nullptr;
+    QWebSocket* m_activeClient = nullptr;
+    JsonRpcHandler* m_rpcHandler = nullptr;
+    quint16 m_port;
 };
 
 }  // namespace qtmcp

@@ -4,149 +4,134 @@
 #include "transport/websocket_server.h"
 
 #include <QDebug>
-
-#ifdef QTMCP_HAS_SPDLOG
-#include <spdlog/spdlog.h>
-#define LOG_INFO(msg) spdlog::info(msg)
-#define LOG_WARN(msg) spdlog::warn(msg)
-#define LOG_ERROR(msg) spdlog::error(msg)
-#define LOG_DEBUG(msg) spdlog::debug(msg)
-#else
-#define LOG_INFO(msg) qInfo() << msg
-#define LOG_WARN(msg) qWarning() << msg
-#define LOG_ERROR(msg) qCritical() << msg
-#define LOG_DEBUG(msg) qDebug() << msg
-#endif
-
-#include <algorithm>
+#include <QWebSocket>
+#include <QWebSocketServer>
 
 #include "transport/jsonrpc_handler.h"
 
 namespace qtmcp {
 
-WebSocketServer::WebSocketServer(QObject* parent)
-    : QObject(parent), rpc_handler_(std::make_unique<JsonRpcHandler>(this)) {}
+WebSocketServer::WebSocketServer(quint16 port, QObject* parent)
+    : QObject(parent)
+    , m_server(new QWebSocketServer(QStringLiteral("QtMCP"),
+                                     QWebSocketServer::NonSecureMode, this))
+    , m_activeClient(nullptr)
+    , m_rpcHandler(new JsonRpcHandler(this))
+    , m_port(port)
+{
+    connect(m_server, &QWebSocketServer::newConnection,
+            this, &WebSocketServer::onNewConnection);
+}
 
-WebSocketServer::~WebSocketServer() { Stop(); }
+WebSocketServer::~WebSocketServer() {
+    stop();
+}
 
-bool WebSocketServer::Start(int port) {
-  if (server_ && server_->isListening()) {
-    qWarning() << "WebSocket server already running on port" << port_;
+bool WebSocketServer::start() {
+    if (m_server->isListening()) {
+        qWarning() << "[QtMCP] WebSocket server already listening on port" << m_port;
+        return true;
+    }
+
+    if (!m_server->listen(QHostAddress::Any, m_port)) {
+        QString error = m_server->errorString();
+        qCritical() << "[QtMCP] Failed to start WebSocket server on port" << m_port << ":" << error;
+        emit errorOccurred(error);
+        return false;
+    }
+
+    // Print startup message to stderr as specified in CONTEXT.md
+    fprintf(stderr, "QtMCP listening on ws://0.0.0.0:%u\n", static_cast<unsigned>(m_port));
+    fflush(stderr);
+
     return true;
-  }
-
-  server_ = std::make_unique<QWebSocketServer>(QStringLiteral("QtMCP"),
-                                                QWebSocketServer::NonSecureMode, this);
-
-  if (!server_->listen(QHostAddress::LocalHost, port)) {
-    qCritical() << "Failed to start WebSocket server on port" << port << ":" << server_->errorString();
-    emit ErrorOccurred(server_->errorString());
-    server_.reset();
-    return false;
-  }
-
-  port_ = server_->serverPort();
-  qInfo() << "WebSocket server listening on localhost:" << port_;
-
-  connect(server_.get(), &QWebSocketServer::newConnection, this,
-          &WebSocketServer::OnNewConnection);
-
-  return true;
 }
 
-void WebSocketServer::Stop() {
-  if (!server_) {
-    return;
-  }
+void WebSocketServer::stop() {
+    // Close active client connection if any
+    if (m_activeClient) {
+        m_activeClient->close();
+        m_activeClient->deleteLater();
+        m_activeClient = nullptr;
+    }
 
-  LOG_INFO("Stopping WebSocket server");
-
-  // Close all client connections
-  for (QWebSocket* client : clients_) {
-    client->close();
-    client->deleteLater();
-  }
-  clients_.clear();
-
-  // Close server
-  server_->close();
-  server_.reset();
-  port_ = 0;
+    // Close the server
+    if (m_server->isListening()) {
+        m_server->close();
+    }
 }
 
-bool WebSocketServer::IsRunning() const { return server_ && server_->isListening(); }
-
-int WebSocketServer::Port() const { return port_; }
-
-int WebSocketServer::ClientCount() const { return static_cast<int>(clients_.size()); }
-
-void WebSocketServer::OnNewConnection() {
-  QWebSocket* client = server_->nextPendingConnection();
-  if (client == nullptr) {
-    return;
-  }
-
-  qInfo() << "Client connected from" << client->peerAddress().toString() << ":" << client->peerPort();
-
-  // Connect client signals
-  connect(client, &QWebSocket::textMessageReceived, this,
-          &WebSocketServer::OnTextMessageReceived);
-  connect(client, &QWebSocket::disconnected, this, &WebSocketServer::OnClientDisconnected);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-  connect(client, &QWebSocket::errorOccurred, this,
-          &WebSocketServer::OnSocketError);
-#else
-  connect(client, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error), this,
-          &WebSocketServer::OnSocketError);
-#endif
-
-  clients_.push_back(client);
-  emit ClientConnected();
+bool WebSocketServer::isListening() const {
+    return m_server && m_server->isListening();
 }
 
-void WebSocketServer::OnClientDisconnected() {
-  QWebSocket* client = qobject_cast<QWebSocket*>(sender());
-  if (client == nullptr) {
-    return;
-  }
-
-  LOG_INFO("Client disconnected");
-
-  // Remove from client list
-  auto it = std::find(clients_.begin(), clients_.end(), client);
-  if (it != clients_.end()) {
-    clients_.erase(it);
-  }
-
-  client->deleteLater();
-  emit ClientDisconnected();
+quint16 WebSocketServer::port() const {
+    return m_port;
 }
 
-void WebSocketServer::OnTextMessageReceived(const QString& message) {
-  QWebSocket* client = qobject_cast<QWebSocket*>(sender());
-  if (client == nullptr) {
-    return;
-  }
-
-  qDebug() << "Received message:" << message;
-
-  // Process JSON-RPC message and get response
-  QString response = rpc_handler_->HandleMessage(message);
-
-  if (!response.isEmpty()) {
-    qDebug() << "Sending response:" << response;
-    client->sendTextMessage(response);
-  }
+bool WebSocketServer::hasActiveClient() const {
+    return m_activeClient != nullptr;
 }
 
-void WebSocketServer::OnSocketError(QAbstractSocket::SocketError error) {
-  QWebSocket* client = qobject_cast<QWebSocket*>(sender());
-  if (client == nullptr) {
-    return;
-  }
+JsonRpcHandler* WebSocketServer::rpcHandler() const {
+    return m_rpcHandler;
+}
 
-  qCritical() << "WebSocket error" << static_cast<int>(error) << ":" << client->errorString();
-  emit ErrorOccurred(client->errorString());
+void WebSocketServer::onNewConnection() {
+    QWebSocket* socket = m_server->nextPendingConnection();
+    if (!socket) {
+        return;
+    }
+
+    // Single-client semantics: reject if we already have a client
+    if (m_activeClient) {
+        qWarning() << "[QtMCP] Rejecting connection from" << socket->peerAddress().toString()
+                   << "- another client is already connected";
+        socket->close(QWebSocketProtocol::CloseCodePolicyViolated,
+                      QStringLiteral("Another client is already connected"));
+        socket->deleteLater();
+        return;
+    }
+
+    // Accept this client
+    m_activeClient = socket;
+    qInfo() << "[QtMCP] Client connected from" << socket->peerAddress().toString()
+            << ":" << socket->peerPort();
+
+    connect(socket, &QWebSocket::textMessageReceived,
+            this, &WebSocketServer::onTextMessage);
+    connect(socket, &QWebSocket::disconnected,
+            this, &WebSocketServer::onClientDisconnected);
+
+    emit clientConnected();
+}
+
+void WebSocketServer::onTextMessage(const QString& message) {
+    if (!m_activeClient) {
+        return;
+    }
+
+    qDebug() << "[QtMCP] Received:" << message;
+    emit messageReceived(message);
+
+    // Process message through JSON-RPC handler
+    QString response = m_rpcHandler->HandleMessage(message);
+
+    // Send response if not a notification (notifications return empty response)
+    if (!response.isEmpty()) {
+        qDebug() << "[QtMCP] Sending:" << response;
+        m_activeClient->sendTextMessage(response);
+    }
+}
+
+void WebSocketServer::onClientDisconnected() {
+    if (m_activeClient) {
+        qInfo() << "[QtMCP] Client disconnected";
+        m_activeClient->deleteLater();
+        m_activeClient = nullptr;
+        emit clientDisconnected();
+    }
+    // Server keeps listening for new connections - do NOT stop!
 }
 
 }  // namespace qtmcp
