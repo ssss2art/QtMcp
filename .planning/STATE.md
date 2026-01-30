@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2025-01-29)
 ## Current Position
 
 Phase: 1 of 7 (Foundation)
-Plan: 4 of 6 in current phase
+Plan: 5 of 6 in current phase
 Status: In progress
-Last activity: 2026-01-30 - Completed 01-04-PLAN.md (WebSocket Server)
+Last activity: 2026-01-30 - Completed 01-05-PLAN.md (Launcher CLI)
 
-Progress: [####------] 40%
+Progress: [#####-----] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 10.8 min
-- Total execution time: 0.72 hours
+- Total plans completed: 5
+- Average duration: 11.6 min
+- Total execution time: 0.97 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation | 4 | 43 min | 10.8 min |
+| 01-foundation | 5 | 58 min | 11.6 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (16 min), 01-03 (17 min), 01-02 (4 min), 01-04 (6 min)
-- Trend: Improving (01-04 fast due to focused scope)
+- Last 5 plans: 01-01 (16 min), 01-03 (17 min), 01-02 (4 min), 01-04 (6 min), 01-05 (15 min)
+- Trend: Stable (01-05 moderate due to injection testing)
 
 *Updated after each plan completion*
 
@@ -53,6 +53,9 @@ Recent decisions affecting current work:
 | Minimal DllMain pattern | Only DisableThreadLibraryCalls + flag; defer all Qt work | 01-02 |
 | Single-client WebSocket semantics | Per CONTEXT.md - reject additional connections with CloseCodePolicyViolated | 01-04 |
 | Server persists after disconnect | Keeps listening for reconnection | 01-04 |
+| Q_COREAPP_STARTUP_FUNCTION for auto-init | Triggers probe initialization when Qt starts, no manual call needed | 01-05 |
+| RAII HandleGuard for Windows handles | Automatic cleanup prevents resource leaks on error paths | 01-05 |
+| Preserve existing LD_PRELOAD | Prepend to existing value rather than replacing | 01-05 |
 
 ### Pending Todos
 
@@ -82,11 +85,15 @@ None yet.
 - Full integration testing requires Qt DLLs in PATH
 - Server prints startup message to stderr for debugging injection
 
+**From Plan 01-05:**
+- Windows file locking: DLL cannot be rebuilt while process using it is running
+- Launcher now works end-to-end: qtmcp-launch target.exe -> ws://localhost:9222
+
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 01-04-PLAN.md
-Resume file: .planning/phases/01-foundation/01-05-PLAN.md
+Stopped at: Completed 01-05-PLAN.md
+Resume file: .planning/phases/01-foundation/01-06-PLAN.md
 
 ---
 *State updated: 2026-01-30*
