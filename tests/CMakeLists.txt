@@ -97,6 +97,54 @@ if(WIN32)
     )
 endif()
 
+# Object ID and tree serialization tests
+add_executable(test_object_id
+    test_object_id.cpp
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(test_object_id
+        PRIVATE
+            qtmcp_probe
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Test
+    )
+else()
+    target_link_libraries(test_object_id
+        PRIVATE
+            qtmcp_probe
+            Qt5::Core
+            Qt5::Gui
+            Qt5::Widgets
+            Qt5::Test
+    )
+endif()
+
+target_include_directories(test_object_id
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/probe
+)
+
+add_test(NAME test_object_id COMMAND test_object_id
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_object_id>"
+)
+
+# Set environment variable to disable auto-initialization for isolated testing
+set_tests_properties(test_object_id PROPERTIES
+    ENVIRONMENT "QTMCP_ENABLED=0"
+)
+
+if(WIN32)
+    add_custom_command(TARGET test_object_id POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_object_id>"
+        COMMENT "Copying Qt Test DLL for test_object_id..."
+    )
+endif()
+
 # MetaInspector and variant_json tests
 add_executable(test_meta_inspector
     test_meta_inspector.cpp
