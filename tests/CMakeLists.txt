@@ -96,3 +96,51 @@ if(WIN32)
         COMMENT "Copying Qt Test DLL for test_object_registry..."
     )
 endif()
+
+# MetaInspector and variant_json tests
+add_executable(test_meta_inspector
+    test_meta_inspector.cpp
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(test_meta_inspector
+        PRIVATE
+            qtmcp_probe
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Test
+    )
+else()
+    target_link_libraries(test_meta_inspector
+        PRIVATE
+            qtmcp_probe
+            Qt5::Core
+            Qt5::Gui
+            Qt5::Widgets
+            Qt5::Test
+    )
+endif()
+
+target_include_directories(test_meta_inspector
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/probe
+)
+
+add_test(NAME test_meta_inspector COMMAND test_meta_inspector
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_meta_inspector>"
+)
+
+# Set environment variable to disable auto-initialization for isolated testing
+set_tests_properties(test_meta_inspector PROPERTIES
+    ENVIRONMENT "QTMCP_ENABLED=0"
+)
+
+if(WIN32)
+    add_custom_command(TARGET test_meta_inspector POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_meta_inspector>"
+        COMMENT "Copying Qt Test DLL for test_meta_inspector..."
+    )
+endif()
