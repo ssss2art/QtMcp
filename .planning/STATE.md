@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2025-01-29)
 ## Current Position
 
 Phase: 2 of 7 (Core Introspection)
-Plan: 6 of 6 in current phase
+Plan: 7 of 7 in current phase
 Status: Phase complete
-Last activity: 2026-01-30 - Completed 02-05-PLAN.md (Signal Monitor)
+Last activity: 2026-01-30 - Completed 02-07-PLAN.md (JSON-RPC Integration)
 
 Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: 14.0 min
-- Total execution time: 2.57 hours
+- Total plans completed: 12
+- Average duration: 14.3 min
+- Total execution time: 2.87 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 6 | 66 min | 11.0 min |
-| 02-core-introspection | 5 | 86 min | 17.2 min |
+| 02-core-introspection | 6 | 104 min | 17.3 min |
 
 **Recent Trend:**
-- Last 6 plans: 01-06 (8 min), 02-01 (32 min), 02-02 (10 min), 02-03 (11 min), 02-05 (18 min), 02-06 (15 min)
+- Last 6 plans: 02-01 (32 min), 02-02 (10 min), 02-03 (11 min), 02-05 (18 min), 02-06 (15 min), 02-07 (18 min)
 - Trend: Phase 2 plans averaging 17 min
 
 *Updated after each plan completion*
@@ -71,6 +71,8 @@ Recent decisions affecting current work:
 | QTest for input simulation | Cross-platform reliable using Qt's built-in test functions | 02-06 |
 | Base64 PNG for screenshots | JSON-friendly, universally supported format | 02-06 |
 | devicePixelRatio in geometry | High-DPI awareness for Retina/HiDPI displays | 02-06 |
+| JSON-RPC notification format for push | Push notifications use {"jsonrpc":"2.0","method":"qtmcp.X","params":{}} | 02-07 |
+| sendMessage() on WebSocketServer | Added for outbound notification delivery to connected client | 02-07 |
 
 ### Pending Todos
 
@@ -137,6 +139,11 @@ None yet.
 - Screenshots are base64 PNG - decode to verify PNG magic bytes
 - HitTest::widgetIdAt integrates with ObjectRegistry for hierarchical IDs
 
+**From Plan 02-07:**
+- All 21 JSON-RPC methods registered in RegisterBuiltinMethods()
+- Push notifications wired via Probe::initialize() -> SignalMonitor connections
+- WebSocketServer::sendMessage() added for outbound notifications
+
 ## Phase 2 Progress
 
 | Plan | Name | Status |
@@ -147,12 +154,13 @@ None yet.
 | 02-04 | Property/Method Ops | COMPLETE |
 | 02-05 | Signal Monitor | COMPLETE |
 | 02-06 | UI Interaction | COMPLETE |
+| 02-07 | JSON-RPC Integration | COMPLETE |
 
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 02-05-PLAN.md (Signal Monitor)
-Resume file: .planning/phases/03-jsonrpc/03-01-PLAN.md (next phase)
+Stopped at: Completed 02-07-PLAN.md (JSON-RPC Integration) - Phase 2 COMPLETE
+Resume file: Next phase planning
 
 ---
 *State updated: 2026-01-30*
