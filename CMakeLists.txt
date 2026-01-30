@@ -35,24 +35,70 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Find Qt5
-find_package(Qt5 5.15 REQUIRED COMPONENTS
+# Find Qt - prefer Qt6, fall back to Qt5 5.15+
+# This allows building with either Qt version using the same CMakeLists.txt
+set(QT_MIN_VERSION_5 "5.15")
+set(QT_MIN_VERSION_6 "6.0")
+
+find_package(Qt6 ${QT_MIN_VERSION_6} QUIET COMPONENTS
     Core
-    Widgets
+    Network
     WebSockets
+    Widgets
     Test
 )
+
+if(Qt6_FOUND)
+    set(QT_VERSION_MAJOR 6)
+    set(QT_VERSION ${Qt6_VERSION})
+    message(STATUS "Found Qt6: ${Qt6_VERSION}")
+else()
+    find_package(Qt5 ${QT_MIN_VERSION_5} REQUIRED COMPONENTS
+        Core
+        Network
+        WebSockets
+        Widgets
+        Test
+    )
+    set(QT_VERSION_MAJOR 5)
+    set(QT_VERSION ${Qt5_VERSION})
+    message(STATUS "Found Qt5: ${Qt5_VERSION}")
+endif()
+
+# Create Qt version-independent target aliases for use throughout the project
+# This allows code to link against Qt::Core, Qt::Network, etc. regardless of Qt version
+if(QT_VERSION_MAJOR EQUAL 6)
+    # Qt6 already provides Qt:: namespace targets
+    set(QT_LIBRARIES Qt6::Core Qt6::Network Qt6::WebSockets Qt6::Widgets)
+else()
+    # Qt5 also provides Qt5:: namespace, create aliases for consistency
+    set(QT_LIBRARIES Qt5::Core Qt5::Network Qt5::WebSockets Qt5::Widgets)
+endif()
 
 # Enable Qt automoc/autouic/autorcc
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-# Find nlohmann_json
-find_package(nlohmann_json CONFIG REQUIRED)
+# Optional dependencies - these will be used if available
+# Phase 1 uses Qt's built-in JSON (QJsonDocument) and can work without these
+find_package(nlohmann_json CONFIG QUIET)
+if(nlohmann_json_FOUND)
+    message(STATUS "Found nlohmann_json")
+    set(QTMCP_HAS_NLOHMANN_JSON ON)
+else()
+    message(STATUS "nlohmann_json not found - using QJsonDocument")
+    set(QTMCP_HAS_NLOHMANN_JSON OFF)
+endif()
 
-# Find spdlog for logging
-find_package(spdlog CONFIG REQUIRED)
+find_package(spdlog CONFIG QUIET)
+if(spdlog_FOUND)
+    message(STATUS "Found spdlog")
+    set(QTMCP_HAS_SPDLOG ON)
+else()
+    message(STATUS "spdlog not found - using QDebug for logging")
+    set(QTMCP_HAS_SPDLOG OFF)
+endif()
 
 # Platform-specific settings
 if(WIN32)
@@ -114,8 +160,13 @@ endif()
 
 if(QTMCP_BUILD_TESTS)
     enable_testing()
-    find_package(GTest CONFIG REQUIRED)
-    add_subdirectory(tests)
+    find_package(GTest CONFIG QUIET)
+    if(GTest_FOUND)
+        message(STATUS "Found GTest - building unit tests")
+        add_subdirectory(tests)
+    else()
+        message(STATUS "GTest not found - skipping unit tests (use Qt Test instead)")
+    endif()
 endif()
 
 # Installation
@@ -165,7 +216,7 @@ message(STATUS "")
 message(STATUS "QtMCP Configuration Summary:")
 message(STATUS "  Version:        ${PROJECT_VERSION}")
 message(STATUS "  Build type:     ${CMAKE_BUILD_TYPE}")
-message(STATUS "  Qt version:     ${Qt5_VERSION}")
+message(STATUS "  Qt version:     ${QT_VERSION} (Qt${QT_VERSION_MAJOR})")
 message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "  Build tests:    ${QTMCP_BUILD_TESTS}")
 message(STATUS "  Build test app: ${QTMCP_BUILD_TEST_APP}")
