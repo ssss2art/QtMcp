@@ -196,3 +196,53 @@ if(WIN32)
         COMMENT "Copying Qt Test DLL for test_meta_inspector..."
     )
 endif()
+
+# UI Interaction tests (InputSimulator, Screenshot, HitTest)
+add_executable(test_ui_interaction
+    test_ui_interaction.cpp
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(test_ui_interaction
+        PRIVATE
+            qtmcp_probe
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Test
+    )
+else()
+    target_link_libraries(test_ui_interaction
+        PRIVATE
+            qtmcp_probe
+            Qt5::Core
+            Qt5::Gui
+            Qt5::Widgets
+            Qt5::Test
+    )
+endif()
+
+target_include_directories(test_ui_interaction
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/probe
+)
+
+add_test(NAME test_ui_interaction COMMAND test_ui_interaction
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_ui_interaction>"
+)
+
+# Set environment variables for testing:
+# - QTMCP_ENABLED=0 disables auto-initialization for isolated testing
+# - QT_QPA_PLATFORM=minimal allows widget tests without display
+set_tests_properties(test_ui_interaction PROPERTIES
+    ENVIRONMENT "QTMCP_ENABLED=0;QT_QPA_PLATFORM=minimal"
+)
+
+if(WIN32)
+    add_custom_command(TARGET test_ui_interaction POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_ui_interaction>"
+        COMMENT "Copying Qt Test DLL for test_ui_interaction..."
+    )
+endif()
