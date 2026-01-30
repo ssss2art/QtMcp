@@ -12,7 +12,7 @@ QtMCP is built foundation-first: establish injection and transport (highest tech
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - DLL/LD_PRELOAD injection and WebSocket transport layer
+- [x] **Phase 1: Foundation** - DLL/LD_PRELOAD injection and WebSocket transport layer ✓
 - [ ] **Phase 2: Core Introspection** - Object registry, signal monitoring, and UI interaction primitives
 - [ ] **Phase 3: Native Mode** - Full Qt introspection API exposed via JSON-RPC
 - [ ] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API
@@ -35,12 +35,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 6 plans in 5 waves
 
 Plans:
-- [ ] 01-01-PLAN.md - CMake build system and project structure (Wave 1)
-- [ ] 01-02-PLAN.md - Probe singleton with safe platform initialization (Wave 2)
-- [ ] 01-03-PLAN.md - JSON-RPC 2.0 handler with unit tests (Wave 2)
-- [ ] 01-04-PLAN.md - WebSocket server with single-client logic (Wave 3)
-- [ ] 01-05-PLAN.md - Launcher CLI with platform injection (Wave 4)
-- [ ] 01-06-PLAN.md - Test app and end-to-end verification (Wave 5)
+- [x] 01-01-PLAN.md - CMake build system and project structure (Wave 1) ✓
+- [x] 01-02-PLAN.md - Probe singleton with safe platform initialization (Wave 2) ✓
+- [x] 01-03-PLAN.md - JSON-RPC 2.0 handler with unit tests (Wave 2) ✓
+- [x] 01-04-PLAN.md - WebSocket server with single-client logic (Wave 3) ✓
+- [x] 01-05-PLAN.md - Launcher CLI with platform injection (Wave 4) ✓
+- [x] 01-06-PLAN.md - Test app and end-to-end verification (Wave 5) ✓
 
 ### Phase 2: Core Introspection
 **Goal**: Probe can discover, inspect, and interact with any QObject in the target application
@@ -144,7 +144,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/6 | Planned | - |
+| 1. Foundation | 6/6 | Complete | 2026-01-30 |
 | 2. Core Introspection | 0/TBD | Not started | - |
 | 3. Native Mode | 0/TBD | Not started | - |
 | 4. Computer Use Mode | 0/TBD | Not started | - |

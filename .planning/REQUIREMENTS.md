@@ -9,11 +9,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Injection & Transport
 
-- [ ] **INJ-01**: Probe loads via LD_PRELOAD on Linux
-- [ ] **INJ-02**: Probe loads via DLL injection on Windows with launcher (qtmcp-launch.exe)
-- [ ] **INJ-03**: WebSocket server starts on configurable port (default 9999)
-- [ ] **INJ-04**: JSON-RPC 2.0 message handling over WebSocket
-- [ ] **INJ-05**: Environment variable configuration (QTMCP_PORT, QTMCP_BIND, QTMCP_MODE, etc.)
+- [x] **INJ-01**: Probe loads via LD_PRELOAD on Linux ✓
+- [x] **INJ-02**: Probe loads via DLL injection on Windows with launcher (qtmcp-launch.exe) ✓
+- [x] **INJ-03**: WebSocket server starts on configurable port (default 9222) ✓
+- [x] **INJ-04**: JSON-RPC 2.0 message handling over WebSocket ✓
+- [x] **INJ-05**: Environment variable configuration (QTMCP_PORT, QTMCP_BIND, QTMCP_MODE, etc.) ✓
 
 ### Object Introspection
 
@@ -154,11 +154,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INJ-01 | Phase 1 | Pending |
-| INJ-02 | Phase 1 | Pending |
-| INJ-03 | Phase 1 | Pending |
-| INJ-04 | Phase 1 | Pending |
-| INJ-05 | Phase 1 | Pending |
+| INJ-01 | Phase 1 | Complete |
+| INJ-02 | Phase 1 | Complete |
+| INJ-03 | Phase 1 | Complete |
+| INJ-04 | Phase 1 | Complete |
+| INJ-05 | Phase 1 | Complete |
 | OBJ-01 | Phase 2 | Pending |
 | OBJ-02 | Phase 2 | Pending |
 | OBJ-03 | Phase 2 | Pending |
