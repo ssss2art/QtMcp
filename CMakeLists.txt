@@ -80,6 +80,47 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+# Windows Qt deployment option
+option(QTMCP_DEPLOY_QT "Auto-deploy Qt DLLs on Windows (using windeployqt)" ON)
+
+# Find windeployqt on Windows for automatic DLL deployment
+if(WIN32 AND QTMCP_DEPLOY_QT)
+    # Get Qt bin directory from Qt6Core target
+    get_target_property(_qt_core_location Qt${QT_VERSION_MAJOR}::Core LOCATION)
+    get_filename_component(_qt_bin_dir "${_qt_core_location}" DIRECTORY)
+
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt
+        HINTS "${_qt_bin_dir}"
+        DOC "Path to windeployqt executable"
+    )
+
+    if(WINDEPLOYQT_EXECUTABLE)
+        message(STATUS "Found windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
+    else()
+        message(WARNING "windeployqt not found - Qt DLLs will not be auto-deployed")
+    endif()
+endif()
+
+# Function to deploy Qt DLLs for an executable target
+# Usage: qtmcp_deploy_qt(target_name)
+function(qtmcp_deploy_qt TARGET_NAME)
+    if(WIN32 AND QTMCP_DEPLOY_QT AND WINDEPLOYQT_EXECUTABLE)
+        # Add post-build command to run windeployqt
+        # Use generator expression to pass --debug or --release based on config
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                "$<IF:$<CONFIG:Debug>,--debug,--release>"
+                --no-translations
+                --no-compiler-runtime
+                --no-system-d3d-compiler
+                --no-opengl-sw
+                "$<TARGET_FILE:${TARGET_NAME}>"
+            COMMENT "Deploying Qt DLLs for ${TARGET_NAME}..."
+            VERBATIM
+        )
+    endif()
+endfunction()
+
 # Optional dependencies - these will be used if available
 # Phase 1 uses Qt's built-in JSON (QJsonDocument) and can work without these
 find_package(nlohmann_json CONFIG QUIET)

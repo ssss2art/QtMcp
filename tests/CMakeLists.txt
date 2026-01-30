@@ -35,4 +35,20 @@ target_include_directories(test_jsonrpc
 )
 
 # Register test with CTest
-add_test(NAME test_jsonrpc COMMAND test_jsonrpc)
+# Set working directory to where DLLs are deployed (bin/Debug on MSVC)
+add_test(NAME test_jsonrpc COMMAND test_jsonrpc
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_jsonrpc>"
+)
+
+# On Windows, Qt DLLs are needed for tests to run.
+# Other targets (probe, launcher) already deploy common Qt DLLs via windeployqt.
+# For tests, we only need to copy Qt Test DLL which isn't auto-detected.
+if(WIN32)
+    # Copy Qt Test DLL - not auto-detected by windeployqt
+    add_custom_command(TARGET test_jsonrpc POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_jsonrpc>"
+        COMMENT "Copying Qt Test DLL for test_jsonrpc..."
+    )
+endif()

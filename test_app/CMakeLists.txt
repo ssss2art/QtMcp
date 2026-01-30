@@ -46,3 +46,6 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
     )
 endif()
+
+# Deploy Qt DLLs on Windows
+qtmcp_deploy_qt(qtmcp_test_app)

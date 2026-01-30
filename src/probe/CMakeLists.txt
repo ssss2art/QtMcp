@@ -99,3 +99,6 @@ endif()
 
 # Alias for use in parent project
 add_library(QtMCP::probe ALIAS qtmcp_probe)
+
+# Deploy Qt DLLs on Windows (for the probe DLL's dependencies)
+qtmcp_deploy_qt(qtmcp_probe)

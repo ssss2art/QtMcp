@@ -46,3 +46,6 @@ target_include_directories(qtmcp_launcher PRIVATE
 )
 
 # Note: Cannot create ALIAS for executables, so no QtMCP::launcher alias
+
+# Deploy Qt DLLs on Windows
+qtmcp_deploy_qt(qtmcp_launcher)
