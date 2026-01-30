@@ -131,9 +131,11 @@ add_test(NAME test_object_id COMMAND test_object_id
     WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_object_id>"
 )
 
-# Set environment variable to disable auto-initialization for isolated testing
+# Set environment variables for testing:
+# - QTMCP_ENABLED=0 disables auto-initialization for isolated testing
+# - QT_QPA_PLATFORM=minimal allows widget tests without display
 set_tests_properties(test_object_id PROPERTIES
-    ENVIRONMENT "QTMCP_ENABLED=0"
+    ENVIRONMENT "QTMCP_ENABLED=0;QT_QPA_PLATFORM=minimal"
 )
 
 if(WIN32)
@@ -179,9 +181,11 @@ add_test(NAME test_meta_inspector COMMAND test_meta_inspector
     WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_meta_inspector>"
 )
 
-# Set environment variable to disable auto-initialization for isolated testing
+# Set environment variables for testing:
+# - QTMCP_ENABLED=0 disables auto-initialization for isolated testing
+# - QT_QPA_PLATFORM=minimal allows widget tests without display
 set_tests_properties(test_meta_inspector PROPERTIES
-    ENVIRONMENT "QTMCP_ENABLED=0"
+    ENVIRONMENT "QTMCP_ENABLED=0;QT_QPA_PLATFORM=minimal"
 )
 
 if(WIN32)
