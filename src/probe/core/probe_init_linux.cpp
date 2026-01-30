@@ -62,6 +62,18 @@ void ensureInitialized() {
 
 }  // namespace qtmcp
 
+// Automatic initialization hook using Q_COREAPP_STARTUP_FUNCTION.
+// This function runs automatically when QCoreApplication starts.
+// It's the safe place to trigger probe initialization after Qt is ready.
+static void qtmcpAutoInit() {
+    // QCoreApplication now exists, safe to initialize the probe
+    g_initAttempted = true;
+    qtmcp::Probe::instance()->initialize();
+}
+
+// Register the startup function with Qt
+Q_COREAPP_STARTUP_FUNCTION(qtmcpAutoInit)
+
 // Library constructor - called when loaded via LD_PRELOAD or dlopen.
 // Runs BEFORE main(), so QCoreApplication may not exist.
 __attribute__((constructor))
@@ -74,20 +86,12 @@ static void onLibraryLoad() {
         return;
     }
 
-    // Try to initialize immediately if Qt exists
-    if (tryInitialize()) {
-        // Qt was ready, initialization scheduled
-        return;
-    }
-
-    // Qt not ready yet - mark for deferred initialization.
-    // Initialization will happen when:
-    // 1. qtmcp::ensureInitialized() is called (e.g., on first WebSocket connection)
-    // 2. Or via qtHookData startup hook (if we implement that later)
-    g_needsDeferredInit = true;
+    // Note: We no longer try to initialize here because Q_COREAPP_STARTUP_FUNCTION
+    // will trigger automatically when QCoreApplication is created. This is more
+    // reliable than polling or manual triggering.
 
     // Log to stderr since Qt logging may not be available yet
-    fprintf(stderr, "[QtMCP] Library loaded, Qt not ready - deferring initialization\n");
+    fprintf(stderr, "[QtMCP] Library loaded, waiting for Qt startup\n");
 }
 
 // Library destructor - called on library unload.

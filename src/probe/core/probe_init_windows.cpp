@@ -52,6 +52,19 @@ void ensureInitialized() {
 
 }  // namespace qtmcp
 
+// Automatic initialization hook using Q_COREAPP_STARTUP_FUNCTION.
+// This function runs automatically when QCoreApplication starts.
+// It's the safe place to trigger probe initialization after Qt is ready.
+#include <QCoreApplication>
+
+static void qtmcpAutoInit() {
+    // QCoreApplication now exists, safe to initialize the probe
+    qtmcp::ensureInitialized();
+}
+
+// Register the startup function with Qt
+Q_COREAPP_STARTUP_FUNCTION(qtmcpAutoInit)
+
 // Windows DLL entry point.
 //
 // RESTRICTIONS (loader lock is held):
