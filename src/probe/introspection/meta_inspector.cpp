@@ -185,4 +185,147 @@ QJsonArray MetaInspector::extractParameterNames(const QMetaMethod& method)
     return names;
 }
 
+QJsonValue MetaInspector::getProperty(QObject* obj, const QString& name)
+{
+    if (!obj) {
+        throw std::runtime_error("Cannot get property on null object");
+    }
+
+    const QMetaObject* meta = obj->metaObject();
+    int propIndex = meta->indexOfProperty(name.toLatin1().constData());
+
+    if (propIndex < 0) {
+        // Try dynamic property
+        QVariant value = obj->property(name.toLatin1().constData());
+        if (value.isValid()) {
+            return variantToJson(value);
+        }
+        throw std::runtime_error("Property not found: " + name.toStdString());
+    }
+
+    QMetaProperty prop = meta->property(propIndex);
+    if (!prop.isReadable()) {
+        throw std::runtime_error("Property not readable: " + name.toStdString());
+    }
+
+    return variantToJson(prop.read(obj));
+}
+
+bool MetaInspector::setProperty(QObject* obj, const QString& name, const QJsonValue& value)
+{
+    if (!obj) {
+        throw std::runtime_error("Cannot set property on null object");
+    }
+
+    const QMetaObject* meta = obj->metaObject();
+    int propIndex = meta->indexOfProperty(name.toLatin1().constData());
+
+    if (propIndex < 0) {
+        // Allow setting dynamic properties
+        QVariant var = jsonToVariant(value);
+        return obj->setProperty(name.toLatin1().constData(), var);
+    }
+
+    QMetaProperty prop = meta->property(propIndex);
+    if (!prop.isWritable()) {
+        throw std::runtime_error("Property is read-only: " + name.toStdString());
+    }
+
+    // Convert JSON to appropriate type
+    QVariant var = jsonToVariant(value, prop.userType());
+
+    // Attempt type conversion if needed
+    if (var.typeId() != prop.userType() && !var.convert(QMetaType(prop.userType()))) {
+        throw std::runtime_error("Cannot convert value to type: " +
+            QString::fromLatin1(prop.typeName()).toStdString());
+    }
+
+    return prop.write(obj, var);
+}
+
+QJsonValue MetaInspector::invokeMethod(QObject* obj, const QString& methodName,
+                                        const QJsonArray& args)
+{
+    if (!obj) {
+        throw std::runtime_error("Cannot invoke method on null object");
+    }
+
+    if (args.count() > 10) {
+        throw std::runtime_error("Too many arguments (max 10): " + methodName.toStdString());
+    }
+
+    const QMetaObject* meta = obj->metaObject();
+
+    // Find method by name, matching argument count
+    QMetaMethod foundMethod;
+    for (int i = 0; i < meta->methodCount(); ++i) {
+        QMetaMethod method = meta->method(i);
+        if (QString::fromLatin1(method.name()) == methodName) {
+            // Check if slot or invokable
+            if (method.methodType() != QMetaMethod::Slot &&
+                method.methodType() != QMetaMethod::Method) {
+                continue;
+            }
+
+            // Check argument count
+            if (method.parameterCount() == args.count()) {
+                foundMethod = method;
+                break;
+            }
+        }
+    }
+
+    if (!foundMethod.isValid()) {
+        throw std::runtime_error("Method not found or wrong argument count: " +
+            methodName.toStdString());
+    }
+
+    // Build arguments - must keep QVariants alive during invocation
+    QList<QVariant> variantArgs;
+    variantArgs.reserve(args.count());
+
+    for (int i = 0; i < args.count(); ++i) {
+        int paramType = foundMethod.parameterType(i);
+        QVariant var = jsonToVariant(args[i], paramType);
+        variantArgs.append(var);
+    }
+
+    // Build QGenericArgument array - points into variantArgs data
+    QGenericArgument genericArgs[10];
+    for (int i = 0; i < variantArgs.count(); ++i) {
+        genericArgs[i] = QGenericArgument(
+            foundMethod.parameterTypeName(i),
+            variantArgs[i].constData()
+        );
+    }
+
+    // Prepare return value storage
+    QVariant returnValue;
+    QGenericReturnArgument returnArg;
+    if (foundMethod.returnType() != QMetaType::Void) {
+        returnValue = QVariant(QMetaType(foundMethod.returnType()));
+        returnArg = QGenericReturnArgument(
+            foundMethod.typeName(),
+            returnValue.data()
+        );
+    }
+
+    // Invoke (use Qt::AutoConnection for thread safety)
+    bool ok = foundMethod.invoke(obj, Qt::AutoConnection, returnArg,
+        genericArgs[0], genericArgs[1], genericArgs[2],
+        genericArgs[3], genericArgs[4], genericArgs[5],
+        genericArgs[6], genericArgs[7], genericArgs[8],
+        genericArgs[9]);
+
+    if (!ok) {
+        throw std::runtime_error("Method invocation failed: " + methodName.toStdString());
+    }
+
+    if (foundMethod.returnType() == QMetaType::Void) {
+        return QJsonValue::Null;
+    }
+
+    return variantToJson(returnValue);
+}
+
 }  // namespace qtmcp

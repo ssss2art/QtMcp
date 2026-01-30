@@ -8,6 +8,7 @@
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QStringList>
+#include <stdexcept>
 
 namespace qtmcp {
 
@@ -84,6 +85,42 @@ public:
     /// @param obj The object to inspect.
     /// @return List of class names in inheritance order.
     static QStringList inheritanceChain(QObject* obj);
+
+    /// @brief Get a single property value (OBJ-06).
+    ///
+    /// Retrieves the current value of a property by name. Supports both
+    /// declared properties (via Q_PROPERTY) and dynamic properties.
+    ///
+    /// @param obj Target object.
+    /// @param name Property name.
+    /// @return JSON value of the property.
+    /// @throws std::runtime_error if property not found or not readable.
+    static QJsonValue getProperty(QObject* obj, const QString& name);
+
+    /// @brief Set a property value (OBJ-07).
+    ///
+    /// Sets a property value with automatic type coercion. Supports both
+    /// declared properties (via Q_PROPERTY) and dynamic properties.
+    ///
+    /// @param obj Target object.
+    /// @param name Property name.
+    /// @param value New value as JSON.
+    /// @return true if the property was set successfully.
+    /// @throws std::runtime_error if property not found or read-only.
+    static bool setProperty(QObject* obj, const QString& name, const QJsonValue& value);
+
+    /// @brief Invoke a method on an object (OBJ-09).
+    ///
+    /// Invokes a slot or Q_INVOKABLE method by name with JSON arguments.
+    /// Finds the method by matching the name and argument count.
+    ///
+    /// @param obj Target object.
+    /// @param methodName Method name (without signature/parameters).
+    /// @param args Arguments as JSON array (max 10).
+    /// @return Return value as JSON (null for void methods).
+    /// @throws std::runtime_error if method not found or invocation fails.
+    static QJsonValue invokeMethod(QObject* obj, const QString& methodName,
+                                   const QJsonArray& args = QJsonArray());
 
 private:
     // Helper to convert QMetaMethod::Access to string
