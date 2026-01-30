@@ -296,3 +296,53 @@ if(WIN32)
         COMMENT "Copying Qt Test DLL for test_signal_monitor..."
     )
 endif()
+
+# JSON-RPC Introspection Integration tests
+add_executable(test_jsonrpc_introspection
+    test_jsonrpc_introspection.cpp
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(test_jsonrpc_introspection
+        PRIVATE
+            qtmcp_probe
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Test
+    )
+else()
+    target_link_libraries(test_jsonrpc_introspection
+        PRIVATE
+            qtmcp_probe
+            Qt5::Core
+            Qt5::Gui
+            Qt5::Widgets
+            Qt5::Test
+    )
+endif()
+
+target_include_directories(test_jsonrpc_introspection
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/probe
+)
+
+add_test(NAME test_jsonrpc_introspection COMMAND test_jsonrpc_introspection
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_jsonrpc_introspection>"
+)
+
+# Set environment variables for testing:
+# - QTMCP_ENABLED=0 disables auto-initialization for isolated testing
+# - QT_QPA_PLATFORM=minimal allows widget tests without display
+set_tests_properties(test_jsonrpc_introspection PROPERTIES
+    ENVIRONMENT "QTMCP_ENABLED=0;QT_QPA_PLATFORM=minimal"
+)
+
+if(WIN32)
+    add_custom_command(TARGET test_jsonrpc_introspection POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_jsonrpc_introspection>"
+        COMMENT "Copying Qt Test DLL for test_jsonrpc_introspection..."
+    )
+endif()
