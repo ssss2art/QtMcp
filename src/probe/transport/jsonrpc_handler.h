@@ -10,13 +10,28 @@
 #include <functional>
 #include <unordered_map>
 
+// Export macro for Windows DLL
+#if defined(QTMCP_PROBE_LIBRARY)
+#if defined(_WIN32)
+#define QTMCP_EXPORT __declspec(dllexport)
+#else
+#define QTMCP_EXPORT __attribute__((visibility("default")))
+#endif
+#else
+#if defined(_WIN32)
+#define QTMCP_EXPORT __declspec(dllimport)
+#else
+#define QTMCP_EXPORT
+#endif
+#endif
+
 namespace qtmcp {
 
 /// @brief JSON-RPC 2.0 message handler.
 ///
 /// This class parses incoming JSON-RPC requests, dispatches them to
 /// registered method handlers, and formats the responses.
-class JsonRpcHandler : public QObject {
+class QTMCP_EXPORT JsonRpcHandler : public QObject {
   Q_OBJECT
 
  public:

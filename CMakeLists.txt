@@ -160,13 +160,8 @@ endif()
 
 if(QTMCP_BUILD_TESTS)
     enable_testing()
-    find_package(GTest CONFIG QUIET)
-    if(GTest_FOUND)
-        message(STATUS "Found GTest - building unit tests")
-        add_subdirectory(tests)
-    else()
-        message(STATUS "GTest not found - skipping unit tests (use Qt Test instead)")
-    endif()
+    message(STATUS "Building unit tests with Qt Test framework")
+    add_subdirectory(tests)
 endif()
 
 # Installation
