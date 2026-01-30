@@ -221,9 +221,13 @@ bool MetaInspector::setProperty(QObject* obj, const QString& name, const QJsonVa
     int propIndex = meta->indexOfProperty(name.toLatin1().constData());
 
     if (propIndex < 0) {
-        // Allow setting dynamic properties
+        // Dynamic properties: setProperty returns false if property didn't exist
+        // before, but the property IS set. We verify by reading it back.
         QVariant var = jsonToVariant(value);
-        return obj->setProperty(name.toLatin1().constData(), var);
+        QByteArray nameBytes = name.toLatin1();
+        obj->setProperty(nameBytes.constData(), var);
+        // Verify the property was actually set
+        return obj->property(nameBytes.constData()).isValid();
     }
 
     QMetaProperty prop = meta->property(propIndex);

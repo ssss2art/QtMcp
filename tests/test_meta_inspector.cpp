@@ -88,6 +88,23 @@ private slots:
     void testInheritanceChain();
     void testNullObject();
 
+    // Property operations (OBJ-06, OBJ-07)
+    void testGetPropertyString();
+    void testGetPropertyInt();
+    void testGetPropertyNotFound();
+    void testSetPropertyString();
+    void testSetPropertyInt();
+    void testSetPropertyReadOnly();
+    void testSetPropertyTypeCoercion();
+    void testDynamicProperty();
+
+    // Method invocation (OBJ-09)
+    void testInvokeVoidMethod();
+    void testInvokeMethodWithArgs();
+    void testInvokeMethodWithReturnValue();
+    void testInvokeMethodNotFound();
+    void testInvokeMethodWrongArgCount();
+
 private:
     QApplication* m_app = nullptr;
 };
@@ -559,6 +576,162 @@ void TestMetaInspector::testNullObject()
     QVERIFY(MetaInspector::listMethods(nullptr).isEmpty());
     QVERIFY(MetaInspector::listSignals(nullptr).isEmpty());
     QVERIFY(MetaInspector::inheritanceChain(nullptr).isEmpty());
+}
+
+// ============================================================================
+// Property Get/Set tests (OBJ-06, OBJ-07)
+// ============================================================================
+
+void TestMetaInspector::testGetPropertyString()
+{
+    QPushButton button(QStringLiteral("Hello Button"));
+    QJsonValue result = MetaInspector::getProperty(&button, QStringLiteral("text"));
+    QCOMPARE(result.toString(), QStringLiteral("Hello Button"));
+}
+
+void TestMetaInspector::testGetPropertyInt()
+{
+    TestObject obj;
+    obj.setIntValue(123);
+    QJsonValue result = MetaInspector::getProperty(&obj, QStringLiteral("intValue"));
+    QCOMPARE(result.toInt(), 123);
+}
+
+void TestMetaInspector::testGetPropertyNotFound()
+{
+    TestObject obj;
+    bool exceptionThrown = false;
+    try {
+        MetaInspector::getProperty(&obj, QStringLiteral("nonExistentProperty"));
+    } catch (const std::runtime_error& e) {
+        exceptionThrown = true;
+        QString msg = QString::fromStdString(e.what());
+        QVERIFY2(msg.contains(QStringLiteral("not found")), qPrintable(msg));
+    }
+    QVERIFY2(exceptionThrown, "Expected exception for nonexistent property");
+}
+
+void TestMetaInspector::testSetPropertyString()
+{
+    QPushButton button;
+    bool success = MetaInspector::setProperty(&button, QStringLiteral("text"),
+                                               QJsonValue(QStringLiteral("New Text")));
+    QVERIFY(success);
+    QCOMPARE(button.text(), QStringLiteral("New Text"));
+}
+
+void TestMetaInspector::testSetPropertyInt()
+{
+    TestObject obj;
+    bool success = MetaInspector::setProperty(&obj, QStringLiteral("intValue"),
+                                               QJsonValue(999));
+    QVERIFY(success);
+    QCOMPARE(obj.intValue(), 999);
+}
+
+void TestMetaInspector::testSetPropertyReadOnly()
+{
+    TestObject obj;
+    bool exceptionThrown = false;
+    try {
+        MetaInspector::setProperty(&obj, QStringLiteral("readOnly"),
+                                    QJsonValue(false));
+    } catch (const std::runtime_error& e) {
+        exceptionThrown = true;
+        QString msg = QString::fromStdString(e.what());
+        QVERIFY2(msg.contains(QStringLiteral("read-only")), qPrintable(msg));
+    }
+    QVERIFY2(exceptionThrown, "Expected exception for read-only property");
+}
+
+void TestMetaInspector::testSetPropertyTypeCoercion()
+{
+    TestObject obj;
+    // Set int property using a JSON double (should coerce)
+    bool success = MetaInspector::setProperty(&obj, QStringLiteral("intValue"),
+                                               QJsonValue(42.0));
+    QVERIFY(success);
+    QCOMPARE(obj.intValue(), 42);
+}
+
+void TestMetaInspector::testDynamicProperty()
+{
+    QObject obj;
+
+    // Set dynamic property
+    bool success = MetaInspector::setProperty(&obj, QStringLiteral("dynamicProp"),
+                                               QJsonValue(QStringLiteral("dynamic value")));
+    QVERIFY(success);
+
+    // Get dynamic property
+    QJsonValue result = MetaInspector::getProperty(&obj, QStringLiteral("dynamicProp"));
+    QCOMPARE(result.toString(), QStringLiteral("dynamic value"));
+}
+
+// ============================================================================
+// Method Invocation tests (OBJ-09)
+// ============================================================================
+
+void TestMetaInspector::testInvokeVoidMethod()
+{
+    TestObject obj;
+    // doSomething() is a void slot
+    QJsonValue result = MetaInspector::invokeMethod(&obj, QStringLiteral("doSomething"));
+    QVERIFY(result.isNull());  // void methods return null
+}
+
+void TestMetaInspector::testInvokeMethodWithArgs()
+{
+    TestObject obj;
+    QJsonArray args;
+    args.append(10);
+    args.append(32);
+
+    QJsonValue result = MetaInspector::invokeMethod(&obj, QStringLiteral("addNumbers"), args);
+    QCOMPARE(result.toInt(), 42);
+}
+
+void TestMetaInspector::testInvokeMethodWithReturnValue()
+{
+    TestObject obj;
+    // addNumbers returns int
+    QJsonArray args;
+    args.append(5);
+    args.append(7);
+    QJsonValue result = MetaInspector::invokeMethod(&obj, QStringLiteral("addNumbers"), args);
+    QCOMPARE(result.toInt(), 12);
+}
+
+void TestMetaInspector::testInvokeMethodNotFound()
+{
+    TestObject obj;
+    bool exceptionThrown = false;
+    try {
+        MetaInspector::invokeMethod(&obj, QStringLiteral("nonExistentMethod"));
+    } catch (const std::runtime_error& e) {
+        exceptionThrown = true;
+        QString msg = QString::fromStdString(e.what());
+        QVERIFY2(msg.contains(QStringLiteral("not found")), qPrintable(msg));
+    }
+    QVERIFY2(exceptionThrown, "Expected exception for nonexistent method");
+}
+
+void TestMetaInspector::testInvokeMethodWrongArgCount()
+{
+    TestObject obj;
+    QJsonArray args;
+    args.append(1);  // addNumbers expects 2 args, we provide 1
+
+    bool exceptionThrown = false;
+    try {
+        MetaInspector::invokeMethod(&obj, QStringLiteral("addNumbers"), args);
+    } catch (const std::runtime_error& e) {
+        exceptionThrown = true;
+        QString msg = QString::fromStdString(e.what());
+        QVERIFY2(msg.contains(QStringLiteral("not found")) ||
+                 msg.contains(QStringLiteral("wrong argument")), qPrintable(msg));
+    }
+    QVERIFY2(exceptionThrown, "Expected exception for wrong argument count");
 }
 
 QTEST_APPLESS_MAIN(TestMetaInspector)
