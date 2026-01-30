@@ -5,33 +5,34 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 1 - Foundation (COMPLETE)
+**Current focus:** Phase 2 - Core Introspection (IN PROGRESS)
 
 ## Current Position
 
-Phase: 1 of 7 (Foundation) - COMPLETE
-Plan: 6 of 6 in current phase
-Status: Phase complete
-Last activity: 2026-01-30 - Completed 01-06-PLAN.md (Test App & E2E Verification)
+Phase: 2 of 7 (Core Introspection)
+Plan: 1 of 6 in current phase
+Status: In progress
+Last activity: 2026-01-30 - Completed 02-01-PLAN.md (Object Registry)
 
-Progress: [######----] 60%
+Progress: [#######---] 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 11.0 min
-- Total execution time: 1.10 hours
+- Total plans completed: 7
+- Average duration: 14.0 min
+- Total execution time: 1.63 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 6 | 66 min | 11.0 min |
+| 02-core-introspection | 1 | 32 min | 32.0 min |
 
 **Recent Trend:**
-- Last 6 plans: 01-01 (16 min), 01-03 (17 min), 01-02 (4 min), 01-04 (6 min), 01-05 (15 min), 01-06 (8 min)
-- Trend: Stable, efficient execution
+- Last 6 plans: 01-03 (17 min), 01-02 (4 min), 01-04 (6 min), 01-05 (15 min), 01-06 (8 min), 02-01 (32 min)
+- Trend: 02-01 longer due to debugging re-entry and shutdown issues
 
 *Updated after each plan completion*
 
@@ -56,6 +57,8 @@ Recent decisions affecting current work:
 | Q_COREAPP_STARTUP_FUNCTION for auto-init | Triggers probe initialization when Qt starts, no manual call needed | 01-05 |
 | RAII HandleGuard for Windows handles | Automatic cleanup prevents resource leaks on error paths | 01-05 |
 | Preserve existing LD_PRELOAD | Prepend to existing value rather than replacing | 01-05 |
+| Atomic re-entry guard for hooks | std::atomic<bool> instead of thread_local to avoid TLS issues in DLLs | 02-01 |
+| Destructor hook cleanup | Uninstall hooks in ObjectRegistry destructor to prevent shutdown crash | 02-01 |
 
 ### Pending Todos
 
@@ -65,7 +68,7 @@ None yet.
 
 **From Research:**
 - Windows DLL pitfalls (CRT mismatch, TLS, DllMain) must be addressed in Phase 1 [ADDRESSED in 01-02]
-- Object Registry needs mutex protection from day one (qtHookData not thread-safe)
+- Object Registry needs mutex protection from day one (qtHookData not thread-safe) [IMPLEMENTED in 02-01]
 - Chrome Mode (Phase 5) needs research - QAccessible to Chrome tree mapping is novel
 - QML introspection (Phase 6) may require private Qt APIs - feasibility TBD
 
@@ -93,23 +96,27 @@ None yet.
 - Phase 1 complete - all INJ requirements verified working
 - Test app available for Phase 2+ development
 
-## Phase 1 Completion Status
+**From Plan 02-01:**
+- Hook callbacks can re-enter during singleton creation - guard with atomic flag
+- ObjectRegistry destructor must uninstall hooks to prevent crash on exit
+- Tests need QTMCP_ENABLED=0 env var to disable auto-initialization
 
-All Phase 1 requirements verified:
+## Phase 2 Progress
 
-| Requirement | Description | Status |
-|-------------|-------------|--------|
-| INJ-01 | Linux LD_PRELOAD injection | READY |
-| INJ-02 | Windows DLL injection | VERIFIED |
-| INJ-03 | WebSocket server on configurable port | VERIFIED |
-| INJ-04 | JSON-RPC 2.0 message handling | VERIFIED |
-| INJ-05 | Configuration via CLI flags | VERIFIED |
+| Plan | Name | Status |
+|------|------|--------|
+| 02-01 | Object Registry | COMPLETE |
+| 02-02 | Object ID System | PENDING |
+| 02-03 | Meta Inspector | PENDING |
+| 02-04 | Signal Monitor | PENDING |
+| 02-05 | UI Interaction | PENDING |
+| 02-06 | JSON-RPC Integration | PENDING |
 
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 01-06-PLAN.md (Phase 1 Complete)
-Resume file: .planning/phases/02-object-registry/ (next phase)
+Stopped at: Completed 02-01-PLAN.md (Object Registry)
+Resume file: .planning/phases/02-core-introspection/02-02-PLAN.md (next plan)
 
 ---
 *State updated: 2026-01-30*
