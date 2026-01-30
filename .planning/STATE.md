@@ -59,6 +59,9 @@ Recent decisions affecting current work:
 | Preserve existing LD_PRELOAD | Prepend to existing value rather than replacing | 01-05 |
 | Atomic re-entry guard for hooks | std::atomic<bool> instead of thread_local to avoid TLS issues in DLLs | 02-01 |
 | Destructor hook cleanup | Uninstall hooks in ObjectRegistry destructor to prevent shutdown crash | 02-01 |
+| IDs computed at hook time | AddQObject fires at construction start, before derived ctors - ID reflects minimal state | 02-02 |
+| QPointer for safe ID lookup | m_idToObject uses QPointer to detect deleted objects without dangling pointer | 02-02 |
+| ID collision with ~N suffix | Duplicate IDs get ~1, ~2, etc. suffix for uniqueness | 02-02 |
 | Explicit Qt type JSON conversion | QPoint/QSize/QRect/QColor explicitly converted, not relying on QJsonValue::fromVariant | 02-03 |
 | Structured fallback for unknown types | Unknown types return {_type, value} for debugging | 02-03 |
 
@@ -102,6 +105,11 @@ None yet.
 - Hook callbacks can re-enter during singleton creation - guard with atomic flag
 - ObjectRegistry destructor must uninstall hooks to prevent crash on exit
 - Tests need QTMCP_ENABLED=0 env var to disable auto-initialization
+
+**From Plan 02-02:**
+- Object IDs computed at hook time (before objectName is set) - tests must account for this
+- Qt Test output not visible in console - use `-o file,txt` format for debugging
+- findById() safely handles deleted objects via QPointer
 
 **From Plan 02-03:**
 - Qt `signals` macro conflicts with variable names - avoid naming variables "signals"
