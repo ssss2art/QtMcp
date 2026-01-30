@@ -3,7 +3,20 @@
 
 #include "transport/websocket_server.h"
 
+#include <QDebug>
+
+#ifdef QTMCP_HAS_SPDLOG
 #include <spdlog/spdlog.h>
+#define LOG_INFO(msg) spdlog::info(msg)
+#define LOG_WARN(msg) spdlog::warn(msg)
+#define LOG_ERROR(msg) spdlog::error(msg)
+#define LOG_DEBUG(msg) spdlog::debug(msg)
+#else
+#define LOG_INFO(msg) qInfo() << msg
+#define LOG_WARN(msg) qWarning() << msg
+#define LOG_ERROR(msg) qCritical() << msg
+#define LOG_DEBUG(msg) qDebug() << msg
+#endif
 
 #include <algorithm>
 
@@ -18,7 +31,7 @@ WebSocketServer::~WebSocketServer() { Stop(); }
 
 bool WebSocketServer::Start(int port) {
   if (server_ && server_->isListening()) {
-    spdlog::warn("WebSocket server already running on port {}", port_);
+    qWarning() << "WebSocket server already running on port" << port_;
     return true;
   }
 
@@ -26,15 +39,14 @@ bool WebSocketServer::Start(int port) {
                                                 QWebSocketServer::NonSecureMode, this);
 
   if (!server_->listen(QHostAddress::LocalHost, port)) {
-    spdlog::error("Failed to start WebSocket server on port {}: {}", port,
-                  server_->errorString().toStdString());
+    qCritical() << "Failed to start WebSocket server on port" << port << ":" << server_->errorString();
     emit ErrorOccurred(server_->errorString());
     server_.reset();
     return false;
   }
 
   port_ = server_->serverPort();
-  spdlog::info("WebSocket server listening on localhost:{}", port_);
+  qInfo() << "WebSocket server listening on localhost:" << port_;
 
   connect(server_.get(), &QWebSocketServer::newConnection, this,
           &WebSocketServer::OnNewConnection);
@@ -47,7 +59,7 @@ void WebSocketServer::Stop() {
     return;
   }
 
-  spdlog::info("Stopping WebSocket server");
+  LOG_INFO("Stopping WebSocket server");
 
   // Close all client connections
   for (QWebSocket* client : clients_) {
@@ -74,15 +86,19 @@ void WebSocketServer::OnNewConnection() {
     return;
   }
 
-  spdlog::info("Client connected from {}:{}", client->peerAddress().toString().toStdString(),
-               client->peerPort());
+  qInfo() << "Client connected from" << client->peerAddress().toString() << ":" << client->peerPort();
 
   // Connect client signals
   connect(client, &QWebSocket::textMessageReceived, this,
           &WebSocketServer::OnTextMessageReceived);
   connect(client, &QWebSocket::disconnected, this, &WebSocketServer::OnClientDisconnected);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+  connect(client, &QWebSocket::errorOccurred, this,
+          &WebSocketServer::OnSocketError);
+#else
   connect(client, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error), this,
           &WebSocketServer::OnSocketError);
+#endif
 
   clients_.push_back(client);
   emit ClientConnected();
@@ -94,7 +110,7 @@ void WebSocketServer::OnClientDisconnected() {
     return;
   }
 
-  spdlog::info("Client disconnected");
+  LOG_INFO("Client disconnected");
 
   // Remove from client list
   auto it = std::find(clients_.begin(), clients_.end(), client);
@@ -112,13 +128,13 @@ void WebSocketServer::OnTextMessageReceived(const QString& message) {
     return;
   }
 
-  spdlog::debug("Received message: {}", message.toStdString());
+  qDebug() << "Received message:" << message;
 
   // Process JSON-RPC message and get response
   QString response = rpc_handler_->HandleMessage(message);
 
   if (!response.isEmpty()) {
-    spdlog::debug("Sending response: {}", response.toStdString());
+    qDebug() << "Sending response:" << response;
     client->sendTextMessage(response);
   }
 }
@@ -129,8 +145,7 @@ void WebSocketServer::OnSocketError(QAbstractSocket::SocketError error) {
     return;
   }
 
-  spdlog::error("WebSocket error {}: {}", static_cast<int>(error),
-                client->errorString().toStdString());
+  qCritical() << "WebSocket error" << static_cast<int>(error) << ":" << client->errorString();
   emit ErrorOccurred(client->errorString());
 }
 

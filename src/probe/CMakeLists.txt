@@ -25,7 +25,7 @@ add_library(qtmcp_probe SHARED
 set_target_properties(qtmcp_probe PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
-    OUTPUT_NAME "qtmcp"
+    OUTPUT_NAME "qtmcp-probe"
     EXPORT_NAME probe
 )
 
@@ -33,6 +33,13 @@ set_target_properties(qtmcp_probe PROPERTIES
 target_compile_definitions(qtmcp_probe PRIVATE
     QTMCP_PROBE_LIBRARY
 )
+
+# Windows: export all symbols for DLL (simplifies development)
+if(WIN32)
+    set_target_properties(qtmcp_probe PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
+endif()
 
 # Include directories
 target_include_directories(qtmcp_probe
@@ -43,16 +50,36 @@ target_include_directories(qtmcp_probe
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# Link dependencies
-target_link_libraries(qtmcp_probe
-    PUBLIC
-        Qt5::Core
-        Qt5::Widgets
-        Qt5::WebSockets
-    PRIVATE
-        nlohmann_json::nlohmann_json
-        spdlog::spdlog
-)
+# Link Qt libraries - use Qt version-independent approach
+# QT_VERSION_MAJOR is set by root CMakeLists.txt
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(qtmcp_probe
+        PUBLIC
+            Qt6::Core
+            Qt6::Network
+            Qt6::WebSockets
+            Qt6::Widgets
+    )
+else()
+    target_link_libraries(qtmcp_probe
+        PUBLIC
+            Qt5::Core
+            Qt5::Network
+            Qt5::WebSockets
+            Qt5::Widgets
+    )
+endif()
+
+# Optional dependencies - conditionally link if available
+if(QTMCP_HAS_NLOHMANN_JSON)
+    target_link_libraries(qtmcp_probe PRIVATE nlohmann_json::nlohmann_json)
+    target_compile_definitions(qtmcp_probe PRIVATE QTMCP_HAS_NLOHMANN_JSON)
+endif()
+
+if(QTMCP_HAS_SPDLOG)
+    target_link_libraries(qtmcp_probe PRIVATE spdlog::spdlog)
+    target_compile_definitions(qtmcp_probe PRIVATE QTMCP_HAS_SPDLOG)
+endif()
 
 # Platform-specific configurations
 if(WIN32)

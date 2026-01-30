@@ -5,13 +5,19 @@
   "homepage": "https://github.com/ssss2art/QtMcp",
   "license": "MIT",
   "dependencies": [
-    "nlohmann-json",
-    "spdlog",
-    "gtest"
+    "qtbase",
+    "qtwebsockets"
   ],
-  "builtin-baseline": "2024.01.12",
+  "builtin-baseline": "3bdaa9b42070c241c1bdb02b4cf01f90de579738",
   "overrides": [],
   "features": {
+    "extras": {
+      "description": "Additional dependencies for enhanced functionality",
+      "dependencies": [
+        "nlohmann-json",
+        "spdlog"
+      ]
+    },
     "tests": {
       "description": "Build unit tests",
       "dependencies": [

@@ -5,8 +5,24 @@
 
 #include <QCoreApplication>
 #include <QTimer>
+#include <QDebug>
 
+#ifdef QTMCP_HAS_SPDLOG
 #include <spdlog/spdlog.h>
+#define LOG_INFO(msg) spdlog::info(msg)
+#define LOG_WARN(msg) spdlog::warn(msg)
+#define LOG_ERROR(msg) spdlog::error(msg)
+#define LOG_INFO_FMT(fmt, ...) spdlog::info(fmt, __VA_ARGS__)
+#define LOG_WARN_FMT(fmt, ...) spdlog::warn(fmt, __VA_ARGS__)
+#define LOG_ERROR_FMT(fmt, ...) spdlog::error(fmt, __VA_ARGS__)
+#else
+#define LOG_INFO(msg) qInfo() << msg
+#define LOG_WARN(msg) qWarning() << msg
+#define LOG_ERROR(msg) qCritical() << msg
+#define LOG_INFO_FMT(fmt, ...) qInfo() << QString::asprintf(fmt, __VA_ARGS__)
+#define LOG_WARN_FMT(fmt, ...) qWarning() << QString::asprintf(fmt, __VA_ARGS__)
+#define LOG_ERROR_FMT(fmt, ...) qCritical() << QString::asprintf(fmt, __VA_ARGS__)
+#endif
 
 #include "transport/websocket_server.h"
 
@@ -25,7 +41,7 @@ Probe* Probe::Instance() {
 }
 
 Probe::Probe() : QObject(nullptr) {
-  spdlog::info("QtMCP Probe created");
+  LOG_INFO("QtMCP Probe created");
   ReadConfiguration();
 }
 
@@ -54,12 +70,12 @@ void Probe::ReadConfiguration() {
     }
   }
 
-  spdlog::info("QtMCP configuration: port={}, mode={}", port_, mode_.toStdString());
+  qInfo() << "QtMCP configuration: port=" << port_ << ", mode=" << mode_;
 }
 
 bool Probe::Initialize(int port) {
   if (running_) {
-    spdlog::warn("Probe already initialized");
+    LOG_WARN("Probe already initialized");
     return true;
   }
 
@@ -67,7 +83,7 @@ bool Probe::Initialize(int port) {
 
   // Check if Qt event loop is available
   if (QCoreApplication::instance() == nullptr) {
-    spdlog::info("QCoreApplication not available yet, deferring initialization");
+    LOG_INFO("QCoreApplication not available yet, deferring initialization");
     // We'll need to wait for the application to be created
     // The injector will handle this via QTimer::singleShot when app is ready
     return true;
@@ -83,7 +99,7 @@ void Probe::DeferredInitialize() {
   }
   initialized_ = true;
 
-  spdlog::info("QtMCP Probe initializing on port {}", port_);
+  qInfo() << "QtMCP Probe initializing on port" << port_;
 
   // Create WebSocket server
   server_ = std::make_unique<WebSocketServer>(this);
@@ -96,9 +112,9 @@ void Probe::DeferredInitialize() {
   // Start server
   if (server_->Start(port_)) {
     running_ = true;
-    spdlog::info("QtMCP Probe started successfully on port {}", port_);
+    qInfo() << "QtMCP Probe started successfully on port" << port_;
   } else {
-    spdlog::error("Failed to start QtMCP Probe on port {}", port_);
+    qCritical() << "Failed to start QtMCP Probe on port" << port_;
     emit ErrorOccurred(QString("Failed to start WebSocket server on port %1").arg(port_));
   }
 }
@@ -108,7 +124,7 @@ void Probe::Shutdown() {
     return;
   }
 
-  spdlog::info("QtMCP Probe shutting down");
+  LOG_INFO("QtMCP Probe shutting down");
 
   if (server_) {
     server_->Stop();

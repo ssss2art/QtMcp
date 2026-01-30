@@ -19,11 +19,21 @@ add_executable(qtmcp_test_app
     ${TEST_APP_UI}
 )
 
-target_link_libraries(qtmcp_test_app
-    PRIVATE
-        Qt5::Core
-        Qt5::Widgets
-)
+# Link Qt libraries - use Qt version-independent approach
+# QT_VERSION_MAJOR is set by root CMakeLists.txt
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(qtmcp_test_app
+        PRIVATE
+            Qt6::Core
+            Qt6::Widgets
+    )
+else()
+    target_link_libraries(qtmcp_test_app
+        PRIVATE
+            Qt5::Core
+            Qt5::Widgets
+    )
+endif()
 
 # Set output name
 set_target_properties(qtmcp_test_app PROPERTIES

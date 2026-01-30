@@ -7,12 +7,16 @@
 
 #include <QCoreApplication>
 #include <QTimer>
+#include <QDebug>
 
+#ifdef QTMCP_HAS_SPDLOG
 #include <spdlog/spdlog.h>
+#define LOG_INFO(msg) spdlog::info(msg)
+#else
+#define LOG_INFO(msg) qInfo() << msg
+#endif
 
 #include <windows.h>
-
-#include <cstdlib>
 
 #include "core/probe.h"
 
@@ -20,21 +24,22 @@ namespace qtmcp {
 
 void InitializeProbe() {
   // Check if probe is disabled
-  const char* enabled_env = std::getenv("QTMCP_ENABLED");
-  if (enabled_env != nullptr && std::string(enabled_env) == "0") {
-    spdlog::info("QtMCP Probe disabled via QTMCP_ENABLED=0");
+  QByteArray enabled_env = qgetenv("QTMCP_ENABLED");
+  if (!enabled_env.isEmpty() && enabled_env == "0") {
+    LOG_INFO("QtMCP Probe disabled via QTMCP_ENABLED=0");
     return;
   }
 
-  spdlog::info("QtMCP Probe library loaded (Windows)");
+  LOG_INFO("QtMCP Probe library loaded (Windows)");
 
   // Get port from environment or use default
   int port = 9999;
-  const char* port_env = std::getenv("QTMCP_PORT");
-  if (port_env != nullptr) {
-    port = std::atoi(port_env);
-    if (port <= 0 || port > 65535) {
-      port = 9999;
+  QByteArray port_env = qgetenv("QTMCP_PORT");
+  if (!port_env.isEmpty()) {
+    bool ok = false;
+    int env_port = port_env.toInt(&ok);
+    if (ok && env_port > 0 && env_port <= 65535) {
+      port = env_port;
     }
   }
 
@@ -43,13 +48,13 @@ void InitializeProbe() {
     // Application exists, initialize via event loop
     QTimer::singleShot(0, [port]() { Probe::Instance()->Initialize(port); });
   } else {
-    spdlog::info("QCoreApplication not yet created, will initialize when available");
+    LOG_INFO("QCoreApplication not yet created, will initialize when available");
     // Will be initialized lazily
   }
 }
 
 void ShutdownProbe() {
-  spdlog::info("QtMCP Probe library unloading (Windows)");
+  LOG_INFO("QtMCP Probe library unloading (Windows)");
   if (Probe::Instance()->IsRunning()) {
     Probe::Instance()->Shutdown();
   }

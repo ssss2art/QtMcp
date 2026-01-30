@@ -6,23 +6,39 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDebug>
 
+#ifdef QTMCP_HAS_NLOHMANN_JSON
 #include <nlohmann/json.hpp>
+#endif
+
+#ifdef QTMCP_HAS_SPDLOG
 #include <spdlog/spdlog.h>
+#define LOG_DEBUG(msg) spdlog::debug(msg)
+#define LOG_WARN(msg) spdlog::warn(msg)
+#define LOG_ERROR(msg) spdlog::error(msg)
+#else
+#define LOG_DEBUG(msg) qDebug() << msg
+#define LOG_WARN(msg) qWarning() << msg
+#define LOG_ERROR(msg) qCritical() << msg
+#endif
 
 namespace qtmcp {
 
+#ifdef QTMCP_HAS_NLOHMANN_JSON
 using json = nlohmann::json;
+#endif
 
 JsonRpcHandler::JsonRpcHandler(QObject* parent) : QObject(parent) { RegisterBuiltinMethods(); }
 
 QString JsonRpcHandler::HandleMessage(const QString& message) {
-  // Parse JSON
+#ifdef QTMCP_HAS_NLOHMANN_JSON
+  // Use nlohmann_json for parsing
   json request;
   try {
     request = json::parse(message.toStdString());
   } catch (const json::parse_error& e) {
-    spdlog::error("JSON parse error: {}", e.what());
+    qCritical() << "JSON parse error:" << e.what();
     return CreateErrorResponse("null", JsonRpcError::kParseError, "Parse error");
   }
 
@@ -56,16 +72,64 @@ QString JsonRpcHandler::HandleMessage(const QString& message) {
   if (request.contains("params")) {
     params_str = QString::fromStdString(request["params"].dump());
   }
+#else
+  // Use QJsonDocument for parsing
+  QJsonParseError parseError;
+  QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8(), &parseError);
 
-  spdlog::debug("Handling method: {} with params: {}", method.toStdString(),
-                params_str.toStdString());
+  if (parseError.error != QJsonParseError::NoError) {
+    qCritical() << "JSON parse error:" << parseError.errorString();
+    return CreateErrorResponse("null", JsonRpcError::kParseError, "Parse error");
+  }
+
+  QJsonObject request = doc.object();
+
+  // Validate JSON-RPC 2.0 structure
+  if (!request.contains("jsonrpc") || request["jsonrpc"].toString() != "2.0") {
+    return CreateErrorResponse("null", JsonRpcError::kInvalidRequest,
+                               "Invalid Request: missing or invalid jsonrpc version");
+  }
+
+  if (!request.contains("method") || !request["method"].isString()) {
+    return CreateErrorResponse("null", JsonRpcError::kInvalidRequest,
+                               "Invalid Request: missing or invalid method");
+  }
+
+  QString method = request["method"].toString();
+  QString id_str = "null";
+  bool is_notification = !request.contains("id");
+
+  if (!is_notification) {
+    QJsonValue idValue = request["id"];
+    if (idValue.isString()) {
+      id_str = QString("\"%1\"").arg(idValue.toString());
+    } else if (idValue.isDouble()) {
+      id_str = QString::number(static_cast<int>(idValue.toDouble()));
+    } else if (idValue.isNull()) {
+      id_str = "null";
+    }
+  }
+
+  // Get params (default to empty object)
+  QString params_str = "{}";
+  if (request.contains("params")) {
+    QJsonValue paramsValue = request["params"];
+    if (paramsValue.isObject()) {
+      params_str = QString::fromUtf8(QJsonDocument(paramsValue.toObject()).toJson(QJsonDocument::Compact));
+    } else if (paramsValue.isArray()) {
+      params_str = QString::fromUtf8(QJsonDocument(paramsValue.toArray()).toJson(QJsonDocument::Compact));
+    }
+  }
+#endif
+
+  qDebug() << "Handling method:" << method << "with params:" << params_str;
 
   // Find and invoke method handler
   auto it = methods_.find(method);
   if (it == methods_.end()) {
     if (is_notification) {
       // Notifications don't get error responses
-      spdlog::warn("Unknown notification method: {}", method.toStdString());
+      qWarning() << "Unknown notification method:" << method;
       return "";
     }
     return CreateErrorResponse(id_str, JsonRpcError::kMethodNotFound,
@@ -79,7 +143,7 @@ QString JsonRpcHandler::HandleMessage(const QString& message) {
     }
     return CreateSuccessResponse(id_str, result);
   } catch (const std::exception& e) {
-    spdlog::error("Method {} threw exception: {}", method.toStdString(), e.what());
+    qCritical() << "Method" << method << "threw exception:" << e.what();
     if (is_notification) {
       return "";
     }
@@ -90,12 +154,12 @@ QString JsonRpcHandler::HandleMessage(const QString& message) {
 
 void JsonRpcHandler::RegisterMethod(const QString& method, MethodHandler handler) {
   methods_[method] = std::move(handler);
-  spdlog::debug("Registered method: {}", method.toStdString());
+  qDebug() << "Registered method:" << method;
 }
 
 void JsonRpcHandler::UnregisterMethod(const QString& method) {
   methods_.erase(method);
-  spdlog::debug("Unregistered method: {}", method.toStdString());
+  qDebug() << "Unregistered method:" << method;
 }
 
 QString JsonRpcHandler::CreateSuccessResponse(const QString& id, const QString& result) {
@@ -123,17 +187,20 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
 
   // getVersion - return QtMCP version info
   RegisterMethod("getVersion", [](const QString& /*params*/) -> QString {
-    json result;
+    QJsonObject result;
     result["version"] = "0.1.0";
     result["protocol"] = "jsonrpc-2.0";
     result["name"] = "QtMCP";
-    return QString::fromStdString(result.dump());
+    return QString::fromUtf8(QJsonDocument(result).toJson(QJsonDocument::Compact));
   });
 
   // getModes - return available API modes
   RegisterMethod("getModes", [](const QString& /*params*/) -> QString {
-    json result = json::array({"native", "computer_use", "chrome"});
-    return QString::fromStdString(result.dump());
+    QJsonArray modes;
+    modes.append("native");
+    modes.append("computer_use");
+    modes.append("chrome");
+    return QString::fromUtf8(QJsonDocument(modes).toJson(QJsonDocument::Compact));
   });
 
   // echo - echo back params (for testing)
