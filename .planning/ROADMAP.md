@@ -30,12 +30,17 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. User can launch any Qt application with probe injected via LD_PRELOAD on Linux
   2. User can launch any Qt application with probe injected via qtmcp-launch.exe on Windows
   3. User can connect to probe's WebSocket server and receive JSON-RPC responses
-  4. User can configure port, bind address, and mode via environment variables
+  4. User can configure port via CLI flags (--port)
   5. Probe handles Windows DLL pitfalls correctly (CRT matching, no TLS, minimal DllMain)
-**Plans**: TBD
+**Plans**: 6 plans in 5 waves
 
 Plans:
-- [ ] 01-01: TBD (planning not yet started)
+- [ ] 01-01-PLAN.md - CMake build system and project structure (Wave 1)
+- [ ] 01-02-PLAN.md - Probe singleton with safe platform initialization (Wave 2)
+- [ ] 01-03-PLAN.md - JSON-RPC 2.0 handler with unit tests (Wave 2)
+- [ ] 01-04-PLAN.md - WebSocket server with single-client logic (Wave 3)
+- [ ] 01-05-PLAN.md - Launcher CLI with platform injection (Wave 4)
+- [ ] 01-06-PLAN.md - Test app and end-to-end verification (Wave 5)
 
 ### Phase 2: Core Introspection
 **Goal**: Probe can discover, inspect, and interact with any QObject in the target application
@@ -139,7 +144,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/6 | Planned | - |
 | 2. Core Introspection | 0/TBD | Not started | - |
 | 3. Native Mode | 0/TBD | Not started | - |
 | 4. Computer Use Mode | 0/TBD | Not started | - |
