@@ -13,7 +13,7 @@ QtMCP is built foundation-first: establish injection and transport (highest tech
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - DLL/LD_PRELOAD injection and WebSocket transport layer ✓
-- [ ] **Phase 2: Core Introspection** - Object registry, signal monitoring, and UI interaction primitives
+- [x] **Phase 2: Core Introspection** - Object registry, signal monitoring, and UI interaction primitives ✓
 - [ ] **Phase 3: Native Mode** - Full Qt introspection API exposed via JSON-RPC
 - [ ] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API
 - [ ] **Phase 5: Chrome Mode** - Accessibility tree with numbered refs API (RESEARCH FLAG)
@@ -55,13 +55,13 @@ Plans:
 **Plans**: 7 plans in 4 waves
 
 Plans:
-- [ ] 02-01-PLAN.md - Object Registry with qtHookData hooks (Wave 1)
-- [ ] 02-02-PLAN.md - Hierarchical object IDs and tree serialization (Wave 2)
-- [ ] 02-03-PLAN.md - Meta Inspector for property/method/signal listing (Wave 2)
-- [ ] 02-04-PLAN.md - Property get/set and method invocation (Wave 3)
-- [ ] 02-05-PLAN.md - Signal monitoring with push notifications (Wave 3)
-- [ ] 02-06-PLAN.md - UI interaction (click, keyboard, screenshot, hit test) (Wave 2)
-- [ ] 02-07-PLAN.md - JSON-RPC integration for all introspection methods (Wave 4)
+- [x] 02-01-PLAN.md - Object Registry with qtHookData hooks (Wave 1) ✓
+- [x] 02-02-PLAN.md - Hierarchical object IDs and tree serialization (Wave 2) ✓
+- [x] 02-03-PLAN.md - Meta Inspector for property/method/signal listing (Wave 2) ✓
+- [x] 02-04-PLAN.md - Property get/set and method invocation (Wave 3) ✓
+- [x] 02-05-PLAN.md - Signal monitoring with push notifications (Wave 3) ✓
+- [x] 02-06-PLAN.md - UI interaction (click, keyboard, screenshot, hit test) (Wave 3) ✓
+- [x] 02-07-PLAN.md - JSON-RPC integration for all introspection methods (Wave 4) ✓
 
 ### Phase 3: Native Mode
 **Goal**: Complete Native Mode API surface ready for AI agents to use full Qt introspection
@@ -151,7 +151,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 6/6 | Complete | 2026-01-30 |
-| 2. Core Introspection | 0/7 | Planned | - |
+| 2. Core Introspection | 7/7 | Complete | 2026-01-30 |
 | 3. Native Mode | 0/TBD | Not started | - |
 | 4. Computer Use Mode | 0/TBD | Not started | - |
 | 5. Chrome Mode | 0/TBD | Not started | - |

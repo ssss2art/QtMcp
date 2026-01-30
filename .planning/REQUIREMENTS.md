@@ -17,33 +17,33 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Object Introspection
 
-- [ ] **OBJ-01**: Find objects by objectName
-- [ ] **OBJ-02**: Find objects by className
-- [ ] **OBJ-03**: Get full or partial object tree hierarchy
-- [ ] **OBJ-04**: Get detailed object info (class, inheritance, geometry, visibility)
-- [ ] **OBJ-05**: List all properties of an object with types and values
-- [ ] **OBJ-06**: Get specific property value
-- [ ] **OBJ-07**: Set property value
-- [ ] **OBJ-08**: List all invokable methods (slots, Q_INVOKABLE)
-- [ ] **OBJ-09**: Invoke methods on objects
-- [ ] **OBJ-10**: List all signals of an object
-- [ ] **OBJ-11**: Hierarchical object IDs (e.g., QMainWindow/centralWidget/QPushButton#submit)
+- [x] **OBJ-01**: Find objects by objectName ✓
+- [x] **OBJ-02**: Find objects by className ✓
+- [x] **OBJ-03**: Get full or partial object tree hierarchy ✓
+- [x] **OBJ-04**: Get detailed object info (class, inheritance, geometry, visibility) ✓
+- [x] **OBJ-05**: List all properties of an object with types and values ✓
+- [x] **OBJ-06**: Get specific property value ✓
+- [x] **OBJ-07**: Set property value ✓
+- [x] **OBJ-08**: List all invokable methods (slots, Q_INVOKABLE) ✓
+- [x] **OBJ-09**: Invoke methods on objects ✓
+- [x] **OBJ-10**: List all signals of an object ✓
+- [x] **OBJ-11**: Hierarchical object IDs (e.g., QMainWindow/centralWidget/QPushButton#submit) ✓
 
 ### Signal Monitoring
 
-- [ ] **SIG-01**: Subscribe to signals from specific objects
-- [ ] **SIG-02**: Unsubscribe from signals
-- [ ] **SIG-03**: Push signal emission events to connected clients
-- [ ] **SIG-04**: Push object created events
-- [ ] **SIG-05**: Push object destroyed events
+- [x] **SIG-01**: Subscribe to signals from specific objects ✓
+- [x] **SIG-02**: Unsubscribe from signals ✓
+- [x] **SIG-03**: Push signal emission events to connected clients ✓
+- [x] **SIG-04**: Push object created events ✓
+- [x] **SIG-05**: Push object destroyed events ✓
 
 ### UI Interaction
 
-- [ ] **UI-01**: Simulate mouse click on widget (left, right, middle button)
-- [ ] **UI-02**: Simulate keyboard input (text, key combinations)
-- [ ] **UI-03**: Take screenshot of widget or entire window
-- [ ] **UI-04**: Get widget geometry (local and global coordinates)
-- [ ] **UI-05**: Coordinate-to-element hit testing
+- [x] **UI-01**: Simulate mouse click on widget (left, right, middle button) ✓
+- [x] **UI-02**: Simulate keyboard input (text, key combinations) ✓
+- [x] **UI-03**: Take screenshot of widget or entire window ✓
+- [x] **UI-04**: Get widget geometry (local and global coordinates) ✓
+- [x] **UI-05**: Coordinate-to-element hit testing ✓
 
 ### Native Mode API
 
@@ -159,27 +159,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INJ-03 | Phase 1 | Complete |
 | INJ-04 | Phase 1 | Complete |
 | INJ-05 | Phase 1 | Complete |
-| OBJ-01 | Phase 2 | Pending |
-| OBJ-02 | Phase 2 | Pending |
-| OBJ-03 | Phase 2 | Pending |
-| OBJ-04 | Phase 2 | Pending |
-| OBJ-05 | Phase 2 | Pending |
-| OBJ-06 | Phase 2 | Pending |
-| OBJ-07 | Phase 2 | Pending |
-| OBJ-08 | Phase 2 | Pending |
-| OBJ-09 | Phase 2 | Pending |
-| OBJ-10 | Phase 2 | Pending |
-| OBJ-11 | Phase 2 | Pending |
-| SIG-01 | Phase 2 | Pending |
-| SIG-02 | Phase 2 | Pending |
-| SIG-03 | Phase 2 | Pending |
-| SIG-04 | Phase 2 | Pending |
-| SIG-05 | Phase 2 | Pending |
-| UI-01 | Phase 2 | Pending |
-| UI-02 | Phase 2 | Pending |
-| UI-03 | Phase 2 | Pending |
-| UI-04 | Phase 2 | Pending |
-| UI-05 | Phase 2 | Pending |
+| OBJ-01 | Phase 2 | Complete |
+| OBJ-02 | Phase 2 | Complete |
+| OBJ-03 | Phase 2 | Complete |
+| OBJ-04 | Phase 2 | Complete |
+| OBJ-05 | Phase 2 | Complete |
+| OBJ-06 | Phase 2 | Complete |
+| OBJ-07 | Phase 2 | Complete |
+| OBJ-08 | Phase 2 | Complete |
+| OBJ-09 | Phase 2 | Complete |
+| OBJ-10 | Phase 2 | Complete |
+| OBJ-11 | Phase 2 | Complete |
+| SIG-01 | Phase 2 | Complete |
+| SIG-02 | Phase 2 | Complete |
+| SIG-03 | Phase 2 | Complete |
+| SIG-04 | Phase 2 | Complete |
+| SIG-05 | Phase 2 | Complete |
+| UI-01 | Phase 2 | Complete |
+| UI-02 | Phase 2 | Complete |
+| UI-03 | Phase 2 | Complete |
+| UI-04 | Phase 2 | Complete |
+| UI-05 | Phase 2 | Complete |
 | NAT-01 | Phase 3 | Pending |
 | NAT-02 | Phase 3 | Pending |
 | NAT-03 | Phase 3 | Pending |
