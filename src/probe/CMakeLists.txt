@@ -6,6 +6,8 @@ set(PROBE_SOURCES
     introspection/object_id.cpp
     introspection/variant_json.cpp
     introspection/meta_inspector.cpp
+    introspection/signal_monitor.cpp
+    interaction/input_simulator.cpp
     transport/websocket_server.cpp
     transport/jsonrpc_handler.cpp
 )
@@ -17,6 +19,8 @@ set(PROBE_HEADERS
     introspection/object_id.h
     introspection/variant_json.h
     introspection/meta_inspector.h
+    introspection/signal_monitor.h
+    interaction/input_simulator.h
     transport/websocket_server.h
     transport/jsonrpc_handler.h
 )
@@ -73,6 +77,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
             Qt6::Network
             Qt6::WebSockets
             Qt6::Widgets
+            Qt6::Test  # For QTest functions in InputSimulator
         PRIVATE
             Qt6::CorePrivate  # For qhooks_p.h (object registry hooks)
     )
@@ -83,6 +88,7 @@ else()
             Qt5::Network
             Qt5::WebSockets
             Qt5::Widgets
+            Qt5::Test  # For QTest functions in InputSimulator
         PRIVATE
             Qt5::CorePrivate  # For qhooks_p.h (object registry hooks)
     )
