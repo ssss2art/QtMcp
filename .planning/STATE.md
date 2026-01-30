@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 2 - Core Introspection (IN PROGRESS)
+**Current focus:** Phase 2 - Core Introspection (COMPLETE)
 
 ## Current Position
 
 Phase: 2 of 7 (Core Introspection)
 Plan: 6 of 6 in current phase
 Status: Phase complete
-Last activity: 2026-01-30 - Completed 02-06-PLAN.md (UI Interaction)
+Last activity: 2026-01-30 - Completed 02-05-PLAN.md (Signal Monitor)
 
 Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
-- Average duration: 13.4 min
-- Total execution time: 2.23 hours
+- Total plans completed: 11
+- Average duration: 14.0 min
+- Total execution time: 2.57 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation | 6 | 66 min | 11.0 min |
-| 02-core-introspection | 4 | 68 min | 17.0 min |
+| 02-core-introspection | 5 | 86 min | 17.2 min |
 
 **Recent Trend:**
-- Last 6 plans: 01-05 (15 min), 01-06 (8 min), 02-01 (32 min), 02-02 (10 min), 02-03 (11 min), 02-06 (15 min)
+- Last 6 plans: 01-06 (8 min), 02-01 (32 min), 02-02 (10 min), 02-03 (11 min), 02-05 (18 min), 02-06 (15 min)
 - Trend: Phase 2 plans averaging 17 min
 
 *Updated after each plan completion*
@@ -66,6 +66,8 @@ Recent decisions affecting current work:
 | Structured fallback for unknown types | Unknown types return {_type, value} for debugging | 02-03 |
 | Dynamic property verify by read-back | Qt setProperty returns false for new dynamic properties | 02-04 |
 | Method lookup by name + arg count | Simple approach without signature parsing | 02-04 |
+| SignalRelay for dynamic connections | QMetaMethod-based signals need QObject with slot for connection | 02-05 |
+| DirectConnection for cleanup caching | Caches objectId before QueuedConnection delivers objectRemoved | 02-05 |
 | QTest for input simulation | Cross-platform reliable using Qt's built-in test functions | 02-06 |
 | Base64 PNG for screenshots | JSON-friendly, universally supported format | 02-06 |
 | devicePixelRatio in geometry | High-DPI awareness for Retina/HiDPI displays | 02-06 |
@@ -125,6 +127,11 @@ None yet.
 - invokeMethod only calls slots and Q_INVOKABLE methods (not property getters)
 - Dynamic property setProperty verifies by reading back (Qt returns false for new props)
 
+**From Plan 02-05:**
+- SignalRelay helper class needed for dynamic signal connections
+- m_destroyedObjectIds cache bridges DirectConnection/QueuedConnection timing
+- Lifecycle notifications are opt-in (disabled by default)
+
 **From Plan 02-06:**
 - InputSimulator uses QTest functions - position defaults to widget center
 - Screenshots are base64 PNG - decode to verify PNG magic bytes
@@ -138,15 +145,13 @@ None yet.
 | 02-02 | Object ID System | COMPLETE |
 | 02-03 | Meta Inspector | COMPLETE |
 | 02-04 | Property/Method Ops | COMPLETE |
-| 02-05 | Signal Monitor | SKIPPED (external partial work) |
+| 02-05 | Signal Monitor | COMPLETE |
 | 02-06 | UI Interaction | COMPLETE |
-
-**Note:** Plan 02-05 has partial external changes that need reconciliation before execution.
 
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 02-06-PLAN.md (UI Interaction)
+Stopped at: Completed 02-05-PLAN.md (Signal Monitor)
 Resume file: .planning/phases/03-jsonrpc/03-01-PLAN.md (next phase)
 
 ---
