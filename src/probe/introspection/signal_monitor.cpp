@@ -235,6 +235,11 @@ void SignalMonitor::onObjectAdded(QObject* obj) {
         }
     }
 
+    // Verify object still exists (queued signal delivery can be delayed)
+    if (!obj) {
+        return;
+    }
+
     // Build notification
     QJsonObject notification;
     notification[QStringLiteral("event")] = QStringLiteral("created");
@@ -245,24 +250,39 @@ void SignalMonitor::onObjectAdded(QObject* obj) {
 }
 
 void SignalMonitor::onObjectRemoved(QObject* obj) {
-    // Always clean up subscriptions for this object
-    onSubscribedObjectDestroyed(obj);
-
-    // Check if lifecycle notifications are enabled
+    // Check if lifecycle notifications are enabled, and find any cached objectId
     bool lifecycleEnabled;
+    QString cachedObjectId;
     {
         QMutexLocker lock(&m_mutex);
         lifecycleEnabled = m_lifecycleEnabled;
+
+        // Look up objectId from our cache. The onSubscribedObjectDestroyed method
+        // (connected via DirectConnection) runs synchronously during object destruction
+        // BEFORE this method (connected via QueuedConnection). When onSubscribedObjectDestroyed
+        // cleans up subscriptions, it caches the objectId in m_destroyedObjectIds.
+        auto it = m_destroyedObjectIds.find(obj);
+        if (it != m_destroyedObjectIds.end()) {
+            cachedObjectId = it.value();
+            m_destroyedObjectIds.erase(it);
+        }
     }
+
+    // Clean up subscriptions for this object
+    // Note: This may have already run via DirectConnection before we got here
+    onSubscribedObjectDestroyed(obj);
 
     if (!lifecycleEnabled) {
         return;
     }
 
     // Build notification
+    // Note: The object is being destroyed and has already been removed from
+    // ObjectRegistry's ID cache. Use the cached ID if we have it, otherwise
+    // the notification will have an empty objectId.
     QJsonObject notification;
     notification[QStringLiteral("event")] = QStringLiteral("destroyed");
-    notification[QStringLiteral("objectId")] = ObjectRegistry::instance()->objectId(obj);
+    notification[QStringLiteral("objectId")] = cachedObjectId;
 
     Q_EMIT objectDestroyed(notification);
 }
@@ -271,14 +291,24 @@ void SignalMonitor::onSubscribedObjectDestroyed(QObject* obj) {
     QMutexLocker lock(&m_mutex);
 
     QStringList toRemove;
+    QString cachedObjectId;  // Cache for lifecycle notifications
     for (auto it = m_subscriptions.begin(); it != m_subscriptions.end(); ++it) {
         // Check by pointer since QPointer may already be null
         if (it->object.data() == obj || it->object.isNull()) {
+            // Cache the objectId for onObjectRemoved (runs later via QueuedConnection)
+            if (cachedObjectId.isEmpty()) {
+                cachedObjectId = it->objectId;
+            }
             // Don't disconnect - object is already being destroyed
             // Delete the relay (it's parented to this, but be explicit)
             delete it->relay;
             toRemove.append(it.key());
         }
+    }
+
+    // Store the cached objectId for retrieval by onObjectRemoved
+    if (!cachedObjectId.isEmpty()) {
+        m_destroyedObjectIds.insert(obj, cachedObjectId);
     }
 
     for (const QString& id : toRemove) {

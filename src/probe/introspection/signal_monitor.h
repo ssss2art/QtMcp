@@ -150,6 +150,11 @@ private:
     /// @brief Map from subscription ID to subscription data.
     QHash<QString, Subscription> m_subscriptions;
 
+    /// @brief Cache of recently destroyed object IDs for lifecycle notifications.
+    /// Populated by onSubscribedObjectDestroyed (DirectConnection), read by
+    /// onObjectRemoved (QueuedConnection).
+    QHash<QObject*, QString> m_destroyedObjectIds;
+
     /// @brief Counter for generating unique subscription IDs.
     int m_nextId = 1;
 
