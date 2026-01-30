@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2025-01-29)
 ## Current Position
 
 Phase: 1 of 7 (Foundation)
-Plan: 3 of 6 in current phase
+Plan: 4 of 6 in current phase
 Status: In progress
-Last activity: 2026-01-30 - Completed 01-02-PLAN.md (Probe Singleton with Platform Init)
+Last activity: 2026-01-30 - Completed 01-04-PLAN.md (WebSocket Server)
 
-Progress: [###-------] 30%
+Progress: [####------] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 12.3 min
-- Total execution time: 0.62 hours
+- Total plans completed: 4
+- Average duration: 10.8 min
+- Total execution time: 0.72 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation | 3 | 37 min | 12.3 min |
+| 01-foundation | 4 | 43 min | 10.8 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (16 min), 01-03 (17 min), 01-02 (4 min)
-- Trend: Variable (01-02 fast due to existing implementation)
+- Last 5 plans: 01-01 (16 min), 01-03 (17 min), 01-02 (4 min), 01-04 (6 min)
+- Trend: Improving (01-04 fast due to focused scope)
 
 *Updated after each plan completion*
 
@@ -51,6 +51,8 @@ Recent decisions affecting current work:
 | QTMCP_EXPORT macro for QObjects | Required for proper MOC symbol export in Windows DLL | 01-03 |
 | InitOnce API instead of std::call_once | MSVC std::call_once uses TLS internally, breaks in injected DLLs | 01-02 |
 | Minimal DllMain pattern | Only DisableThreadLibraryCalls + flag; defer all Qt work | 01-02 |
+| Single-client WebSocket semantics | Per CONTEXT.md - reject additional connections with CloseCodePolicyViolated | 01-04 |
+| Server persists after disconnect | Keeps listening for reconnection | 01-04 |
 
 ### Pending Todos
 
@@ -76,11 +78,15 @@ None yet.
 - ctest cannot find Qt DLLs automatically - tests must be run with Qt in PATH
 - Q_GLOBAL_STATIC requires public constructor in Qt6
 
+**From Plan 01-04:**
+- Full integration testing requires Qt DLLs in PATH
+- Server prints startup message to stderr for debugging injection
+
 ## Session Continuity
 
 Last session: 2026-01-30
-Stopped at: Completed 01-02-PLAN.md
-Resume file: .planning/phases/01-foundation/01-04-PLAN.md
+Stopped at: Completed 01-04-PLAN.md
+Resume file: .planning/phases/01-foundation/01-05-PLAN.md
 
 ---
 *State updated: 2026-01-30*
