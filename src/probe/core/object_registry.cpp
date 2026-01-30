@@ -167,6 +167,27 @@ bool ObjectRegistry::contains(QObject* obj) const {
     return m_objects.contains(obj);
 }
 
+void ObjectRegistry::scanExistingObjects(QObject* root) {
+    if (!root) {
+        return;
+    }
+
+    // Register this object if not already tracked
+    {
+        QMutexLocker lock(&m_mutex);
+        if (!m_objects.contains(root)) {
+            m_objects.insert(root);
+            // Don't emit signal for pre-existing objects to avoid noise
+            // during initialization
+        }
+    }
+
+    // Recursively process children
+    for (QObject* child : root->children()) {
+        scanExistingObjects(child);
+    }
+}
+
 void installObjectHooks() {
     if (g_hooksInstalled) {
         qWarning() << "[QtMCP] Object hooks already installed";

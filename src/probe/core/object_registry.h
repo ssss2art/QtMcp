@@ -62,6 +62,13 @@ public:
     /// @return true if the object is in the registry.
     bool contains(QObject* obj) const;
 
+    /// @brief Scan and register all existing objects in a tree.
+    ///
+    /// Used to capture objects created before hook installation.
+    /// Call this after installObjectHooks() on each top-level object.
+    /// @param root The root object to scan recursively.
+    void scanExistingObjects(QObject* root);
+
 signals:
     /// @brief Emitted when a new object is registered.
     /// @param obj The newly tracked object.

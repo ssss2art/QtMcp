@@ -18,7 +18,11 @@
 #define LOG_ERROR(msg) qCritical() << msg
 #endif
 
+#include "core/object_registry.h"
 #include "transport/websocket_server.h"
+
+#include <QGuiApplication>
+#include <QWindow>
 
 namespace qtmcp {
 
@@ -94,6 +98,31 @@ bool Probe::initialize() {
     // Mark as initialized first to prevent re-entry
     m_initialized = true;
 
+    // Install object hooks for tracking QObjects
+    installObjectHooks();
+
+    // Scan objects that existed before hook installation
+    // This includes QCoreApplication and any widgets created early
+    ObjectRegistry* registry = ObjectRegistry::instance();
+
+    // Scan QCoreApplication (and all its children)
+    if (QCoreApplication::instance()) {
+        registry->scanExistingObjects(QCoreApplication::instance());
+    }
+
+    // For GUI apps, also scan top-level windows/widgets
+    // QGuiApplication::allWindows() returns QWindow*, which are QObjects
+    if (auto* guiApp = qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
+        for (QWindow* window : guiApp->allWindows()) {
+            registry->scanExistingObjects(window);
+        }
+    }
+
+    LOG_INFO("[QtMCP] Object hooks installed, tracking " +
+             QString::number(registry->objectCount()) + " existing objects");
+    fprintf(stderr, "[QtMCP] Object hooks installed, tracking %d existing objects\n",
+            registry->objectCount());
+
     // Create and start WebSocket server
     m_server = new WebSocketServer(m_port, this);
 
@@ -134,6 +163,9 @@ void Probe::shutdown() {
 
     LOG_INFO("[QtMCP] Probe shutting down...");
     fprintf(stderr, "[QtMCP] Probe shutting down\n");
+
+    // Uninstall object hooks first (before any Qt objects are destroyed)
+    uninstallObjectHooks();
 
     // Stop and delete WebSocket server
     if (m_server) {
