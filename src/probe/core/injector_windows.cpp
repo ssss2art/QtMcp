@@ -46,7 +46,8 @@ void InitializeProbe() {
   // Check if QCoreApplication exists
   if (QCoreApplication::instance() != nullptr) {
     // Application exists, initialize via event loop
-    QTimer::singleShot(0, [port]() { Probe::Instance()->Initialize(port); });
+    Probe::instance()->setPort(static_cast<quint16>(port));
+    QTimer::singleShot(0, []() { Probe::instance()->initialize(); });
   } else {
     LOG_INFO("QCoreApplication not yet created, will initialize when available");
     // Will be initialized lazily
@@ -55,8 +56,8 @@ void InitializeProbe() {
 
 void ShutdownProbe() {
   LOG_INFO("QtMCP Probe library unloading (Windows)");
-  if (Probe::Instance()->IsRunning()) {
-    Probe::Instance()->Shutdown();
+  if (Probe::instance()->isRunning()) {
+    Probe::instance()->shutdown();
   }
 }
 

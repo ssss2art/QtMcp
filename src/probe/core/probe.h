@@ -4,8 +4,7 @@
 #pragma once
 
 #include <QObject>
-
-#include <memory>
+#include <QGlobalStatic>
 
 // Export macro for Windows DLL
 #if defined(QTMCP_PROBE_LIBRARY)
@@ -24,6 +23,7 @@
 
 namespace qtmcp {
 
+// Forward declaration - WebSocketServer will be implemented in a later plan
 class WebSocketServer;
 
 /// @brief Main probe class that manages the QtMCP introspection system.
@@ -33,70 +33,93 @@ class WebSocketServer;
 /// connections for introspection and automation commands.
 ///
 /// Configuration is done via environment variables:
-/// - QTMCP_PORT: WebSocket server port (default: 9999)
+/// - QTMCP_PORT: WebSocket server port (default: 9222)
 /// - QTMCP_MODE: API mode - "native", "computer_use", "chrome", or "all"
 /// - QTMCP_ENABLED: Set to "0" to disable the probe
+///
+/// IMPORTANT: This class uses Q_GLOBAL_STATIC for thread-safe singleton
+/// storage. Do NOT use thread_local or std::call_once in this codebase -
+/// they cause issues with dynamically loaded DLLs on Windows.
 class QTMCP_EXPORT Probe : public QObject {
-  Q_OBJECT
+    Q_OBJECT
+    Q_DISABLE_COPY_MOVE(Probe)
 
- public:
-  /// @brief Get the singleton instance.
-  /// @return Pointer to the global Probe instance.
-  static Probe* Instance();
+public:
+    /// @brief Get the singleton instance.
+    /// @return Pointer to the global Probe instance (never null).
+    ///
+    /// Uses Q_GLOBAL_STATIC internally for thread-safe lazy initialization.
+    static Probe* instance();
 
-  /// @brief Initialize the probe with the specified port.
-  /// @param port WebSocket server port (default: 9999).
-  /// @return true if initialization succeeded, false otherwise.
-  bool Initialize(int port = 9999);
+    /// @brief Initialize the probe.
+    ///
+    /// Must be called AFTER QCoreApplication is created. On Windows, this is
+    /// called via InitOnceExecuteOnce to ensure thread-safe one-time init.
+    /// On Linux, this is called via QTimer::singleShot from the constructor.
+    ///
+    /// @return true if initialization succeeded or already initialized.
+    bool initialize();
 
-  /// @brief Shutdown the probe and release resources.
-  void Shutdown();
+    /// @brief Check if the probe has been initialized.
+    /// @return true if initialize() has been successfully called.
+    bool isInitialized() const;
 
-  /// @brief Check if the probe is currently running.
-  /// @return true if the probe is initialized and running.
-  bool IsRunning() const;
+    /// @brief Shutdown the probe and release resources.
+    ///
+    /// Safe to call multiple times. Called automatically on DLL unload.
+    void shutdown();
 
-  /// @brief Get the WebSocket server port.
-  /// @return The port number the server is listening on, or 0 if not running.
-  int Port() const;
+    /// @brief Set the WebSocket server port.
+    /// @param port Port number (1-65535).
+    ///
+    /// Must be called BEFORE initialize(). Has no effect after initialization.
+    void setPort(quint16 port);
 
-  /// @brief Get the current API mode.
-  /// @return The API mode string ("native", "computer_use", "chrome", or "all").
-  QString Mode() const;
+    /// @brief Get the configured WebSocket server port.
+    /// @return The port number (default: 9222).
+    quint16 port() const;
 
- signals:
-  /// @brief Emitted when a client connects to the WebSocket server.
-  void ClientConnected();
+    /// @brief Get the current API mode.
+    /// @return The API mode string ("native", "computer_use", "chrome", or "all").
+    QString mode() const;
 
-  /// @brief Emitted when a client disconnects from the WebSocket server.
-  void ClientDisconnected();
+    /// @brief Check if the probe is currently running with an active server.
+    /// @return true if initialized and server is listening.
+    bool isRunning() const;
 
-  /// @brief Emitted when the probe encounters an error.
-  /// @param message Error description.
-  void ErrorOccurred(const QString& message);
+signals:
+    /// @brief Emitted when a client connects to the WebSocket server.
+    void clientConnected();
 
- private:
-  /// @brief Private constructor for singleton pattern.
-  Probe();
+    /// @brief Emitted when a client disconnects from the WebSocket server.
+    void clientDisconnected();
 
-  /// @brief Destructor.
-  ~Probe() override;
+    /// @brief Emitted when the probe encounters an error.
+    /// @param message Error description.
+    void errorOccurred(const QString& message);
 
-  // Prevent copying
-  Probe(const Probe&) = delete;
-  Probe& operator=(const Probe&) = delete;
+public:
+    // Constructor/destructor are public for Q_GLOBAL_STATIC compatibility
+    // Use instance() to get the singleton - do not construct directly
+    Probe();
+    ~Probe() override;
 
-  /// @brief Read configuration from environment variables.
-  void ReadConfiguration();
+private:
 
-  /// @brief Internal initialization called once Qt event loop is available.
-  void DeferredInitialize();
+    /// @brief Read configuration from environment variables.
+    void readConfiguration();
 
-  std::unique_ptr<WebSocketServer> server_;
-  int port_ = 9999;
-  QString mode_ = "all";
-  bool running_ = false;
-  bool initialized_ = false;
+    // WebSocket server - will be created in initialize()
+    // Using raw pointer because WebSocketServer is not yet implemented
+    WebSocketServer* m_server = nullptr;
+
+    // Configuration
+    quint16 m_port = 9222;
+    QString m_mode = QStringLiteral("all");
+
+    // State flags
+    bool m_initialized = false;
+    bool m_running = false;
 };
 
 }  // namespace qtmcp

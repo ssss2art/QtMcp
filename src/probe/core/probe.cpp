@@ -4,141 +4,154 @@
 #include "core/probe.h"
 
 #include <QCoreApplication>
-#include <QTimer>
 #include <QDebug>
 
+// Logging macros - use spdlog if available, otherwise Qt logging
 #ifdef QTMCP_HAS_SPDLOG
 #include <spdlog/spdlog.h>
 #define LOG_INFO(msg) spdlog::info(msg)
 #define LOG_WARN(msg) spdlog::warn(msg)
 #define LOG_ERROR(msg) spdlog::error(msg)
-#define LOG_INFO_FMT(fmt, ...) spdlog::info(fmt, __VA_ARGS__)
-#define LOG_WARN_FMT(fmt, ...) spdlog::warn(fmt, __VA_ARGS__)
-#define LOG_ERROR_FMT(fmt, ...) spdlog::error(fmt, __VA_ARGS__)
 #else
 #define LOG_INFO(msg) qInfo() << msg
 #define LOG_WARN(msg) qWarning() << msg
 #define LOG_ERROR(msg) qCritical() << msg
-#define LOG_INFO_FMT(fmt, ...) qInfo() << QString::asprintf(fmt, __VA_ARGS__)
-#define LOG_WARN_FMT(fmt, ...) qWarning() << QString::asprintf(fmt, __VA_ARGS__)
-#define LOG_ERROR_FMT(fmt, ...) qCritical() << QString::asprintf(fmt, __VA_ARGS__)
 #endif
 
-#include "transport/websocket_server.h"
+// Forward declaration - WebSocketServer not yet implemented
+// #include "transport/websocket_server.h"
 
 namespace qtmcp {
 
-namespace {
-// Global singleton instance
-Probe* g_instance = nullptr;
-}  // namespace
+// Thread-safe singleton storage using Q_GLOBAL_STATIC
+// This is safe for dynamically loaded DLLs (no TLS issues)
+Q_GLOBAL_STATIC(Probe, s_probeInstance)
 
-Probe* Probe::Instance() {
-  if (g_instance == nullptr) {
-    g_instance = new Probe();
-  }
-  return g_instance;
+Probe* Probe::instance() {
+    return s_probeInstance();
 }
 
-Probe::Probe() : QObject(nullptr) {
-  LOG_INFO("QtMCP Probe created");
-  ReadConfiguration();
+Probe::Probe()
+    : QObject(nullptr)
+    , m_server(nullptr)
+    , m_port(9222)
+    , m_mode(QStringLiteral("all"))
+    , m_initialized(false)
+    , m_running(false)
+{
+    // Read configuration from environment variables
+    readConfiguration();
+
+    // Log creation to stderr for debugging injection issues
+    // Using fprintf because qDebug may not work before Qt is fully initialized
+    fprintf(stderr, "[QtMCP] Probe singleton created (port=%u, mode=%s)\n",
+            static_cast<unsigned>(m_port), qPrintable(m_mode));
 }
 
 Probe::~Probe() {
-  Shutdown();
-  g_instance = nullptr;
+    shutdown();
+    fprintf(stderr, "[QtMCP] Probe singleton destroyed\n");
 }
 
-void Probe::ReadConfiguration() {
-  // Read port from environment
-  QByteArray port_env = qgetenv("QTMCP_PORT");
-  if (!port_env.isEmpty()) {
-    bool ok = false;
-    int port = port_env.toInt(&ok);
-    if (ok && port > 0 && port < 65536) {
-      port_ = port;
+void Probe::readConfiguration() {
+    // Read port from environment
+    QByteArray portEnv = qgetenv("QTMCP_PORT");
+    if (!portEnv.isEmpty()) {
+        bool ok = false;
+        int envPort = portEnv.toInt(&ok);
+        if (ok && envPort > 0 && envPort <= 65535) {
+            m_port = static_cast<quint16>(envPort);
+        }
     }
-  }
 
-  // Read mode from environment
-  QByteArray mode_env = qgetenv("QTMCP_MODE");
-  if (!mode_env.isEmpty()) {
-    QString mode = QString::fromUtf8(mode_env).toLower();
-    if (mode == "native" || mode == "computer_use" || mode == "chrome" || mode == "all") {
-      mode_ = mode;
+    // Read mode from environment
+    QByteArray modeEnv = qgetenv("QTMCP_MODE");
+    if (!modeEnv.isEmpty()) {
+        QString modeStr = QString::fromUtf8(modeEnv).toLower();
+        if (modeStr == QLatin1String("native") ||
+            modeStr == QLatin1String("computer_use") ||
+            modeStr == QLatin1String("chrome") ||
+            modeStr == QLatin1String("all")) {
+            m_mode = modeStr;
+        }
     }
-  }
-
-  qInfo() << "QtMCP configuration: port=" << port_ << ", mode=" << mode_;
 }
 
-bool Probe::Initialize(int port) {
-  if (running_) {
-    LOG_WARN("Probe already initialized");
+bool Probe::initialize() {
+    // Guard against multiple initialization
+    if (m_initialized) {
+        LOG_WARN("[QtMCP] Probe::initialize() called but already initialized");
+        return true;
+    }
+
+    // CRITICAL: Verify QCoreApplication exists before using any Qt functionality
+    // This is the main safety check for deferred initialization
+    if (!QCoreApplication::instance()) {
+        LOG_ERROR("[QtMCP] Probe::initialize() called but QCoreApplication does not exist!");
+        fprintf(stderr, "[QtMCP] ERROR: Cannot initialize - QCoreApplication not created yet\n");
+        return false;
+    }
+
+    // Mark as initialized first to prevent re-entry
+    m_initialized = true;
+
+    // Log initialization
+    LOG_INFO("[QtMCP] Probe initializing...");
+    fprintf(stderr, "[QtMCP] Probe initialized (port=%u)\n", static_cast<unsigned>(m_port));
+
+    // TODO: Start WebSocket server here in future plan (01-03 or 01-04)
+    // For now, just mark as "running" since we have no server yet
+    // m_server = new WebSocketServer(m_port, this);
+    // m_running = m_server->isListening();
+
+    // Placeholder: will be replaced when WebSocketServer is implemented
+    m_running = true;
+
     return true;
-  }
-
-  port_ = port;
-
-  // Check if Qt event loop is available
-  if (QCoreApplication::instance() == nullptr) {
-    LOG_INFO("QCoreApplication not available yet, deferring initialization");
-    // We'll need to wait for the application to be created
-    // The injector will handle this via QTimer::singleShot when app is ready
-    return true;
-  }
-
-  DeferredInitialize();
-  return running_;
 }
 
-void Probe::DeferredInitialize() {
-  if (initialized_) {
-    return;
-  }
-  initialized_ = true;
-
-  qInfo() << "QtMCP Probe initializing on port" << port_;
-
-  // Create WebSocket server
-  server_ = std::make_unique<WebSocketServer>(this);
-
-  // Connect signals
-  connect(server_.get(), &WebSocketServer::ClientConnected, this, &Probe::ClientConnected);
-  connect(server_.get(), &WebSocketServer::ClientDisconnected, this, &Probe::ClientDisconnected);
-  connect(server_.get(), &WebSocketServer::ErrorOccurred, this, &Probe::ErrorOccurred);
-
-  // Start server
-  if (server_->Start(port_)) {
-    running_ = true;
-    qInfo() << "QtMCP Probe started successfully on port" << port_;
-  } else {
-    qCritical() << "Failed to start QtMCP Probe on port" << port_;
-    emit ErrorOccurred(QString("Failed to start WebSocket server on port %1").arg(port_));
-  }
+bool Probe::isInitialized() const {
+    return m_initialized;
 }
 
-void Probe::Shutdown() {
-  if (!running_) {
-    return;
-  }
+void Probe::shutdown() {
+    if (!m_initialized) {
+        return;
+    }
 
-  LOG_INFO("QtMCP Probe shutting down");
+    LOG_INFO("[QtMCP] Probe shutting down...");
+    fprintf(stderr, "[QtMCP] Probe shutting down\n");
 
-  if (server_) {
-    server_->Stop();
-    server_.reset();
-  }
+    // TODO: Stop WebSocket server when implemented
+    // if (m_server) {
+    //     delete m_server;
+    //     m_server = nullptr;
+    // }
 
-  running_ = false;
-  initialized_ = false;
+    m_running = false;
+    m_initialized = false;
 }
 
-bool Probe::IsRunning() const { return running_; }
+void Probe::setPort(quint16 port) {
+    if (m_initialized) {
+        LOG_WARN("[QtMCP] Cannot change port after initialization");
+        return;
+    }
+    if (port > 0) {
+        m_port = port;
+    }
+}
 
-int Probe::Port() const { return running_ ? port_ : 0; }
+quint16 Probe::port() const {
+    return m_port;
+}
 
-QString Probe::Mode() const { return mode_; }
+QString Probe::mode() const {
+    return m_mode;
+}
+
+bool Probe::isRunning() const {
+    return m_running;
+}
 
 }  // namespace qtmcp
