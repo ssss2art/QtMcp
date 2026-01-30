@@ -8,6 +8,8 @@ set(PROBE_SOURCES
     introspection/meta_inspector.cpp
     introspection/signal_monitor.cpp
     interaction/input_simulator.cpp
+    interaction/screenshot.cpp
+    interaction/hit_test.cpp
     transport/websocket_server.cpp
     transport/jsonrpc_handler.cpp
 )
@@ -21,6 +23,8 @@ set(PROBE_HEADERS
     introspection/meta_inspector.h
     introspection/signal_monitor.h
     interaction/input_simulator.h
+    interaction/screenshot.h
+    interaction/hit_test.h
     transport/websocket_server.h
     transport/jsonrpc_handler.h
 )
