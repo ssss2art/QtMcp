@@ -52,10 +52,16 @@ Plans:
   3. User can read/write properties, list methods, and invoke slots on any object
   4. User can subscribe to signals and receive push notifications when they emit
   5. User can simulate clicks, send keystrokes, take screenshots, and perform hit testing
-**Plans**: TBD
+**Plans**: 7 plans in 4 waves
 
 Plans:
-- [ ] 02-01: TBD (planning not yet started)
+- [ ] 02-01-PLAN.md - Object Registry with qtHookData hooks (Wave 1)
+- [ ] 02-02-PLAN.md - Hierarchical object IDs and tree serialization (Wave 2)
+- [ ] 02-03-PLAN.md - Meta Inspector for property/method/signal listing (Wave 2)
+- [ ] 02-04-PLAN.md - Property get/set and method invocation (Wave 3)
+- [ ] 02-05-PLAN.md - Signal monitoring with push notifications (Wave 3)
+- [ ] 02-06-PLAN.md - UI interaction (click, keyboard, screenshot, hit test) (Wave 2)
+- [ ] 02-07-PLAN.md - JSON-RPC integration for all introspection methods (Wave 4)
 
 ### Phase 3: Native Mode
 **Goal**: Complete Native Mode API surface ready for AI agents to use full Qt introspection
@@ -145,7 +151,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 6/6 | Complete | 2026-01-30 |
-| 2. Core Introspection | 0/TBD | Not started | - |
+| 2. Core Introspection | 0/7 | Planned | - |
 | 3. Native Mode | 0/TBD | Not started | - |
 | 4. Computer Use Mode | 0/TBD | Not started | - |
 | 5. Chrome Mode | 0/TBD | Not started | - |
