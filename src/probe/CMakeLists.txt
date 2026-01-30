@@ -3,6 +3,8 @@
 set(PROBE_SOURCES
     core/probe.cpp
     core/object_registry.cpp
+    introspection/object_id.cpp
+    introspection/variant_json.cpp
     transport/websocket_server.cpp
     transport/jsonrpc_handler.cpp
 )
@@ -11,6 +13,8 @@ set(PROBE_HEADERS
     core/probe.h
     core/injector.h
     core/object_registry.h
+    introspection/object_id.h
+    introspection/variant_json.h
     transport/websocket_server.h
     transport/jsonrpc_handler.h
 )
