@@ -154,79 +154,79 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INJ-01 | TBD | Pending |
-| INJ-02 | TBD | Pending |
-| INJ-03 | TBD | Pending |
-| INJ-04 | TBD | Pending |
-| INJ-05 | TBD | Pending |
-| OBJ-01 | TBD | Pending |
-| OBJ-02 | TBD | Pending |
-| OBJ-03 | TBD | Pending |
-| OBJ-04 | TBD | Pending |
-| OBJ-05 | TBD | Pending |
-| OBJ-06 | TBD | Pending |
-| OBJ-07 | TBD | Pending |
-| OBJ-08 | TBD | Pending |
-| OBJ-09 | TBD | Pending |
-| OBJ-10 | TBD | Pending |
-| OBJ-11 | TBD | Pending |
-| SIG-01 | TBD | Pending |
-| SIG-02 | TBD | Pending |
-| SIG-03 | TBD | Pending |
-| SIG-04 | TBD | Pending |
-| SIG-05 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
-| UI-05 | TBD | Pending |
-| NAT-01 | TBD | Pending |
-| NAT-02 | TBD | Pending |
-| NAT-03 | TBD | Pending |
-| NAT-04 | TBD | Pending |
-| NAT-05 | TBD | Pending |
-| CU-01 | TBD | Pending |
-| CU-02 | TBD | Pending |
-| CU-03 | TBD | Pending |
-| CU-04 | TBD | Pending |
-| CU-05 | TBD | Pending |
-| CU-06 | TBD | Pending |
-| CU-07 | TBD | Pending |
-| CU-08 | TBD | Pending |
-| CU-09 | TBD | Pending |
-| CU-10 | TBD | Pending |
-| CHR-01 | TBD | Pending |
-| CHR-02 | TBD | Pending |
-| CHR-03 | TBD | Pending |
-| CHR-04 | TBD | Pending |
-| CHR-05 | TBD | Pending |
-| CHR-06 | TBD | Pending |
-| CHR-07 | TBD | Pending |
-| CHR-08 | TBD | Pending |
-| QML-01 | TBD | Pending |
-| QML-02 | TBD | Pending |
-| QML-03 | TBD | Pending |
-| QML-04 | TBD | Pending |
-| QML-05 | TBD | Pending |
-| MV-01 | TBD | Pending |
-| MV-02 | TBD | Pending |
-| MV-03 | TBD | Pending |
-| MV-04 | TBD | Pending |
-| PY-01 | TBD | Pending |
-| PY-02 | TBD | Pending |
-| PY-03 | TBD | Pending |
-| PY-04 | TBD | Pending |
-| PY-05 | TBD | Pending |
-| CLI-01 | TBD | Pending |
-| CLI-02 | TBD | Pending |
-| CLI-03 | TBD | Pending |
-| CLI-04 | TBD | Pending |
+| INJ-01 | Phase 1 | Pending |
+| INJ-02 | Phase 1 | Pending |
+| INJ-03 | Phase 1 | Pending |
+| INJ-04 | Phase 1 | Pending |
+| INJ-05 | Phase 1 | Pending |
+| OBJ-01 | Phase 2 | Pending |
+| OBJ-02 | Phase 2 | Pending |
+| OBJ-03 | Phase 2 | Pending |
+| OBJ-04 | Phase 2 | Pending |
+| OBJ-05 | Phase 2 | Pending |
+| OBJ-06 | Phase 2 | Pending |
+| OBJ-07 | Phase 2 | Pending |
+| OBJ-08 | Phase 2 | Pending |
+| OBJ-09 | Phase 2 | Pending |
+| OBJ-10 | Phase 2 | Pending |
+| OBJ-11 | Phase 2 | Pending |
+| SIG-01 | Phase 2 | Pending |
+| SIG-02 | Phase 2 | Pending |
+| SIG-03 | Phase 2 | Pending |
+| SIG-04 | Phase 2 | Pending |
+| SIG-05 | Phase 2 | Pending |
+| UI-01 | Phase 2 | Pending |
+| UI-02 | Phase 2 | Pending |
+| UI-03 | Phase 2 | Pending |
+| UI-04 | Phase 2 | Pending |
+| UI-05 | Phase 2 | Pending |
+| NAT-01 | Phase 3 | Pending |
+| NAT-02 | Phase 3 | Pending |
+| NAT-03 | Phase 3 | Pending |
+| NAT-04 | Phase 3 | Pending |
+| NAT-05 | Phase 3 | Pending |
+| CU-01 | Phase 4 | Pending |
+| CU-02 | Phase 4 | Pending |
+| CU-03 | Phase 4 | Pending |
+| CU-04 | Phase 4 | Pending |
+| CU-05 | Phase 4 | Pending |
+| CU-06 | Phase 4 | Pending |
+| CU-07 | Phase 4 | Pending |
+| CU-08 | Phase 4 | Pending |
+| CU-09 | Phase 4 | Pending |
+| CU-10 | Phase 4 | Pending |
+| CHR-01 | Phase 5 | Pending |
+| CHR-02 | Phase 5 | Pending |
+| CHR-03 | Phase 5 | Pending |
+| CHR-04 | Phase 5 | Pending |
+| CHR-05 | Phase 5 | Pending |
+| CHR-06 | Phase 5 | Pending |
+| CHR-07 | Phase 5 | Pending |
+| CHR-08 | Phase 5 | Pending |
+| QML-01 | Phase 6 | Pending |
+| QML-02 | Phase 6 | Pending |
+| QML-03 | Phase 6 | Pending |
+| QML-04 | Phase 6 | Pending |
+| QML-05 | Phase 6 | Pending |
+| MV-01 | Phase 6 | Pending |
+| MV-02 | Phase 6 | Pending |
+| MV-03 | Phase 6 | Pending |
+| MV-04 | Phase 6 | Pending |
+| PY-01 | Phase 7 | Pending |
+| PY-02 | Phase 7 | Pending |
+| PY-03 | Phase 7 | Pending |
+| PY-04 | Phase 7 | Pending |
+| PY-05 | Phase 7 | Pending |
+| CLI-01 | Phase 7 | Pending |
+| CLI-02 | Phase 7 | Pending |
+| CLI-03 | Phase 7 | Pending |
+| CLI-04 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 59 total
-- Mapped to phases: 0
-- Unmapped: 59 (awaiting roadmap)
+- Mapped to phases: 59
+- Unmapped: 0
 
 ---
 *Requirements defined: 2025-01-29*
-*Last updated: 2025-01-29 after initial definition*
+*Last updated: 2025-01-29 after roadmap creation*
