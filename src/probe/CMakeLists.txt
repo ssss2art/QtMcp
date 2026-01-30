@@ -2,8 +2,6 @@
 
 set(PROBE_SOURCES
     core/probe.cpp
-    core/injector_linux.cpp
-    core/injector_windows.cpp
     transport/websocket_server.cpp
     transport/jsonrpc_handler.cpp
 )
@@ -14,6 +12,14 @@ set(PROBE_HEADERS
     transport/websocket_server.h
     transport/jsonrpc_handler.h
 )
+
+# Platform-specific initialization entry points
+# These contain DllMain (Windows) and __attribute__((constructor)) (Linux)
+if(WIN32)
+    list(APPEND PROBE_SOURCES core/probe_init_windows.cpp)
+elseif(UNIX AND NOT APPLE)
+    list(APPEND PROBE_SOURCES core/probe_init_linux.cpp)
+endif()
 
 # Create shared library
 add_library(qtmcp_probe SHARED
@@ -82,19 +88,7 @@ if(QTMCP_HAS_SPDLOG)
 endif()
 
 # Platform-specific configurations
-if(WIN32)
-    # Windows-specific: exclude Linux injector from compilation
-    set_source_files_properties(
-        core/injector_linux.cpp
-        PROPERTIES HEADER_FILE_ONLY TRUE
-    )
-elseif(UNIX AND NOT APPLE)
-    # Linux-specific: exclude Windows injector from compilation
-    set_source_files_properties(
-        core/injector_windows.cpp
-        PROPERTIES HEADER_FILE_ONLY TRUE
-    )
-
+if(UNIX AND NOT APPLE)
     # Add X11 for input simulation (optional, for system-level events)
     find_package(X11)
     if(X11_FOUND AND X11_XTest_FOUND)

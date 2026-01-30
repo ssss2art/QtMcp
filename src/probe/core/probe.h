@@ -122,4 +122,14 @@ private:
     bool m_running = false;
 };
 
+/// @brief Ensure the probe is initialized.
+///
+/// This function triggers deferred initialization on platforms where the
+/// library constructor cannot call Qt functions directly (Windows DllMain,
+/// Linux LD_PRELOAD before QCoreApplication exists).
+///
+/// Safe to call multiple times - only the first call performs initialization.
+/// Uses platform-specific one-time initialization (InitOnce on Windows).
+void ensureInitialized();
+
 }  // namespace qtmcp
