@@ -150,7 +150,8 @@ endif()
 # Add subdirectories
 add_subdirectory(src/probe)
 
-if(WIN32)
+# Launcher is available on both Windows and Linux
+if(WIN32 OR (UNIX AND NOT APPLE))
     add_subdirectory(src/launcher)
 endif()
 
