@@ -64,6 +64,8 @@ Recent decisions affecting current work:
 | ID collision with ~N suffix | Duplicate IDs get ~1, ~2, etc. suffix for uniqueness | 02-02 |
 | Explicit Qt type JSON conversion | QPoint/QSize/QRect/QColor explicitly converted, not relying on QJsonValue::fromVariant | 02-03 |
 | Structured fallback for unknown types | Unknown types return {_type, value} for debugging | 02-03 |
+| Dynamic property verify by read-back | Qt setProperty returns false for new dynamic properties | 02-04 |
+| Method lookup by name + arg count | Simple approach without signature parsing | 02-04 |
 | QTest for input simulation | Cross-platform reliable using Qt's built-in test functions | 02-06 |
 | Base64 PNG for screenshots | JSON-friendly, universally supported format | 02-06 |
 | devicePixelRatio in geometry | High-DPI awareness for Retina/HiDPI displays | 02-06 |
@@ -118,6 +120,11 @@ None yet.
 - Qt `signals` macro conflicts with variable names - avoid naming variables "signals"
 - variantToJson handles common Qt types; unknown types fall back to structured output
 
+**From Plan 02-04:**
+- getProperty/setProperty support both declared and dynamic properties
+- invokeMethod only calls slots and Q_INVOKABLE methods (not property getters)
+- Dynamic property setProperty verifies by reading back (Qt returns false for new props)
+
 **From Plan 02-06:**
 - InputSimulator uses QTest functions - position defaults to widget center
 - Screenshots are base64 PNG - decode to verify PNG magic bytes
@@ -130,11 +137,11 @@ None yet.
 | 02-01 | Object Registry | COMPLETE |
 | 02-02 | Object ID System | COMPLETE |
 | 02-03 | Meta Inspector | COMPLETE |
-| 02-04 | Signal Monitor | SKIPPED (external partial work) |
-| 02-05 | Property/Method Ops | SKIPPED (external partial work) |
+| 02-04 | Property/Method Ops | COMPLETE |
+| 02-05 | Signal Monitor | SKIPPED (external partial work) |
 | 02-06 | UI Interaction | COMPLETE |
 
-**Note:** Plans 02-04 and 02-05 have partial external changes that need reconciliation before execution.
+**Note:** Plan 02-05 has partial external changes that need reconciliation before execution.
 
 ## Session Continuity
 
