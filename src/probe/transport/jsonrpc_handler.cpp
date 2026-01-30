@@ -124,29 +124,34 @@ QString JsonRpcHandler::HandleMessage(const QString& message) {
 
   qDebug() << "Handling method:" << method << "with params:" << params_str;
 
+  // Handle notifications by emitting signal and returning empty
+  if (is_notification) {
+#ifdef QTMCP_HAS_NLOHMANN_JSON
+    QJsonValue paramsValue;
+    if (request.contains("params")) {
+      // Convert nlohmann::json to QJsonValue
+      QString paramsJson = QString::fromStdString(request["params"].dump());
+      paramsValue = QJsonDocument::fromJson(paramsJson.toUtf8()).object();
+    }
+#else
+    QJsonValue paramsValue = request.value("params");
+#endif
+    emit NotificationReceived(method, paramsValue);
+    return QString();  // No response for notifications
+  }
+
   // Find and invoke method handler
   auto it = methods_.find(method);
   if (it == methods_.end()) {
-    if (is_notification) {
-      // Notifications don't get error responses
-      qWarning() << "Unknown notification method:" << method;
-      return "";
-    }
     return CreateErrorResponse(id_str, JsonRpcError::kMethodNotFound,
                                QString("Method not found: %1").arg(method));
   }
 
   try {
     QString result = it->second(params_str);
-    if (is_notification) {
-      return "";  // No response for notifications
-    }
     return CreateSuccessResponse(id_str, result);
   } catch (const std::exception& e) {
     qCritical() << "Method" << method << "threw exception:" << e.what();
-    if (is_notification) {
-      return "";
-    }
     return CreateErrorResponse(id_str, JsonRpcError::kInternalError,
                                QString("Internal error: %1").arg(e.what()));
   }
@@ -205,6 +210,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
 
   // echo - echo back params (for testing)
   RegisterMethod("echo", [](const QString& params) -> QString { return params; });
+
+  // qtmcp.echo - namespaced echo for integration testing (per RESEARCH.md spec)
+  RegisterMethod("qtmcp.echo", [](const QString& params) -> QString { return params; });
 }
 
 }  // namespace qtmcp

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <QJsonValue>
 #include <QObject>
 #include <QString>
 
@@ -48,6 +49,11 @@ class JsonRpcHandler : public QObject {
   /// @brief Emitted when a notification should be sent to clients.
   /// @param notification The JSON notification string.
   void NotificationReady(const QString& notification);
+
+  /// @brief Emitted when a notification (request without id) is received.
+  /// @param method The method name.
+  /// @param params The params value.
+  void NotificationReceived(const QString& method, const QJsonValue& params);
 
  private:
   /// @brief Create a JSON-RPC success response.
