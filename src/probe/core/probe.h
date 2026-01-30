@@ -87,6 +87,10 @@ public:
     /// @return true if initialized and server is listening.
     bool isRunning() const;
 
+    /// @brief Get the WebSocket server.
+    /// @return Pointer to the server, or nullptr if not initialized.
+    WebSocketServer* server() const;
+
 signals:
     /// @brief Emitted when a client connects to the WebSocket server.
     void clientConnected();

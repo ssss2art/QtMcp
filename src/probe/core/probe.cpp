@@ -18,8 +18,7 @@
 #define LOG_ERROR(msg) qCritical() << msg
 #endif
 
-// Forward declaration - WebSocketServer not yet implemented
-// #include "transport/websocket_server.h"
+#include "transport/websocket_server.h"
 
 namespace qtmcp {
 
@@ -95,17 +94,31 @@ bool Probe::initialize() {
     // Mark as initialized first to prevent re-entry
     m_initialized = true;
 
-    // Log initialization
-    LOG_INFO("[QtMCP] Probe initializing...");
-    fprintf(stderr, "[QtMCP] Probe initialized (port=%u)\n", static_cast<unsigned>(m_port));
+    // Create and start WebSocket server
+    m_server = new WebSocketServer(m_port, this);
 
-    // TODO: Start WebSocket server here in future plan (01-03 or 01-04)
-    // For now, just mark as "running" since we have no server yet
-    // m_server = new WebSocketServer(m_port, this);
-    // m_running = m_server->isListening();
+    // Connect server signals to probe signals for external monitoring
+    connect(m_server, &WebSocketServer::clientConnected,
+            this, &Probe::clientConnected);
+    connect(m_server, &WebSocketServer::clientDisconnected,
+            this, &Probe::clientDisconnected);
+    connect(m_server, &WebSocketServer::errorOccurred,
+            this, &Probe::errorOccurred);
 
-    // Placeholder: will be replaced when WebSocketServer is implemented
+    // Start the server
+    if (!m_server->start()) {
+        LOG_ERROR("[QtMCP] Failed to start WebSocket server");
+        fprintf(stderr, "[QtMCP] ERROR: Failed to start WebSocket server on port %u\n",
+                static_cast<unsigned>(m_port));
+        delete m_server;
+        m_server = nullptr;
+        m_initialized = false;
+        return false;
+    }
+
     m_running = true;
+    LOG_INFO("[QtMCP] Probe initialized successfully");
+    fprintf(stderr, "[QtMCP] Probe initialized on port %u\n", static_cast<unsigned>(m_port));
 
     return true;
 }
@@ -122,11 +135,12 @@ void Probe::shutdown() {
     LOG_INFO("[QtMCP] Probe shutting down...");
     fprintf(stderr, "[QtMCP] Probe shutting down\n");
 
-    // TODO: Stop WebSocket server when implemented
-    // if (m_server) {
-    //     delete m_server;
-    //     m_server = nullptr;
-    // }
+    // Stop and delete WebSocket server
+    if (m_server) {
+        m_server->stop();
+        delete m_server;
+        m_server = nullptr;
+    }
 
     m_running = false;
     m_initialized = false;
@@ -152,6 +166,10 @@ QString Probe::mode() const {
 
 bool Probe::isRunning() const {
     return m_running;
+}
+
+WebSocketServer* Probe::server() const {
+    return m_server;
 }
 
 }  // namespace qtmcp
