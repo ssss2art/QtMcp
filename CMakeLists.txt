@@ -42,6 +42,7 @@ set(QT_MIN_VERSION_6 "6.0")
 
 find_package(Qt6 ${QT_MIN_VERSION_6} QUIET COMPONENTS
     Core
+    CorePrivate
     Network
     WebSockets
     Widgets
@@ -55,6 +56,7 @@ if(Qt6_FOUND)
 else()
     find_package(Qt5 ${QT_MIN_VERSION_5} REQUIRED COMPONENTS
         Core
+        CorePrivate
         Network
         WebSockets
         Widgets

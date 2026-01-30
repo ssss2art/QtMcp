@@ -2,6 +2,7 @@
 
 set(PROBE_SOURCES
     core/probe.cpp
+    core/object_registry.cpp
     transport/websocket_server.cpp
     transport/jsonrpc_handler.cpp
 )
@@ -9,6 +10,7 @@ set(PROBE_SOURCES
 set(PROBE_HEADERS
     core/probe.h
     core/injector.h
+    core/object_registry.h
     transport/websocket_server.h
     transport/jsonrpc_handler.h
 )
@@ -65,6 +67,8 @@ if(QT_VERSION_MAJOR EQUAL 6)
             Qt6::Network
             Qt6::WebSockets
             Qt6::Widgets
+        PRIVATE
+            Qt6::CorePrivate  # For qhooks_p.h (object registry hooks)
     )
 else()
     target_link_libraries(qtmcp_probe
@@ -73,6 +77,8 @@ else()
             Qt5::Network
             Qt5::WebSockets
             Qt5::Widgets
+        PRIVATE
+            Qt5::CorePrivate  # For qhooks_p.h (object registry hooks)
     )
 endif()
 
