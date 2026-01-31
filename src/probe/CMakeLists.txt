@@ -14,6 +14,7 @@ set(PROBE_SOURCES
     transport/jsonrpc_handler.cpp
     api/response_envelope.cpp
     api/symbolic_name_map.cpp
+    api/native_mode_api.cpp
     core/object_resolver.cpp
 )
 
@@ -34,6 +35,7 @@ set(PROBE_HEADERS
     api/error_codes.h
     api/response_envelope.h
     api/symbolic_name_map.h
+    api/native_mode_api.h
 )
 
 # Platform-specific initialization entry points

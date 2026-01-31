@@ -7,7 +7,10 @@
 #include <QObject>
 #include <QString>
 
+#include <QJsonObject>
+
 #include <functional>
+#include <stdexcept>
 #include <unordered_map>
 
 // Export macro for Windows DLL
@@ -100,5 +103,29 @@ constexpr int kInternalError = -32603;
 // Server errors: -32000 to -32099
 constexpr int kServerError = -32000;
 }  // namespace JsonRpcError
+
+/// @brief Structured JSON-RPC exception with error code and optional data.
+///
+/// Thrown by method handlers (e.g., NativeModeApi lambdas) to produce
+/// structured error responses with specific error codes and data fields.
+/// JsonRpcHandler::HandleMessage catches this before std::exception.
+class JsonRpcException : public std::runtime_error {
+public:
+    JsonRpcException(int code, const QString& message,
+                     const QJsonObject& data = QJsonObject())
+        : std::runtime_error(message.toStdString())
+        , m_code(code)
+        , m_message(message)
+        , m_data(data) {}
+
+    int code() const { return m_code; }
+    QString errorMessage() const { return m_message; }
+    QJsonObject data() const { return m_data; }
+
+private:
+    int m_code;
+    QString m_message;
+    QJsonObject m_data;
+};
 
 }  // namespace qtmcp
