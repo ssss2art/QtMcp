@@ -87,6 +87,15 @@ class QTMCP_EXPORT JsonRpcHandler : public QObject {
   /// @return Formatted JSON-RPC error response.
   QString CreateErrorResponse(const QString& id, int code, const QString& message);
 
+  /// @brief Create a JSON-RPC error response with data field.
+  /// @param id Request ID.
+  /// @param code Error code.
+  /// @param message Error message.
+  /// @param data Additional structured error data.
+  /// @return Formatted JSON-RPC error response with data.
+  QString CreateErrorResponse(const QString& id, int code, const QString& message,
+                              const QJsonObject& data);
+
   /// @brief Register built-in methods (ping, getVersion, etc.).
   void RegisterBuiltinMethods();
 

@@ -161,6 +161,9 @@ QString JsonRpcHandler::HandleMessage(const QString& message) {
   try {
     QString result = it->second(params_str);
     return CreateSuccessResponse(id_str, result);
+  } catch (const JsonRpcException& e) {
+    qCritical() << "Method" << method << "threw structured error:" << e.errorMessage();
+    return CreateErrorResponse(id_str, e.code(), e.errorMessage(), e.data());
   } catch (const std::exception& e) {
     qCritical() << "Method" << method << "threw exception:" << e.what();
     return CreateErrorResponse(id_str, JsonRpcError::kInternalError,
@@ -195,6 +198,37 @@ QString JsonRpcHandler::CreateErrorResponse(const QString& id, int code, const Q
       .arg(id)
       .arg(code)
       .arg(escaped_message);
+}
+
+QString JsonRpcHandler::CreateErrorResponse(const QString& id, int code,
+                                              const QString& message,
+                                              const QJsonObject& data) {
+  QJsonObject errorObj;
+  errorObj["code"] = code;
+  errorObj["message"] = message;
+  if (!data.isEmpty()) {
+    errorObj["data"] = data;
+  }
+
+  QJsonObject response;
+  response["jsonrpc"] = "2.0";
+  // Parse id - could be number, string, or null
+  if (id == "null") {
+    response["id"] = QJsonValue::Null;
+  } else if (id.startsWith('"')) {
+    response["id"] = id.mid(1, id.length() - 2);
+  } else {
+    bool ok = false;
+    int numId = id.toInt(&ok);
+    if (ok) {
+      response["id"] = numId;
+    } else {
+      response["id"] = QJsonValue::Null;
+    }
+  }
+  response["error"] = errorObj;
+
+  return QString::fromUtf8(QJsonDocument(response).toJson(QJsonDocument::Compact));
 }
 
 void JsonRpcHandler::RegisterBuiltinMethods() {

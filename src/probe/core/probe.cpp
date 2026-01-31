@@ -18,10 +18,15 @@
 #define LOG_ERROR(msg) qCritical() << msg
 #endif
 
+#include "api/native_mode_api.h"
+#include "api/symbolic_name_map.h"
 #include "core/object_registry.h"
+#include "core/object_resolver.h"
 #include "introspection/signal_monitor.h"
 #include "transport/websocket_server.h"
 
+#include <QDir>
+#include <QFile>
 #include <QGuiApplication>
 #include <QWindow>
 
@@ -147,6 +152,27 @@ bool Probe::initialize() {
     }
 
     m_running = true;
+
+    // Register Native Mode API (qt.* namespaced methods)
+    auto* nativeApi = new NativeModeApi(m_server->rpcHandler(), this);
+    Q_UNUSED(nativeApi);
+
+    // Auto-load symbolic name map from env var or default file
+    QString nameMapPath = qEnvironmentVariable("QTMCP_NAME_MAP");
+    if (nameMapPath.isEmpty()) {
+        nameMapPath = QDir::currentPath() + QStringLiteral("/qtmcp-names.json");
+    }
+    if (QFile::exists(nameMapPath)) {
+        SymbolicNameMap::instance()->loadFromFile(nameMapPath);
+        LOG_INFO("[QtMCP] Loaded symbolic name map from " + nameMapPath);
+        fprintf(stderr, "[QtMCP] Loaded name map from %s\n", qPrintable(nameMapPath));
+    }
+
+    // Clear numeric IDs on client disconnect to prevent stale references
+    connect(m_server, &WebSocketServer::clientDisconnected,
+            this, []() {
+        ObjectResolver::clearNumericIds();
+    });
 
     // Wire signal notifications to WebSocket client
     connect(SignalMonitor::instance(), &SignalMonitor::signalEmitted,
