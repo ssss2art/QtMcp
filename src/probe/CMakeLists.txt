@@ -12,6 +12,7 @@ set(PROBE_SOURCES
     interaction/hit_test.cpp
     transport/websocket_server.cpp
     transport/jsonrpc_handler.cpp
+    api/response_envelope.cpp
 )
 
 set(PROBE_HEADERS
@@ -27,6 +28,8 @@ set(PROBE_HEADERS
     interaction/hit_test.h
     transport/websocket_server.h
     transport/jsonrpc_handler.h
+    api/error_codes.h
+    api/response_envelope.h
 )
 
 # Platform-specific initialization entry points
