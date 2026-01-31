@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 3 - Native Mode (COMPLETE)
+**Current focus:** Phase 3 - Native Mode (COMPLETE + gap closure)
 
 ## Current Position
 
 Phase: 3 of 7 (Native Mode)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-01-31 - Completed 03-03-PLAN.md (Testing)
+Plan: 4 of 4 in current phase (includes gap closure)
+Status: Phase complete (gap closed)
+Last activity: 2026-01-31 - Completed 03-04-PLAN.md (Object ID Resolution Gap Closure)
 
-Progress: [################--] 83%
+Progress: [################--] 89%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
-- Average duration: 13.0 min
-- Total execution time: 3.24 hours
+- Total plans completed: 16
+- Average duration: 12.4 min
+- Total execution time: 3.27 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [################--] 83%
 |-------|-------|-------|----------|
 | 01-foundation | 6 | 66 min | 11.0 min |
 | 02-core-introspection | 6 | 104 min | 17.3 min |
-| 03-native-mode | 3 | 22 min | 7.3 min |
+| 03-native-mode | 4 | 24 min | 6.0 min |
 
 **Recent Trend:**
-- Last 6 plans: 02-06 (15 min), 02-07 (18 min), 03-01 (5 min), 03-02 (10 min), 03-03 (7 min)
-- Trend: Phase 3 completed fast (7.3 min avg) - well-defined scope + existing patterns
+- Last 6 plans: 02-07 (18 min), 03-01 (5 min), 03-02 (10 min), 03-03 (7 min), 03-04 (2 min)
+- Trend: Gap closure plan executed in 2 min - single targeted fix + regression test
 
 *Updated after each plan completion*
 
@@ -171,6 +171,7 @@ None yet.
 | 03-01 | Infrastructure Classes | COMPLETE |
 | 03-02 | NativeModeApi | COMPLETE |
 | 03-03 | Testing | COMPLETE |
+| 03-04 | Object ID Resolution Gap Closure | COMPLETE |
 
 **From Plan 03-03:**
 - 29 integration tests verify complete qt.* API surface
@@ -178,11 +179,16 @@ None yet.
 - ObjectResolver.clearNumericIds() needed in cleanup to prevent cross-test state leakage
 - All 8 test suites (8 executables, 100+ test functions total) pass
 
+**From Plan 03-04 (Gap Closure):**
+- getTopLevelObjects() must include QCoreApplication::instance() itself, not just its children
+- Without this fix, ALL global findByObjectId lookups by hierarchical path fail
+- testFindByIdGlobal regression test prevents this from regressing
+
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 03-03-PLAN.md (Testing) - Phase 3 complete
+Stopped at: Completed 03-04-PLAN.md (Gap Closure) - Phase 3 fully complete
 Resume file: None
 
 ---
-*State updated: 2026-01-31*
+*State updated: 2026-01-31 (post gap closure)*
