@@ -108,8 +108,11 @@ QList<QObject*> getTopLevelObjects() {
 
     QCoreApplication* app = QCoreApplication::instance();
     if (app) {
-        // Application's direct children are typically top-level
-        result.append(app->children());
+        // Include the application object itself as a search root.
+        // generateObjectId() walks up to QCoreApplication, so IDs start
+        // with the app's segment (e.g., "QApplication/..."). The search
+        // must begin from the app to match that first segment.
+        result.append(app);
     }
 
     return result;
