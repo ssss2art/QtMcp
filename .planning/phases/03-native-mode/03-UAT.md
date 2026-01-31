@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 03-native-mode
 source: 03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md
 started: 2026-01-31T19:30:00Z
@@ -81,7 +81,13 @@ skipped: 0
   reason: "User reported: qt.names.register, qt.names.list, qt.names.unregister all work correctly. However, using a symbolic name as objectId in qt.objects.info returns 'Object not found' instead of resolving through the name map."
   severity: major
   test: 6
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "getTopLevelObjects() in object_id.cpp returns app->children() but excludes QApplication itself. ID generation includes QApplication as root segment, so findByObjectId() fails because segment[0]='QApplication' can't match any child. Symbolic names resolve to paths that hit this broken tree-walk fallback. Numeric IDs and hierarchical paths from qt.objects.tree also affected."
+  artifacts:
+    - path: "src/probe/introspection/object_id.cpp"
+      issue: "getTopLevelObjects() excludes QCoreApplication from search roots (line ~113)"
+    - path: "src/probe/core/object_registry.cpp"
+      issue: "findById() cache lookup requires exact ~N suffix match (line ~282)"
+  missing:
+    - "Include QCoreApplication::instance() in getTopLevelObjects() search roots"
+    - "Tree-walk fallback will then correctly resolve QApplication/... paths"
+  debug_session: ".planning/debug/symbolic-name-resolve-fail.md"
