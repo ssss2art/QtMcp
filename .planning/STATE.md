@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2025-01-29)
 ## Current Position
 
 Phase: 3 of 7 (Native Mode)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-31 - Completed 03-01-PLAN.md (Infrastructure Classes)
+Last activity: 2026-01-31 - Completed 03-02-PLAN.md (NativeModeApi)
 
-Progress: [#############-----] 72%
+Progress: [##############----] 78%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 13.6 min
-- Total execution time: 2.95 hours
+- Total plans completed: 14
+- Average duration: 13.4 min
+- Total execution time: 3.12 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [#############-----] 72%
 |-------|-------|-------|----------|
 | 01-foundation | 6 | 66 min | 11.0 min |
 | 02-core-introspection | 6 | 104 min | 17.3 min |
-| 03-native-mode | 1 | 5 min | 5.0 min |
+| 03-native-mode | 2 | 15 min | 7.5 min |
 
 **Recent Trend:**
-- Last 6 plans: 02-03 (11 min), 02-05 (18 min), 02-06 (15 min), 02-07 (18 min), 03-01 (5 min)
-- Trend: Infrastructure plans faster than introspection plans
+- Last 6 plans: 02-05 (18 min), 02-06 (15 min), 02-07 (18 min), 03-01 (5 min), 03-02 (10 min)
+- Trend: Phase 3 plans running fast (infrastructure + API registration)
 
 *Updated after each plan completion*
 
@@ -77,6 +77,9 @@ Recent decisions affecting current work:
 | QStringView::mid() for Qt6 | midRef() removed in Qt6, use QStringView instead | 03-01 |
 | Q_GLOBAL_STATIC for SymbolicNameMap | Consistent singleton pattern with ObjectRegistry, SignalMonitor | 03-01 |
 | Auto-load name map from env/file | QTMCP_NAME_MAP env var or qtmcp-names.json in CWD | 03-01 |
+| JsonRpcException for structured errors | Separate class in jsonrpc_handler.h with code + message + data | 03-02 |
+| CreateErrorResponse with data overload | QJsonDocument-based for proper nested JSON support | 03-02 |
+| Numeric IDs cleared on disconnect | Via WebSocketServer::clientDisconnected signal | 03-02 |
 
 ### Pending Todos
 
@@ -155,19 +158,25 @@ None yet.
 - ObjectResolver resolves numeric (#N), symbolic, and hierarchical path IDs
 - QString::midRef() removed in Qt6 - use QStringView::mid() instead
 
+**From Plan 03-02:**
+- NativeModeApi registers 29 qt.* methods (old qtmcp.* methods kept for backward compat)
+- JsonRpcException caught before std::exception in HandleMessage
+- Numeric IDs cleared on client disconnect
+- Name map auto-loaded during Probe::initialize()
+
 ## Phase 3 Progress
 
 | Plan | Name | Status |
 |------|------|--------|
 | 03-01 | Infrastructure Classes | COMPLETE |
-| 03-02 | NativeModeApi | PENDING |
+| 03-02 | NativeModeApi | COMPLETE |
 | 03-03 | Testing | PENDING |
 
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 03-01-PLAN.md (Infrastructure Classes)
-Resume file: .planning/phases/03-native-mode/03-02-PLAN.md
+Stopped at: Completed 03-02-PLAN.md (NativeModeApi)
+Resume file: .planning/phases/03-native-mode/03-03-PLAN.md
 
 ---
 *State updated: 2026-01-31*
