@@ -36,6 +36,7 @@ private slots:
     void testIdWithClassName();
     void testIdSiblingDisambiguation();
     void testFindById();
+    void testFindByIdGlobal();
     void testRegistryFindById();
     void testSerializeObjectInfo();
     void testSerializeTree();
@@ -197,6 +198,39 @@ void TestObjectId::testFindById() {
     // Search for non-existent ID
     QObject* notFound = findByObjectId(QStringLiteral("nonexistent/path/here"), &parent);
     QVERIFY(notFound == nullptr);
+}
+
+void TestObjectId::testFindByIdGlobal() {
+    // Create an object parented to the application (makes it a top-level object)
+    QObject* topLevel = new QObject(QCoreApplication::instance());
+    topLevel->setObjectName(QStringLiteral("globalTestRoot"));
+
+    QObject* child = new QObject(topLevel);
+    child->setObjectName(QStringLiteral("globalTestChild"));
+
+    QCoreApplication::processEvents();
+
+    // Generate the full hierarchical ID
+    QString childId = generateObjectId(child);
+    qDebug() << "Global child ID:" << childId;
+
+    // The ID should contain the application class name as the first segment
+    QStringList segments = childId.split(QLatin1Char('/'));
+    QVERIFY(segments.size() >= 3);  // App/globalTestRoot/globalTestChild
+
+    // Critical test: findByObjectId with NO root must resolve the full path
+    QObject* found = findByObjectId(childId);
+    QVERIFY2(found != nullptr, qPrintable(QStringLiteral("findByObjectId failed for global ID: ") + childId));
+    QCOMPARE(found, child);
+
+    // Also verify finding the top-level object itself
+    QString topLevelId = generateObjectId(topLevel);
+    QObject* foundTopLevel = findByObjectId(topLevelId);
+    QVERIFY2(foundTopLevel != nullptr, qPrintable(QStringLiteral("findByObjectId failed for top-level ID: ") + topLevelId));
+    QCOMPARE(foundTopLevel, topLevel);
+
+    // Clean up
+    delete topLevel;
 }
 
 void TestObjectId::testRegistryFindById() {
