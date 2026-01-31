@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 2 - Core Introspection (COMPLETE)
+**Current focus:** Phase 3 - Native Mode (IN PROGRESS)
 
 ## Current Position
 
-Phase: 2 of 7 (Core Introspection)
-Plan: 7 of 7 in current phase
-Status: Phase complete
-Last activity: 2026-01-30 - Completed 02-07-PLAN.md (JSON-RPC Integration)
+Phase: 3 of 7 (Native Mode)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-31 - Completed 03-01-PLAN.md (Infrastructure Classes)
 
-Progress: [##########] 100%
+Progress: [#############-----] 72%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: 14.3 min
-- Total execution time: 2.87 hours
+- Total plans completed: 13
+- Average duration: 13.6 min
+- Total execution time: 2.95 hours
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [##########] 100%
 |-------|-------|-------|----------|
 | 01-foundation | 6 | 66 min | 11.0 min |
 | 02-core-introspection | 6 | 104 min | 17.3 min |
+| 03-native-mode | 1 | 5 min | 5.0 min |
 
 **Recent Trend:**
-- Last 6 plans: 02-01 (32 min), 02-02 (10 min), 02-03 (11 min), 02-05 (18 min), 02-06 (15 min), 02-07 (18 min)
-- Trend: Phase 2 plans averaging 17 min
+- Last 6 plans: 02-03 (11 min), 02-05 (18 min), 02-06 (15 min), 02-07 (18 min), 03-01 (5 min)
+- Trend: Infrastructure plans faster than introspection plans
 
 *Updated after each plan completion*
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 | devicePixelRatio in geometry | High-DPI awareness for Retina/HiDPI displays | 02-06 |
 | JSON-RPC notification format for push | Push notifications use {"jsonrpc":"2.0","method":"qtmcp.X","params":{}} | 02-07 |
 | sendMessage() on WebSocketServer | Added for outbound notification delivery to connected client | 02-07 |
+| QStringView::mid() for Qt6 | midRef() removed in Qt6, use QStringView instead | 03-01 |
+| Q_GLOBAL_STATIC for SymbolicNameMap | Consistent singleton pattern with ObjectRegistry, SignalMonitor | 03-01 |
+| Auto-load name map from env/file | QTMCP_NAME_MAP env var or qtmcp-names.json in CWD | 03-01 |
 
 ### Pending Todos
 
@@ -144,23 +148,26 @@ None yet.
 - Push notifications wired via Probe::initialize() -> SignalMonitor connections
 - WebSocketServer::sendMessage() added for outbound notifications
 
-## Phase 2 Progress
+**From Plan 03-01:**
+- ErrorCodes provides constexpr error codes in -32001 to -32052 range
+- ResponseEnvelope::wrap() returns QJsonObject {result, meta{timestamp}}
+- SymbolicNameMap auto-loads from QTMCP_NAME_MAP env or qtmcp-names.json
+- ObjectResolver resolves numeric (#N), symbolic, and hierarchical path IDs
+- QString::midRef() removed in Qt6 - use QStringView::mid() instead
+
+## Phase 3 Progress
 
 | Plan | Name | Status |
 |------|------|--------|
-| 02-01 | Object Registry | COMPLETE |
-| 02-02 | Object ID System | COMPLETE |
-| 02-03 | Meta Inspector | COMPLETE |
-| 02-04 | Property/Method Ops | COMPLETE |
-| 02-05 | Signal Monitor | COMPLETE |
-| 02-06 | UI Interaction | COMPLETE |
-| 02-07 | JSON-RPC Integration | COMPLETE |
+| 03-01 | Infrastructure Classes | COMPLETE |
+| 03-02 | NativeModeApi | PENDING |
+| 03-03 | Testing | PENDING |
 
 ## Session Continuity
 
-Last session: 2026-01-30
-Stopped at: Completed 02-07-PLAN.md (JSON-RPC Integration) - Phase 2 COMPLETE
-Resume file: Next phase planning
+Last session: 2026-01-31
+Stopped at: Completed 03-01-PLAN.md (Infrastructure Classes)
+Resume file: .planning/phases/03-native-mode/03-02-PLAN.md
 
 ---
-*State updated: 2026-01-30*
+*State updated: 2026-01-31*
