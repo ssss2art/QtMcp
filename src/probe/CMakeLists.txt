@@ -13,12 +13,15 @@ set(PROBE_SOURCES
     transport/websocket_server.cpp
     transport/jsonrpc_handler.cpp
     api/response_envelope.cpp
+    api/symbolic_name_map.cpp
+    core/object_resolver.cpp
 )
 
 set(PROBE_HEADERS
     core/probe.h
     core/injector.h
     core/object_registry.h
+    core/object_resolver.h
     introspection/object_id.h
     introspection/variant_json.h
     introspection/meta_inspector.h
@@ -30,6 +33,7 @@ set(PROBE_HEADERS
     transport/jsonrpc_handler.h
     api/error_codes.h
     api/response_envelope.h
+    api/symbolic_name_map.h
 )
 
 # Platform-specific initialization entry points
