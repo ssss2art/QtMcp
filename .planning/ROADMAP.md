@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - DLL/LD_PRELOAD injection and WebSocket transport layer ✓
 - [x] **Phase 2: Core Introspection** - Object registry, signal monitoring, and UI interaction primitives ✓
-- [ ] **Phase 3: Native Mode** - Full Qt introspection API exposed via JSON-RPC
+- [x] **Phase 3: Native Mode** - Full Qt introspection API exposed via JSON-RPC ✓
 - [ ] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API
 - [ ] **Phase 5: Chrome Mode** - Accessibility tree with numbered refs API (RESEARCH FLAG)
 - [ ] **Phase 6: Extended Introspection** - QML items and Model/View data access
@@ -76,9 +76,9 @@ Plans:
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 03-01-PLAN.md — Infrastructure: ErrorCodes, ResponseEnvelope, ObjectResolver, SymbolicNameMap (Wave 1)
-- [ ] 03-02-PLAN.md — NativeModeApi: all qt.* method registrations + Probe wiring (Wave 2)
-- [ ] 03-03-PLAN.md — Integration tests for complete Native Mode API (Wave 3)
+- [x] 03-01-PLAN.md — Infrastructure: ErrorCodes, ResponseEnvelope, ObjectResolver, SymbolicNameMap (Wave 1) ✓
+- [x] 03-02-PLAN.md — NativeModeApi: all qt.* method registrations + Probe wiring (Wave 2) ✓
+- [x] 03-03-PLAN.md — Integration tests for complete Native Mode API (Wave 3) ✓
 
 ### Phase 4: Computer Use Mode
 **Goal**: AI agents can control Qt applications using screenshot and pixel coordinates
@@ -154,7 +154,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 |-------|----------------|--------|-----------|
 | 1. Foundation | 6/6 | Complete | 2026-01-30 |
 | 2. Core Introspection | 7/7 | Complete | 2026-01-30 |
-| 3. Native Mode | 0/3 | Planned | - |
+| 3. Native Mode | 3/3 | Complete | 2026-01-31 |
 | 4. Computer Use Mode | 0/TBD | Not started | - |
 | 5. Chrome Mode | 0/TBD | Not started | - |
 | 6. Extended Introspection | 0/TBD | Not started | - |

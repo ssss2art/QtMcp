@@ -47,11 +47,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Native Mode API
 
-- [ ] **NAT-01**: All object discovery methods exposed (findByObjectName, findByClassName, getObjectTree)
-- [ ] **NAT-02**: All inspection methods exposed (getObjectInfo, listProperties, listMethods, listSignals)
-- [ ] **NAT-03**: All mutation methods exposed (setProperty, invokeMethod)
-- [ ] **NAT-04**: All interaction methods exposed (click, sendKeys, screenshot, getGeometry)
-- [ ] **NAT-05**: All signal monitoring methods exposed (subscribeSignals, unsubscribeSignals)
+- [x] **NAT-01**: All object discovery methods exposed (findByObjectName, findByClassName, getObjectTree) ✓
+- [x] **NAT-02**: All inspection methods exposed (getObjectInfo, listProperties, listMethods, listSignals) ✓
+- [x] **NAT-03**: All mutation methods exposed (setProperty, invokeMethod) ✓
+- [x] **NAT-04**: All interaction methods exposed (click, sendKeys, screenshot, getGeometry) ✓
+- [x] **NAT-05**: All signal monitoring methods exposed (subscribeSignals, unsubscribeSignals) ✓
 
 ### Computer Use Mode API
 
@@ -180,11 +180,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UI-03 | Phase 2 | Complete |
 | UI-04 | Phase 2 | Complete |
 | UI-05 | Phase 2 | Complete |
-| NAT-01 | Phase 3 | Pending |
-| NAT-02 | Phase 3 | Pending |
-| NAT-03 | Phase 3 | Pending |
-| NAT-04 | Phase 3 | Pending |
-| NAT-05 | Phase 3 | Pending |
+| NAT-01 | Phase 3 | Complete |
+| NAT-02 | Phase 3 | Complete |
+| NAT-03 | Phase 3 | Complete |
+| NAT-04 | Phase 3 | Complete |
+| NAT-05 | Phase 3 | Complete |
 | CU-01 | Phase 4 | Pending |
 | CU-02 | Phase 4 | Pending |
 | CU-03 | Phase 4 | Pending |
