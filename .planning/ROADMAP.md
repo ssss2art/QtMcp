@@ -73,10 +73,12 @@ Plans:
   3. All mutation methods (setProperty, invokeMethod) available in Native Mode
   4. All interaction methods (click, sendKeys, screenshot, getGeometry) available in Native Mode
   5. All signal monitoring methods (subscribeSignals, unsubscribeSignals) available in Native Mode
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 03-01: TBD (planning not yet started)
+- [ ] 03-01-PLAN.md — Infrastructure: ErrorCodes, ResponseEnvelope, ObjectResolver, SymbolicNameMap (Wave 1)
+- [ ] 03-02-PLAN.md — NativeModeApi: all qt.* method registrations + Probe wiring (Wave 2)
+- [ ] 03-03-PLAN.md — Integration tests for complete Native Mode API (Wave 3)
 
 ### Phase 4: Computer Use Mode
 **Goal**: AI agents can control Qt applications using screenshot and pixel coordinates
@@ -152,7 +154,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 |-------|----------------|--------|-----------|
 | 1. Foundation | 6/6 | Complete | 2026-01-30 |
 | 2. Core Introspection | 7/7 | Complete | 2026-01-30 |
-| 3. Native Mode | 0/TBD | Not started | - |
+| 3. Native Mode | 0/3 | Planned | - |
 | 4. Computer Use Mode | 0/TBD | Not started | - |
 | 5. Chrome Mode | 0/TBD | Not started | - |
 | 6. Extended Introspection | 0/TBD | Not started | - |
