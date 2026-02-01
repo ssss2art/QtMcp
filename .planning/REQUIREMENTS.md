@@ -66,30 +66,30 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUILD-01 | TBD | Pending |
-| BUILD-02 | TBD | Pending |
-| BUILD-03 | TBD | Pending |
-| CICD-01 | TBD | Pending |
-| CICD-02 | TBD | Pending |
-| CICD-03 | TBD | Pending |
-| CICD-04 | TBD | Pending |
-| CICD-05 | TBD | Pending |
-| CICD-06 | TBD | Pending |
-| CICD-07 | TBD | Pending |
-| CICD-08 | TBD | Pending |
-| VCPKG-01 | TBD | Pending |
-| VCPKG-02 | TBD | Pending |
-| VCPKG-03 | TBD | Pending |
-| PYPI-01 | TBD | Pending |
-| PYPI-02 | TBD | Pending |
-| PYPI-03 | TBD | Pending |
-| PYPI-04 | TBD | Pending |
+| BUILD-01 | Phase 8 | Pending |
+| BUILD-02 | Phase 8 | Pending |
+| BUILD-03 | Phase 8 | Pending |
+| CICD-01 | Phase 9 | Pending |
+| CICD-02 | Phase 9 | Pending |
+| CICD-03 | Phase 9 | Pending |
+| CICD-04 | Phase 9 | Pending |
+| CICD-05 | Phase 10 | Pending |
+| CICD-06 | Phase 10 | Pending |
+| CICD-07 | Phase 11 | Pending |
+| CICD-08 | Phase 11 | Pending |
+| VCPKG-01 | Phase 12 | Pending |
+| VCPKG-02 | Phase 12 | Pending |
+| VCPKG-03 | Phase 12 | Pending |
+| PYPI-01 | Phase 13 | Pending |
+| PYPI-02 | Phase 13 | Pending |
+| PYPI-03 | Phase 13 | Pending |
+| PYPI-04 | Phase 13 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18 (awaiting roadmap)
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after initial definition*
+*Last updated: 2026-02-01 — traceability mapped to phases 8-13*
