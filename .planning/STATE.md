@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2025-01-29)
 ## Current Position
 
 Phase: 5 of 7 (Chrome Mode)
-Plan: 1 of N in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-31 - Completed 05-01-PLAN.md (Chrome Mode infrastructure classes)
+Last activity: 2026-01-31 - Completed 05-02-PLAN.md (ChromeModeApi with 8 chr.* methods)
 
-Progress: [######################..] ~90%
+Progress: [########################.] ~92%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
-- Average duration: 10.4 min
-- Total execution time: 3.75 hours
+- Total plans completed: 23
+- Average duration: 10.2 min
+- Total execution time: 3.88 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [######################..] ~90%
 | 02-core-introspection | 6 | 104 min | 17.3 min |
 | 03-native-mode | 4 | 24 min | 6.0 min |
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
-| 05-chrome-mode | 1 | 4 min | 4.0 min |
+| 05-chrome-mode | 2 | 12 min | 6.0 min |
 
 **Recent Trend:**
-- Last 6 plans: 03-04 (2 min), 04-01 (3 min), 04-02 (7 min), 04-03 (8 min), 04-04 (2 min), 05-01 (4 min)
-- Trend: Infrastructure plans averaging ~4 min
+- Last 6 plans: 04-01 (3 min), 04-02 (7 min), 04-03 (8 min), 04-04 (2 min), 05-01 (4 min), 05-02 (8 min)
+- Trend: API implementation plans averaging ~6 min
 
 *Updated after each plan completion*
 
@@ -94,6 +94,9 @@ Recent decisions affecting current work:
 | RoleMapper as purely static class | Stateless lookup table needs no instance management | 05-01 |
 | Q_GLOBAL_STATIC for ConsoleMessageCapture | Consistent with ObjectRegistry, SignalMonitor singleton patterns | 05-01 |
 | "generic" fallback for unknown roles | Chrome/ARIA convention for unmapped roles | 05-01 |
+| InputSimulator for chr.click mouse fallback | Consistent with CU mode pattern, not QTest directly | 05-02 |
+| chr.find clears refs before search | Fresh refs assigned to matches only, avoids stale refs | 05-02 |
+| ConsoleMessageCapture installed before API registration | Catches early messages during startup | 05-02 |
 
 ### Pending Todos
 
@@ -183,6 +186,16 @@ None yet.
 | Plan | Name | Status |
 |------|------|--------|
 | 05-01 | Chrome Mode Infrastructure Classes | COMPLETE |
+| 05-02 | ChromeModeApi (8 chr.* methods) | COMPLETE |
+
+**From Plan 05-02:**
+- ChromeModeApi registers 8 chr.* methods: readPage, click, formInput, getPageText, find, navigate, tabsContext, readConsoleMessages
+- All 3 API modes (qt.*, cu.*, chr.*) active simultaneously on same JsonRpcHandler
+- Ephemeral ref lifecycle: cleared on readPage, find, and client disconnect
+- Multi-strategy form input: ComboBox > toggle > value > editable text
+- QAccessible::Button == QAccessible::PushButton in Qt6 (same enum value 43)
+- ConsoleMessageCapture installed before API registrations in Probe::initialize()
+- All 10 existing test suites pass with zero regressions
 
 **From Plan 05-01:**
 - RoleMapper maps ~55 QAccessible::Role to Chrome/ARIA names, isInteractive() covers 18 roles
@@ -256,8 +269,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 05-01-PLAN.md (Chrome Mode infrastructure classes)
+Stopped at: Completed 05-02-PLAN.md (ChromeModeApi with 8 chr.* methods)
 Resume file: None
 
 ---
-*State updated: 2026-01-31 (completed 05-01 - Chrome Mode infrastructure)*
+*State updated: 2026-01-31 (completed 05-02 - Chrome Mode API surface)*
