@@ -5,6 +5,7 @@
 
 #include <QCoreApplication>
 #include <QDebug>
+#include <stdexcept>
 
 // Logging macros - use spdlog if available, otherwise Qt logging
 #ifdef QTMCP_HAS_SPDLOG
@@ -155,12 +156,26 @@ bool Probe::initialize() {
     m_running = true;
 
     // Register Native Mode API (qt.* namespaced methods)
-    auto* nativeApi = new NativeModeApi(m_server->rpcHandler(), this);
-    Q_UNUSED(nativeApi);
+    try {
+        auto* nativeApi = new NativeModeApi(m_server->rpcHandler(), this);
+        Q_UNUSED(nativeApi);
+        fprintf(stderr, "[QtMCP] Native Mode API (qt.*) registered\n");
+    } catch (const std::exception& e) {
+        fprintf(stderr, "[QtMCP] WARNING: Failed to register Native Mode API: %s\n", e.what());
+    } catch (...) {
+        fprintf(stderr, "[QtMCP] WARNING: Failed to register Native Mode API (unknown exception)\n");
+    }
 
     // Register Computer Use Mode API (cu.* namespaced methods)
-    auto* cuApi = new ComputerUseModeApi(m_server->rpcHandler(), this);
-    Q_UNUSED(cuApi);
+    try {
+        auto* cuApi = new ComputerUseModeApi(m_server->rpcHandler(), this);
+        Q_UNUSED(cuApi);
+        fprintf(stderr, "[QtMCP] Computer Use Mode API (cu.*) registered\n");
+    } catch (const std::exception& e) {
+        fprintf(stderr, "[QtMCP] WARNING: Failed to register Computer Use Mode API: %s\n", e.what());
+    } catch (...) {
+        fprintf(stderr, "[QtMCP] WARNING: Failed to register Computer Use Mode API (unknown exception)\n");
+    }
 
     // Auto-load symbolic name map from env var or default file
     QString nameMapPath = qEnvironmentVariable("QTMCP_NAME_MAP");
