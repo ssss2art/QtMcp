@@ -396,3 +396,50 @@ if(WIN32)
         COMMENT "Copying Qt Test DLL for test_native_mode_api..."
     )
 endif()
+
+# KeyNameMapper unit tests
+add_executable(test_key_name_mapper
+    test_key_name_mapper.cpp
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(test_key_name_mapper
+        PRIVATE
+            qtmcp_probe
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Test
+    )
+else()
+    target_link_libraries(test_key_name_mapper
+        PRIVATE
+            qtmcp_probe
+            Qt5::Core
+            Qt5::Gui
+            Qt5::Widgets
+            Qt5::Test
+    )
+endif()
+
+target_include_directories(test_key_name_mapper
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/probe
+)
+
+add_test(NAME test_key_name_mapper COMMAND test_key_name_mapper
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_key_name_mapper>"
+)
+
+set_tests_properties(test_key_name_mapper PROPERTIES
+    ENVIRONMENT "QTMCP_ENABLED=0"
+)
+
+if(WIN32)
+    add_custom_command(TARGET test_key_name_mapper POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_key_name_mapper>"
+        COMMENT "Copying Qt Test DLL for test_key_name_mapper..."
+    )
+endif()
