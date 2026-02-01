@@ -537,3 +537,50 @@ if(WIN32)
         COMMENT "Copying Qt Test DLL for test_chrome_mode_api..."
     )
 endif()
+
+# Model Navigator / QML Inspect Integration tests
+add_executable(test_model_navigator
+    test_model_navigator.cpp
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(test_model_navigator
+        PRIVATE
+            qtmcp_probe
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Test
+    )
+else()
+    target_link_libraries(test_model_navigator
+        PRIVATE
+            qtmcp_probe
+            Qt5::Core
+            Qt5::Gui
+            Qt5::Widgets
+            Qt5::Test
+    )
+endif()
+
+target_include_directories(test_model_navigator
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/probe
+)
+
+add_test(NAME test_model_navigator COMMAND test_model_navigator
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_model_navigator>"
+)
+
+set_tests_properties(test_model_navigator PROPERTIES
+    ENVIRONMENT "QTMCP_ENABLED=0;QT_QPA_PLATFORM=minimal"
+)
+
+if(WIN32)
+    add_custom_command(TARGET test_model_navigator POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_model_navigator>"
+        COMMENT "Copying Qt Test DLL for test_model_navigator..."
+    )
+endif()
