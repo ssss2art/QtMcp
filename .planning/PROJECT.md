@@ -28,7 +28,13 @@ Claude can control any Qt application with zero learning curve — the probe exp
 
 ### Active
 
-(None — next milestone requirements TBD via `/gsd:new-milestone`)
+#### v1.1 Distribution & Compatibility
+- [ ] Multi-Qt version build system (5.15, 5.15.1-patched, 6.2, 6.8, 6.9)
+- [ ] GitHub Actions CI/CD matrix build (5 Qt versions × 2 platforms)
+- [ ] GitHub Releases with prebuilt probe binaries (10 artifacts)
+- [ ] vcpkg port — source build (user builds against their Qt)
+- [ ] vcpkg port — binary download (prebuilt from GitHub Releases)
+- [ ] Python MCP server published to PyPI (`pip install qtmcp`)
 
 ### Out of Scope
 
@@ -51,7 +57,7 @@ Tech stack: C++17, Qt 5.15 LTS, Qt WebSockets, JSON-RPC 2.0, Python 3.8+, FastMC
 ## Constraints
 
 - **Platform**: Windows and Linux only — macOS requires different injection approach
-- **Qt Version**: Qt 5.15 LTS primary target — must build against user's Qt installation
+- **Qt Version**: Qt 5.15, 5.15.1-patched, 6.2, 6.8, 6.9 — probe must build against each
 - **Injection**: Launch-only — no attach to running process
 - **Security**: Localhost binding default — no authentication
 - **Dependencies**: Qt Core, Qt Network, Qt WebSockets modules required
@@ -73,4 +79,4 @@ Tech stack: C++17, Qt 5.15 LTS, Qt WebSockets, JSON-RPC 2.0, Python 3.8+, FastMC
 | Minimal DllMain pattern | Only DisableThreadLibraryCalls + flag; defer all Qt work | Good |
 
 ---
-*Last updated: 2026-02-01 after v1.0 milestone*
+*Last updated: 2026-02-01 after v1.1 milestone start*
