@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 04-computer-use-mode
 source: 04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md
 started: 2026-01-31T21:00:00Z
-updated: 2026-01-31T21:30:00Z
+updated: 2026-01-31T21:45:00Z
 ---
 
 ## Current Test
@@ -67,27 +67,43 @@ skipped: 0
   reason: "All qt.* methods return -32601 Method not found. Only legacy qtmcp.* and cu.* methods are registered. NativeModeApi is not being wired into the probe at runtime despite being compiled."
   severity: major
   test: discovered during UAT setup
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "NativeModeApi constructor likely throws an exception during DLL injection that is silently swallowed. Tests pass in controlled QTest environment but fail in live injection. ComputerUseModeApi works because its lambdas only call simple InputSimulator/Screenshot functions, while NativeModeApi lambdas call complex introspection functions (serializeObjectTree, ObjectRegistry lookups) that may fail in the injected context."
+  artifacts:
+    - path: "src/probe/core/probe.cpp"
+      issue: "NativeModeApi instantiation at line ~158 has no exception handling"
+    - path: "src/probe/api/native_mode_api.cpp"
+      issue: "Constructor registers lambdas calling introspection functions that may fail in DLL context"
+  missing:
+    - "Add try/catch with stderr logging around NativeModeApi instantiation in probe.cpp"
+    - "Investigate which specific introspection call fails during DLL injection"
   debug_session: ""
 
 - truth: "qtmcp.* object IDs returned by findByClassName should be resolvable by getObjectInfo and getGeometry"
   status: failed
-  reason: "qtmcp.findByClassName returns IDs like QObject~20, but qtmcp.getObjectInfo and qtmcp.getGeometry return 'Object not found' for those same IDs. The ID resolution path is broken for legacy methods."
+  reason: "qtmcp.findByClassName returns IDs like QObject~20, but qtmcp.getObjectInfo and qtmcp.getGeometry return 'Object not found' for those same IDs."
   severity: major
   test: discovered during UAT setup
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Parameter name mismatch. Legacy qtmcp.getObjectInfo and qtmcp.getGeometry read param 'id' (jsonrpc_handler.cpp lines 318, 553), but the UAT test client was passing 'objectId' (the modern qt.* convention). The error message 'Object not found: ' with empty string confirms the id parameter was empty. The legacy API is internally consistent — all methods expect 'id', not 'objectId'."
+  artifacts:
+    - path: "src/probe/transport/jsonrpc_handler.cpp"
+      issue: "Line 318: qtmcp.getObjectInfo reads doc.object()['id']; Line 553: qtmcp.getGeometry reads doc.object()['id']"
+  missing:
+    - "Not a code bug — test client was using wrong parameter name. Legacy API correctly expects 'id'. Could add backward compat to accept both 'id' and 'objectId' for friendlier API."
   debug_session: ""
 
 - truth: "cu.cursorPosition should report the widget under the coordinate used in the most recent cu.mouseMove, not the physical OS cursor"
   status: failed
-  reason: "cu.cursorPosition uses QCursor::pos() which reads the physical system cursor. cu.mouseMove sends QMouseEvents but does not move the OS cursor. So cursorPosition always returns wherever the physical mouse is, not where CU interactions are happening. This makes cursorPosition useless for CU-mode workflows."
+  reason: "cu.cursorPosition uses QCursor::pos() which reads the physical system cursor. cu.mouseMove sends QMouseEvents but does not move the OS cursor. So cursorPosition always returns wherever the physical mouse is, not where CU interactions are happening."
   severity: minor
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "cu.mouseMove (line 308-329 in computer_use_mode_api.cpp) calls InputSimulator::mouseMove() which sends QMouseEvent via sendEvent but does NOT call QCursor::setPos(). cu.cursorPosition (line 581-606) reads QCursor::pos() — the physical OS cursor. These are completely disconnected. Only cu.mouseMove with screenAbsolute=true calls QCursor::setPos()."
+  artifacts:
+    - path: "src/probe/api/computer_use_mode_api.cpp"
+      issue: "cu.cursorPosition reads QCursor::pos() (line 583); cu.mouseMove only sends QMouseEvent without tracking position"
+    - path: "src/probe/interaction/input_simulator.cpp"
+      issue: "mouseMove (lines 147-160) sends QMouseEvent but doesn't move physical cursor"
+  missing:
+    - "Add m_lastSimulatedPosition QPoint member to ComputerUseModeApi"
+    - "Update cu.mouseMove, cu.click, cu.mouseDown, cu.mouseUp, cu.drag to track last position"
+    - "Update cu.cursorPosition to return virtual position when simulated position exists"
   debug_session: ""
