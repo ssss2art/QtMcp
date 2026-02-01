@@ -45,6 +45,8 @@ private:
     void registerUiMethods();        ///< qt.ui.*
     void registerNameMapMethods();   ///< qt.names.*
     void registerSystemMethods();    ///< qt.ping, qt.version, qt.modes
+    void registerQmlMethods();       ///< qt.qml.*
+    void registerModelMethods();     ///< qt.models.*
 
     JsonRpcHandler* m_handler;
 };

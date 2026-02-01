@@ -23,6 +23,7 @@
 #include "interaction/input_simulator.h"
 #include "interaction/screenshot.h"
 #include "interaction/hit_test.h"
+#include "introspection/qml_inspector.h"
 
 namespace qtmcp {
 
@@ -101,6 +102,8 @@ NativeModeApi::NativeModeApi(JsonRpcHandler* handler, QObject* parent)
     registerSignalMethods();
     registerUiMethods();
     registerNameMapMethods();
+    registerQmlMethods();
+    registerModelMethods();
 }
 
 // ============================================================================
@@ -779,6 +782,47 @@ void NativeModeApi::registerNameMapMethods() {
             result[QStringLiteral("success")] = ok;
             return envelopeToString(ResponseEnvelope::wrap(result));
         });
+}
+
+// ============================================================================
+// QML introspection: qt.qml.*
+// ============================================================================
+
+void NativeModeApi::registerQmlMethods() {
+    // qt.qml.inspect - get QML metadata for any object
+    m_handler->RegisterMethod(QStringLiteral("qt.qml.inspect"),
+        [](const QString& params) -> QString {
+            auto p = parseParams(params);
+            QObject* obj = resolveObjectParam(p, QStringLiteral("qt.qml.inspect"));
+            QString objectId = p[QStringLiteral("objectId")].toString();
+
+#ifndef QTMCP_HAS_QML
+            throw JsonRpcException(
+                ErrorCode::kQmlNotAvailable,
+                QStringLiteral("QML support not compiled (Qt Quick not found)"),
+                QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.qml.inspect")}});
+#else
+            QmlItemInfo qmlInfo = inspectQmlItem(obj);
+
+            QJsonObject result;
+            result[QStringLiteral("isQmlItem")] = qmlInfo.isQmlItem;
+            if (qmlInfo.isQmlItem) {
+                result[QStringLiteral("qmlId")] = qmlInfo.qmlId;
+                result[QStringLiteral("qmlFile")] = qmlInfo.qmlFile;
+                result[QStringLiteral("qmlTypeName")] = qmlInfo.shortTypeName;
+            }
+
+            return envelopeToString(ResponseEnvelope::wrap(result, objectId));
+#endif
+        });
+}
+
+// ============================================================================
+// Model/View introspection: qt.models.*
+// ============================================================================
+
+void NativeModeApi::registerModelMethods() {
+    // Placeholder - implemented in Task 2
 }
 
 }  // namespace qtmcp
