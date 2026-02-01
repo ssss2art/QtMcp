@@ -150,6 +150,28 @@ QJsonObject imageWithDimensions(const QByteArray& base64) {
     return result;
 }
 
+// Virtual cursor position tracking for CU mode.
+// Set by coordinate-based actions (click, move, drag, etc.), read by cu.cursorPosition.
+// Stored as screen-absolute (global) coordinates for consistency with QCursor::pos().
+static QPoint s_lastSimulatedPosition(-1, -1);
+static bool s_hasSimulatedPosition = false;
+
+/// @brief Update the tracked virtual cursor position after a coordinate-based action.
+/// @param window The active window (for mapToGlobal when using window-relative coords).
+/// @param x X coordinate as provided by the caller.
+/// @param y Y coordinate as provided by the caller.
+/// @param screenAbsolute If true, x/y are already screen-absolute.
+void trackPosition(QWidget* window, int x, int y, bool screenAbsolute) {
+    if (screenAbsolute) {
+        s_lastSimulatedPosition = QPoint(x, y);
+    } else if (window) {
+        s_lastSimulatedPosition = window->mapToGlobal(QPoint(x, y));
+    } else {
+        s_lastSimulatedPosition = QPoint(x, y);
+    }
+    s_hasSimulatedPosition = true;
+}
+
 }  // anonymous namespace
 
 // ============================================================================
@@ -227,6 +249,8 @@ void ComputerUseModeApi::registerMouseMethods() {
             auto target = resolveWindowCoordinate(window, x, y, screenAbsolute);
             InputSimulator::mouseClick(target.widget, parseMouseButton(buttonStr), target.localPos);
 
+            trackPosition(window, x, y, screenAbsolute);
+
             QJsonObject result;
             result[QStringLiteral("success")] = true;
             maybeAddScreenshot(result, p, window);
@@ -250,6 +274,8 @@ void ComputerUseModeApi::registerMouseMethods() {
 
             auto target = resolveWindowCoordinate(window, x, y, screenAbsolute);
             InputSimulator::mouseClick(target.widget, InputSimulator::MouseButton::Right, target.localPos);
+
+            trackPosition(window, x, y, screenAbsolute);
 
             QJsonObject result;
             result[QStringLiteral("success")] = true;
@@ -275,6 +301,8 @@ void ComputerUseModeApi::registerMouseMethods() {
             auto target = resolveWindowCoordinate(window, x, y, screenAbsolute);
             InputSimulator::mouseClick(target.widget, InputSimulator::MouseButton::Middle, target.localPos);
 
+            trackPosition(window, x, y, screenAbsolute);
+
             QJsonObject result;
             result[QStringLiteral("success")] = true;
             maybeAddScreenshot(result, p, window);
@@ -299,6 +327,8 @@ void ComputerUseModeApi::registerMouseMethods() {
             auto target = resolveWindowCoordinate(window, x, y, screenAbsolute);
             InputSimulator::mouseDoubleClick(target.widget, InputSimulator::MouseButton::Left, target.localPos);
 
+            trackPosition(window, x, y, screenAbsolute);
+
             QJsonObject result;
             result[QStringLiteral("success")] = true;
             maybeAddScreenshot(result, p, window);
@@ -321,6 +351,8 @@ void ComputerUseModeApi::registerMouseMethods() {
                 auto target = resolveWindowCoordinate(window, x, y, false);
                 InputSimulator::mouseMove(target.widget, target.localPos);
             }
+
+            trackPosition(window, x, y, screenAbsolute);
 
             QJsonObject result;
             result[QStringLiteral("success")] = true;
@@ -372,6 +404,9 @@ void ComputerUseModeApi::registerMouseMethods() {
 
             InputSimulator::mouseDrag(window, startPos, endPos, InputSimulator::MouseButton::Left);
 
+            // Track the END position (where the cursor ends up after drag)
+            trackPosition(window, endX, endY, screenAbsolute);
+
             QJsonObject result;
             result[QStringLiteral("success")] = true;
             maybeAddScreenshot(result, p, window);
@@ -392,6 +427,8 @@ void ComputerUseModeApi::registerMouseMethods() {
             auto target = resolveWindowCoordinate(window, x, y, screenAbsolute);
             InputSimulator::mousePress(target.widget, parseMouseButton(buttonStr), target.localPos);
 
+            trackPosition(window, x, y, screenAbsolute);
+
             QJsonObject result;
             result[QStringLiteral("success")] = true;
             maybeAddScreenshot(result, p, window);
@@ -411,6 +448,8 @@ void ComputerUseModeApi::registerMouseMethods() {
 
             auto target = resolveWindowCoordinate(window, x, y, screenAbsolute);
             InputSimulator::mouseRelease(target.widget, parseMouseButton(buttonStr), target.localPos);
+
+            trackPosition(window, x, y, screenAbsolute);
 
             QJsonObject result;
             result[QStringLiteral("success")] = true;
@@ -566,6 +605,8 @@ void ComputerUseModeApi::registerScrollMethod() {
 
             InputSimulator::scroll(target.widget, target.localPos, dx, dy);
 
+            trackPosition(window, x, y, screenAbsolute);
+
             QJsonObject result;
             result[QStringLiteral("success")] = true;
             maybeAddScreenshot(result, p, window);
@@ -580,7 +621,15 @@ void ComputerUseModeApi::registerScrollMethod() {
 void ComputerUseModeApi::registerQueryMethods() {
     m_handler->RegisterMethod(QStringLiteral("cu.cursorPosition"),
         [](const QString& /*params*/) -> QString {
-            QPoint globalPos = QCursor::pos();
+            QPoint globalPos;
+            bool isVirtual = false;
+
+            if (s_hasSimulatedPosition) {
+                globalPos = s_lastSimulatedPosition;
+                isVirtual = true;
+            } else {
+                globalPos = QCursor::pos();
+            }
 
             QWidget* window = getActiveWindow();
             QPoint windowPos = window->mapFromGlobal(globalPos);
@@ -600,6 +649,7 @@ void ComputerUseModeApi::registerQueryMethods() {
             result[QStringLiteral("screenY")] = globalPos.y();
             result[QStringLiteral("widgetId")] = widgetId;
             result[QStringLiteral("className")] = className;
+            result[QStringLiteral("virtual")] = isVirtual;
 
             return envelopeToString(ResponseEnvelope::wrap(result));
         });
