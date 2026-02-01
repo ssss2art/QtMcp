@@ -53,6 +53,16 @@ if(Qt6_FOUND)
     set(QT_VERSION_MAJOR 6)
     set(QT_VERSION ${Qt6_VERSION})
     message(STATUS "Found Qt6: ${Qt6_VERSION}")
+
+    # Optional: Qt Quick/QML support for QML introspection
+    find_package(Qt6 COMPONENTS Qml Quick QUIET)
+    if(Qt6Qml_FOUND AND Qt6Quick_FOUND)
+        set(QTMCP_HAS_QML ON)
+        message(STATUS "Found Qt6 Qml/Quick - QML introspection enabled")
+    else()
+        set(QTMCP_HAS_QML OFF)
+        message(STATUS "Qt6 Qml/Quick not found - QML introspection disabled")
+    endif()
 else()
     find_package(Qt5 ${QT_MIN_VERSION_5} REQUIRED COMPONENTS
         Core
@@ -65,6 +75,16 @@ else()
     set(QT_VERSION_MAJOR 5)
     set(QT_VERSION ${Qt5_VERSION})
     message(STATUS "Found Qt5: ${Qt5_VERSION}")
+
+    # Optional: Qt Quick/QML support for QML introspection
+    find_package(Qt5 COMPONENTS Qml Quick QUIET)
+    if(Qt5Qml_FOUND AND Qt5Quick_FOUND)
+        set(QTMCP_HAS_QML ON)
+        message(STATUS "Found Qt5 Qml/Quick - QML introspection enabled")
+    else()
+        set(QTMCP_HAS_QML OFF)
+        message(STATUS "Qt5 Qml/Quick not found - QML introspection disabled")
+    endif()
 endif()
 
 # Create Qt version-independent target aliases for use throughout the project
@@ -260,4 +280,5 @@ message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "  Build tests:    ${QTMCP_BUILD_TESTS}")
 message(STATUS "  Build test app: ${QTMCP_BUILD_TEST_APP}")
 message(STATUS "  Clang-tidy:     ${QTMCP_ENABLE_CLANG_TIDY}")
+message(STATUS "  QML support:    ${QTMCP_HAS_QML}")
 message(STATUS "")

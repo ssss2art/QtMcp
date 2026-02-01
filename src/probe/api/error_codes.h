@@ -50,5 +50,16 @@ constexpr int kFindTooManyResults = -32074;
 constexpr int kNavigateInvalid = -32075;
 constexpr int kConsoleNotAvailable = -32076;
 
+// QML errors (-32080 to -32089)
+constexpr int kQmlNotAvailable = -32080;
+constexpr int kQmlContextNotFound = -32081;
+constexpr int kNotQmlItem = -32082;
+
+// Model/View errors (-32090 to -32099)
+constexpr int kModelNotFound = -32090;
+constexpr int kModelIndexOutOfBounds = -32091;
+constexpr int kModelRoleNotFound = -32092;
+constexpr int kNotAModel = -32093;
+
 }  // namespace ErrorCode
 }  // namespace qtmcp

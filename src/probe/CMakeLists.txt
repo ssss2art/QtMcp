@@ -7,6 +7,8 @@ set(PROBE_SOURCES
     introspection/variant_json.cpp
     introspection/meta_inspector.cpp
     introspection/signal_monitor.cpp
+    introspection/qml_inspector.cpp
+    introspection/model_navigator.cpp
     interaction/input_simulator.cpp
     interaction/screenshot.cpp
     interaction/hit_test.cpp
@@ -33,6 +35,8 @@ set(PROBE_HEADERS
     introspection/variant_json.h
     introspection/meta_inspector.h
     introspection/signal_monitor.h
+    introspection/qml_inspector.h
+    introspection/model_navigator.h
     interaction/input_simulator.h
     interaction/screenshot.h
     interaction/hit_test.h
@@ -106,6 +110,10 @@ if(QT_VERSION_MAJOR EQUAL 6)
         PRIVATE
             Qt6::CorePrivate  # For qhooks_p.h (object registry hooks)
     )
+    if(QTMCP_HAS_QML)
+        target_link_libraries(qtmcp_probe PUBLIC Qt6::Qml Qt6::Quick)
+        target_compile_definitions(qtmcp_probe PUBLIC QTMCP_HAS_QML)
+    endif()
 else()
     target_link_libraries(qtmcp_probe
         PUBLIC
@@ -117,6 +125,10 @@ else()
         PRIVATE
             Qt5::CorePrivate  # For qhooks_p.h (object registry hooks)
     )
+    if(QTMCP_HAS_QML)
+        target_link_libraries(qtmcp_probe PUBLIC Qt5::Qml Qt5::Quick)
+        target_compile_definitions(qtmcp_probe PUBLIC QTMCP_HAS_QML)
+    endif()
 endif()
 
 # Optional dependencies - conditionally link if available
