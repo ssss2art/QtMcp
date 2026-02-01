@@ -41,5 +41,14 @@ constexpr int kCoordinateOutOfBounds = -32061;
 constexpr int kNoFocusedWidget = -32062;
 constexpr int kKeyParseError = -32063;
 
+// Chrome Mode errors (-32070 to -32079)
+constexpr int kRefNotFound = -32070;
+constexpr int kRefStale = -32071;
+constexpr int kFormInputUnsupported = -32072;
+constexpr int kTreeTooLarge = -32073;
+constexpr int kFindTooManyResults = -32074;
+constexpr int kNavigateInvalid = -32075;
+constexpr int kConsoleNotAvailable = -32076;
+
 }  // namespace ErrorCode
 }  // namespace qtmcp
