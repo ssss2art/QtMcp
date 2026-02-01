@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 6 - Extended Introspection (QML + Model/View) - COMPLETE
+**Current focus:** Phase 7 - Python Integration
 
 ## Current Position
 
-Phase: 6 of 7 (Extended Introspection)
-Plan: 4 of 4 in current phase
-Status: Phase complete
-Last activity: 2026-02-01 - Completed 06-04-PLAN.md (Extended Introspection Testing)
+Phase: 7 of 7 (Python Integration)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-01 - Completed 07-01-PLAN.md (Package Skeleton)
 
-Progress: [#############################.] ~97% (29/30 plans)
+Progress: [##############################] ~100% (30/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 29
-- Average duration: 9.5 min
-- Total execution time: 4.58 hours
+- Total plans completed: 30
+- Average duration: 9.4 min
+- Total execution time: 4.71 hours
 
 **By Phase:**
 
@@ -33,9 +33,10 @@ Progress: [#############################.] ~97% (29/30 plans)
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
 | 05-chrome-mode | 4 | 32 min | 8.0 min |
 | 06-extended-introspection | 4 | 22 min | 5.5 min |
+| 07-python-integration | 1 | 8 min | 8.0 min |
 
 **Recent Trend:**
-- Last 6 plans: 05-03 (10 min), 05-04 (10 min), 06-01 (7 min), 06-02 (6 min), 06-03 (4 min), 06-04 (5 min)
+- Last 6 plans: 05-04 (10 min), 06-01 (7 min), 06-02 (6 min), 06-03 (4 min), 06-04 (5 min), 07-01 (8 min)
 - Trend: Stable execution times
 
 *Updated after each plan completion*
@@ -111,6 +112,9 @@ Recent decisions affecting current work:
 | Three-step resolveModel | Direct cast, QAbstractItemView, property("model") QML fallback | 06-02 |
 | isQmlItem:false not an error | Non-QML objects common; agents get info without catching exceptions | 06-03 |
 | kQmlNotAvailable thrown without QML | Agent knows QML unavailable rather than getting silent false | 06-03 |
+| Module-level probe reference | FastMCP v2 stores lifespan result on server, not directly on Context | 07-01 |
+| asynccontextmanager lifespan with try/finally | Ensures cleanup of both WebSocket and subprocess | 07-01 |
+| Stub tool files created immediately | Server factory imports work end-to-end before Plans 02/03 | 07-01 |
 
 ### Pending Todos
 
@@ -194,6 +198,23 @@ None - all known bugs resolved.
 - JsonRpcException caught before std::exception in HandleMessage
 - Numeric IDs cleared on client disconnect
 - Name map auto-loaded during Probe::initialize()
+
+## Phase 7 Progress
+
+| Plan | Name | Status |
+|------|------|--------|
+| 07-01 | Package Skeleton + Core Infrastructure | COMPLETE |
+| 07-02 | Native + CU Tool Definitions | PENDING |
+| 07-03 | Chrome Tool Definitions + Documentation | PENDING |
+
+**From Plan 07-01:**
+- Python package skeleton: pyproject.toml, __init__.py, __main__.py, cli.py
+- ProbeConnection: async WebSocket JSON-RPC 2.0 client with Future-based response correlation
+- create_server() factory with lifespan-managed connection and auto-launch subprocess support
+- Status resource at qtmcp://status exposing connection state
+- Stub tool registration files for native, cu, chrome modes
+- FastMCP 2.14.4 with websockets 16.0 as dependencies
+- `python -m qtmcp --help` works with all CLI arguments
 
 ## Phase 6 Progress
 
@@ -341,8 +362,8 @@ None - all known bugs resolved.
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 06-04-PLAN.md (Extended Introspection Testing) - Phase 6 complete
+Stopped at: Completed 07-01-PLAN.md (Package Skeleton)
 Resume file: None
 
 ---
-*State updated: 2026-02-01 (completed 06-04 - Extended Introspection Testing, Phase 6 complete)*
+*State updated: 2026-02-01 (completed 07-01 - Package Skeleton + Core Infrastructure)*
