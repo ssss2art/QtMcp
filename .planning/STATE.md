@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 4 - Computer Use Mode (gap closure)
+**Current focus:** Phase 4 - Computer Use Mode (COMPLETE - all gaps closed)
 
 ## Current Position
 
 Phase: 4 of 7 (Computer Use Mode)
-Plan: 4 of 5 in current phase (gap closure plans)
-Status: Gap closure in progress (04-04 complete, 04-05 pending)
-Last activity: 2026-01-31 - Completed 04-04-PLAN.md (probe resilience + objectId compat)
+Plan: 5 of 5 in current phase (all gap closure plans complete)
+Status: Phase complete (all gaps closed)
+Last activity: 2026-01-31 - Completed 04-05-PLAN.md (virtual cursor position tracking)
 
 Progress: [####################] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20
-- Average duration: 11.0 min
-- Total execution time: 3.62 hours
+- Total plans completed: 21
+- Average duration: 10.7 min
+- Total execution time: 3.68 hours
 
 **By Phase:**
 
@@ -30,7 +30,7 @@ Progress: [####################] 100%
 | 01-foundation | 6 | 66 min | 11.0 min |
 | 02-core-introspection | 6 | 104 min | 17.3 min |
 | 03-native-mode | 4 | 24 min | 6.0 min |
-| 04-computer-use-mode | 3 | 18 min | 6.0 min |
+| 04-computer-use-mode | 5 | 22 min | 4.4 min |
 
 **Recent Trend:**
 - Last 6 plans: 03-02 (10 min), 03-03 (7 min), 03-04 (2 min), 04-01 (3 min), 04-02 (7 min), 04-03 (8 min)
@@ -89,6 +89,7 @@ Recent decisions affecting current work:
 | Active window fallback to visible widget | Searches QApplication::topLevelWidgets() if activeWindow() is null | 04-02 |
 | delay_ms param on click methods | Allows UI settle time before action | 04-02 |
 | Allow empty screenshot on minimal platform | captureWindowLogical uses grabWindow() which returns empty on minimal; test verifies structure always | 04-03 |
+| File-scope static for virtual cursor tracking | All cu.* lambdas stateless (no this capture); avoids changing lambda semantics | 04-05 |
 
 ### Pending Todos
 
@@ -181,6 +182,7 @@ None yet.
 | 04-02 | ComputerUseModeApi | COMPLETE |
 | 04-03 | Testing | COMPLETE |
 | 04-04 | Probe Resilience Gap Closure | COMPLETE |
+| 04-05 | Virtual Cursor Position Tracking | COMPLETE |
 
 **From Plan 04-01:**
 - KeyNameMapper provides case-insensitive Chrome/xdotool key name to Qt::Key lookup
@@ -227,11 +229,18 @@ None yet.
 - All 11 legacy qtmcp.* methods accept both "id" and "objectId" parameter names
 - fprintf used for registration logging (safe in DLL context before Qt logging init)
 
+**From Plan 04-05 (Gap Closure):**
+- cu.cursorPosition returns virtual position from last CU coordinate action, not physical OS cursor
+- File-scope static s_lastSimulatedPosition/s_hasSimulatedPosition for stateless lambda compatibility
+- All 9 coordinate-based cu.* methods update tracked position via trackPosition() helper
+- Response includes "virtual": true/false to indicate position source
+- Fallback to QCursor::pos() when no CU actions have been performed
+
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 04-04-PLAN.md (probe resilience gap closure)
+Stopped at: Completed 04-05-PLAN.md (virtual cursor position tracking - all Phase 4 gaps closed)
 Resume file: None
 
 ---
-*State updated: 2026-01-31 (post 04-04 gap closure)*
+*State updated: 2026-01-31 (post 04-05 gap closure - Phase 4 fully complete)*
