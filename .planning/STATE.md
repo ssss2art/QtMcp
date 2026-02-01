@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2025-01-29)
 ## Current Position
 
 Phase: 6 of 7 (Extended Introspection)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-02-01 - Completed 06-02-PLAN.md (ModelNavigator)
+Last activity: 2026-02-01 - Completed 06-03-PLAN.md (QML + Model API Wiring)
 
-Progress: [##########################..] ~90% (27/30 plans)
+Progress: [############################.] ~93% (28/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27
-- Average duration: 9.8 min
-- Total execution time: 4.43 hours
+- Total plans completed: 28
+- Average duration: 9.6 min
+- Total execution time: 4.50 hours
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: [##########################..] ~90% (27/30 plans)
 | 03-native-mode | 4 | 24 min | 6.0 min |
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
 | 05-chrome-mode | 4 | 32 min | 8.0 min |
-| 06-extended-introspection | 2 | 13 min | 6.5 min |
+| 06-extended-introspection | 3 | 17 min | 5.7 min |
 
 **Recent Trend:**
-- Last 6 plans: 05-01 (4 min), 05-02 (8 min), 05-03 (10 min), 05-04 (10 min), 06-01 (7 min), 06-02 (6 min)
+- Last 6 plans: 05-02 (8 min), 05-03 (10 min), 05-04 (10 min), 06-01 (7 min), 06-02 (6 min), 06-03 (4 min)
 - Trend: Stable execution times
 
 *Updated after each plan completion*
@@ -109,6 +109,8 @@ Recent decisions affecting current work:
 | Static utility class for ModelNavigator | Same pattern as RoleMapper - stateless, no QObject inheritance | 06-02 |
 | Smart pagination: all if <=100, else 100 | Small models complete; large models paginated to avoid response bloat | 06-02 |
 | Three-step resolveModel | Direct cast, QAbstractItemView, property("model") QML fallback | 06-02 |
+| isQmlItem:false not an error | Non-QML objects common; agents get info without catching exceptions | 06-03 |
+| kQmlNotAvailable thrown without QML | Agent knows QML unavailable rather than getting silent false | 06-03 |
 
 ### Pending Todos
 
@@ -199,7 +201,7 @@ None - all known bugs resolved.
 |------|------|--------|
 | 06-01 | QML Inspector Infrastructure | COMPLETE |
 | 06-02 | Model/View Navigation (ModelNavigator) | COMPLETE |
-| 06-03 | QML + Model API Wiring | PENDING |
+| 06-03 | QML + Model API Wiring | COMPLETE |
 | 06-04 | Extended Introspection Testing | PENDING |
 
 **From Plan 06-01:**
@@ -217,6 +219,14 @@ None - all known bugs resolved.
 - resolveModel: direct QAbstractItemModel* cast, QAbstractItemView::model(), property("model") QML fallback
 - resolveRoleName: checks model->roleNames() first, then 12 standard Qt roles
 - Internal Qt models filtered (className starts with "Q" and contains "Internal")
+- All 11 existing test suites pass with zero regressions
+
+**From Plan 06-03:**
+- 4 new qt.* methods: qt.qml.inspect, qt.models.list, qt.models.info, qt.models.data
+- registerQmlMethods() and registerModelMethods() added to NativeModeApi
+- qt.qml.inspect returns isQmlItem:false for non-QML objects (not an error)
+- qt.models.data supports string and int role params with kModelRoleNotFound on invalid
+- All methods follow existing NativeModeApi patterns (resolveObjectParam, ResponseEnvelope::wrap)
 - All 11 existing test suites pass with zero regressions
 
 ## Phase 5 Progress
@@ -322,8 +332,8 @@ None - all known bugs resolved.
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 06-02-PLAN.md (ModelNavigator)
+Stopped at: Completed 06-03-PLAN.md (QML + Model API Wiring)
 Resume file: None
 
 ---
-*State updated: 2026-02-01 (completed 06-02 - ModelNavigator utility class for model introspection)*
+*State updated: 2026-02-01 (completed 06-03 - QML + Model API Wiring into NativeModeApi)*
