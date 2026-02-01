@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 5 - Chrome Mode (VERIFIED COMPLETE)
+**Current focus:** Phase 5 - Chrome Mode (VERIFIED COMPLETE + gap closure)
 
 ## Current Position
 
 Phase: 5 of 7 (Chrome Mode)
-Plan: 3 of 3 in current phase
-Status: Phase verified complete (14/14 must-haves, 5/5 success criteria, 8/8 requirements)
-Last activity: 2026-01-31 - Phase 5 verified complete
+Plan: 4 of 4 in current phase (05-04 is gap closure)
+Status: Phase complete with gap closure (14/14 must-haves + 2 bugs fixed)
+Last activity: 2026-02-01 - Completed 05-04-PLAN.md (chr.find gap closure)
 
 Progress: [####################] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
-- Average duration: 10.1 min
-- Total execution time: 4.05 hours
+- Total plans completed: 25
+- Average duration: 10.0 min
+- Total execution time: 4.22 hours
 
 **By Phase:**
 
@@ -31,7 +31,7 @@ Progress: [####################] 100%
 | 02-core-introspection | 6 | 104 min | 17.3 min |
 | 03-native-mode | 4 | 24 min | 6.0 min |
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
-| 05-chrome-mode | 3 | 22 min | 7.3 min |
+| 05-chrome-mode | 4 | 32 min | 8.0 min |
 
 **Recent Trend:**
 - Last 6 plans: 04-02 (7 min), 04-03 (8 min), 04-04 (2 min), 05-01 (4 min), 05-02 (8 min), 05-03 (10 min)
@@ -99,10 +99,13 @@ Recent decisions affecting current work:
 | ConsoleMessageCapture installed before API registration | Catches early messages during startup | 05-02 |
 | Verify click by response fields not QSignalSpy | Accessibility pressAction on minimal platform doesn't emit clicked signal | 05-03 |
 | ConsoleMessageCapture installed per-test in init() | Clean message buffer per test for deterministic assertions | 05-03 |
+| chr.find appends to ref map | Enables multi-find workflows without destroying previous refs | 05-04 |
+| readPage remains authoritative (clears find refs) | readPage rebuilds full tree, clearing all refs including find refs | 05-04 |
+| Same name fallback in find as walkNode | Consistency between chr.readPage and chr.find output | 05-04 |
 
 ### Pending Todos
 
-None yet.
+None - all known bugs resolved.
 
 ### Blockers/Concerns
 
@@ -190,6 +193,7 @@ None yet.
 | 05-01 | Chrome Mode Infrastructure Classes | COMPLETE |
 | 05-02 | ChromeModeApi (8 chr.* methods) | COMPLETE |
 | 05-03 | Chrome Mode API Testing | COMPLETE |
+| 05-04 | chr.find Gap Closure (ref wipe + name fallback) | COMPLETE |
 
 **From Plan 05-02:**
 - ChromeModeApi registers 8 chr.* methods: readPage, click, formInput, getPageText, find, navigate, tabsContext, readConsoleMessages
@@ -199,6 +203,12 @@ None yet.
 - QAccessible::Button == QAccessible::PushButton in Qt6 (same enum value 43)
 - ConsoleMessageCapture installed before API registrations in Probe::initialize()
 - All 10 existing test suites pass with zero regressions
+
+**From Plan 05-04 (Gap Closure):**
+- chr.find no longer clears ref map; refCounter seeded from s_refToAccessible.size()
+- buildFindMatchNode uses 3-step name fallback matching walkNode (accessible name -> objectName -> className)
+- 29 Chrome Mode tests (26 original + 3 regression) all pass
+- Multi-find workflows now work: refs from first find survive second find call
 
 **From Plan 05-03:**
 - 26 integration tests verify all 8 chr.* methods end-to-end
@@ -278,8 +288,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-31
-Stopped at: Completed 05-03-PLAN.md (Chrome Mode API testing - Phase 5 complete)
+Last session: 2026-02-01
+Stopped at: Completed 05-04-PLAN.md (chr.find gap closure - Phase 5 fully complete)
 Resume file: None
 
 ---
