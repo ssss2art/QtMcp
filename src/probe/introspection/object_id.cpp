@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "introspection/object_id.h"
+#include "introspection/qml_inspector.h"
 
 #include <QCoreApplication>
 #include <QJsonArray>
@@ -218,6 +219,14 @@ QString generateIdSegment(QObject* obj) {
         return QString();
     }
 
+#ifdef QTMCP_HAS_QML
+    // Priority 0 (QML only): QML id takes highest priority
+    QmlItemInfo qmlInfo = inspectQmlItem(obj);
+    if (qmlInfo.isQmlItem && !qmlInfo.qmlId.isEmpty()) {
+        return qmlInfo.qmlId;
+    }
+#endif
+
     // Priority 1: objectName (if set and non-empty)
     QString name = obj->objectName();
     if (!name.isEmpty()) {
@@ -230,15 +239,24 @@ QString generateIdSegment(QObject* obj) {
         return QStringLiteral("text_") + sanitizeForId(text);
     }
 
-    // Priority 3: ClassName with optional disambiguation suffix
-    QString className = QString::fromLatin1(obj->metaObject()->className());
+    // Priority 3: ClassName (or short QML type name) with optional disambiguation suffix
+#ifdef QTMCP_HAS_QML
+    // For QML items without a QML id or objectName, use short type name
+    // (e.g., "Rectangle" instead of "QQuickRectangle")
+    QString typeName = qmlInfo.isQmlItem
+        ? qmlInfo.shortTypeName
+        : QString::fromLatin1(obj->metaObject()->className());
+#else
+    QString typeName = QString::fromLatin1(obj->metaObject()->className());
+#endif
+
     int siblingIndex = getSiblingIndex(obj);
 
     if (siblingIndex > 0) {
-        return className + QLatin1Char('#') + QString::number(siblingIndex);
+        return typeName + QLatin1Char('#') + QString::number(siblingIndex);
     }
 
-    return className;
+    return typeName;
 }
 
 QString generateObjectId(QObject* obj) {
@@ -312,6 +330,21 @@ QJsonObject serializeObjectInfo(QObject* obj) {
     if (!text.isEmpty()) {
         result[QLatin1String("text")] = text;
     }
+
+#ifdef QTMCP_HAS_QML
+    // QML-specific metadata
+    QmlItemInfo qmlInfo = inspectQmlItem(obj);
+    if (qmlInfo.isQmlItem) {
+        result[QLatin1String("isQmlItem")] = true;
+        if (!qmlInfo.qmlId.isEmpty()) {
+            result[QLatin1String("qmlId")] = qmlInfo.qmlId;
+        }
+        if (!qmlInfo.qmlFile.isEmpty()) {
+            result[QLatin1String("qmlFile")] = qmlInfo.qmlFile;
+        }
+        result[QLatin1String("qmlTypeName")] = qmlInfo.shortTypeName;
+    }
+#endif
 
     return result;
 }
