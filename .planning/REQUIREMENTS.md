@@ -79,18 +79,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### QML Support
 
-- [ ] **QML-01**: QML items appear in object tree as QQuickItem subclasses
-- [ ] **QML-02**: QML id used in hierarchical paths when available
-- [ ] **QML-03**: Basic QML properties accessible via standard introspection
-- [ ] **QML-04**: QML context properties accessible
-- [ ] **QML-05**: QML binding information accessible
+- [x] **QML-01**: QML items appear in object tree as QQuickItem subclasses ✓
+- [x] **QML-02**: QML id used in hierarchical paths when available ✓
+- [x] **QML-03**: Basic QML properties accessible via standard introspection ✓
+- [x] **QML-04**: QML context properties accessible ✓
+- [x] **QML-05**: QML binding information accessible ✓
 
 ### Model/View Support
 
-- [ ] **MV-01**: List QAbstractItemModel instances in application
-- [ ] **MV-02**: Get model row/column count
-- [ ] **MV-03**: Get data at model index (with role specification)
-- [ ] **MV-04**: Navigate model hierarchy (parent, children)
+- [x] **MV-01**: List QAbstractItemModel instances in application ✓
+- [x] **MV-02**: Get model row/column count ✓
+- [x] **MV-03**: Get data at model index (with role specification) ✓
+- [x] **MV-04**: Navigate model hierarchy (parent, children) ✓
 
 ### Python MCP Server
 
@@ -203,15 +203,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHR-06 | Phase 5 | Complete |
 | CHR-07 | Phase 5 | Complete |
 | CHR-08 | Phase 5 | Complete |
-| QML-01 | Phase 6 | Pending |
-| QML-02 | Phase 6 | Pending |
-| QML-03 | Phase 6 | Pending |
-| QML-04 | Phase 6 | Pending |
-| QML-05 | Phase 6 | Pending |
-| MV-01 | Phase 6 | Pending |
-| MV-02 | Phase 6 | Pending |
-| MV-03 | Phase 6 | Pending |
-| MV-04 | Phase 6 | Pending |
+| QML-01 | Phase 6 | Complete |
+| QML-02 | Phase 6 | Complete |
+| QML-03 | Phase 6 | Complete |
+| QML-04 | Phase 6 | Complete |
+| QML-05 | Phase 6 | Complete |
+| MV-01 | Phase 6 | Complete |
+| MV-02 | Phase 6 | Complete |
+| MV-03 | Phase 6 | Complete |
+| MV-04 | Phase 6 | Complete |
 | PY-01 | Phase 7 | Pending |
 | PY-02 | Phase 7 | Pending |
 | PY-03 | Phase 7 | Pending |

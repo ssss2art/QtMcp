@@ -134,10 +134,10 @@ Plans:
 **Research Flag**: QML introspection may require private Qt APIs for deep features (context/bindings). Research completed - public API sufficient for all requirements except context properties and binding expressions (declared out of scope in CONTEXT.md).
 
 Plans:
-- [ ] 06-01-PLAN.md — QML Inspector infrastructure + QML-aware Object ID generation (Wave 1)
-- [ ] 06-02-PLAN.md — ModelNavigator utility class for model discovery and data access (Wave 1)
-- [ ] 06-03-PLAN.md — NativeModeApi extensions: qt.qml.* and qt.models.* methods (Wave 2)
-- [ ] 06-04-PLAN.md — Integration tests for Model/View and QML API (Wave 3)
+- [x] 06-01-PLAN.md — QML Inspector infrastructure + QML-aware Object ID generation (Wave 1) ✓
+- [x] 06-02-PLAN.md — ModelNavigator utility class for model discovery and data access (Wave 1) ✓
+- [x] 06-03-PLAN.md — NativeModeApi extensions: qt.qml.* and qt.models.* methods (Wave 2) ✓
+- [x] 06-04-PLAN.md — Integration tests for Model/View and QML API (Wave 3) ✓
 
 ### Phase 7: Python Integration
 **Goal**: Claude can control Qt applications through MCP server with all three API modes
@@ -168,7 +168,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 | 3. Native Mode | 4/4 | Complete | 2026-01-31 |
 | 4. Computer Use Mode | 5/5 | Complete | 2026-01-31 |
 | 5. Chrome Mode | 4/4 | Complete | 2026-02-01 |
-| 6. Extended Introspection | 0/TBD | Not started | - |
+| 6. Extended Introspection | 4/4 | Complete | 2026-02-01 |
 | 7. Python Integration | 0/TBD | Not started | - |
 
 ---
