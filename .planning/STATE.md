@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 5 - Chrome Mode (in progress)
+**Current focus:** Phase 5 - Chrome Mode (COMPLETE)
 
 ## Current Position
 
 Phase: 5 of 7 (Chrome Mode)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-31 - Completed 05-02-PLAN.md (ChromeModeApi with 8 chr.* methods)
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-31 - Completed 05-03-PLAN.md (Chrome Mode API integration tests)
 
-Progress: [########################.] ~92%
+Progress: [########################.] ~96%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
-- Average duration: 10.2 min
-- Total execution time: 3.88 hours
+- Total plans completed: 24
+- Average duration: 10.1 min
+- Total execution time: 4.05 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [########################.] ~92%
 | 02-core-introspection | 6 | 104 min | 17.3 min |
 | 03-native-mode | 4 | 24 min | 6.0 min |
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
-| 05-chrome-mode | 2 | 12 min | 6.0 min |
+| 05-chrome-mode | 3 | 22 min | 7.3 min |
 
 **Recent Trend:**
-- Last 6 plans: 04-01 (3 min), 04-02 (7 min), 04-03 (8 min), 04-04 (2 min), 05-01 (4 min), 05-02 (8 min)
-- Trend: API implementation plans averaging ~6 min
+- Last 6 plans: 04-02 (7 min), 04-03 (8 min), 04-04 (2 min), 05-01 (4 min), 05-02 (8 min), 05-03 (10 min)
+- Trend: Test plans slightly longer due to build/debug cycles
 
 *Updated after each plan completion*
 
@@ -97,6 +97,8 @@ Recent decisions affecting current work:
 | InputSimulator for chr.click mouse fallback | Consistent with CU mode pattern, not QTest directly | 05-02 |
 | chr.find clears refs before search | Fresh refs assigned to matches only, avoids stale refs | 05-02 |
 | ConsoleMessageCapture installed before API registration | Catches early messages during startup | 05-02 |
+| Verify click by response fields not QSignalSpy | Accessibility pressAction on minimal platform doesn't emit clicked signal | 05-03 |
+| ConsoleMessageCapture installed per-test in init() | Clean message buffer per test for deterministic assertions | 05-03 |
 
 ### Pending Todos
 
@@ -187,6 +189,7 @@ None yet.
 |------|------|--------|
 | 05-01 | Chrome Mode Infrastructure Classes | COMPLETE |
 | 05-02 | ChromeModeApi (8 chr.* methods) | COMPLETE |
+| 05-03 | Chrome Mode API Testing | COMPLETE |
 
 **From Plan 05-02:**
 - ChromeModeApi registers 8 chr.* methods: readPage, click, formInput, getPageText, find, navigate, tabsContext, readConsoleMessages
@@ -196,6 +199,13 @@ None yet.
 - QAccessible::Button == QAccessible::PushButton in Qt6 (same enum value 43)
 - ConsoleMessageCapture installed before API registrations in Probe::initialize()
 - All 10 existing test suites pass with zero regressions
+
+**From Plan 05-03:**
+- 26 integration tests verify all 8 chr.* methods end-to-end
+- readPage, click, formInput, getPageText, find, tabsContext, readConsoleMessages all tested
+- Error cases: invalid ref, stale ref, unsupported form input
+- All 11 test suites (11 executables) pass with zero regressions
+- Phase 5 complete - all Chrome Mode success criteria verified
 
 **From Plan 05-01:**
 - RoleMapper maps ~55 QAccessible::Role to Chrome/ARIA names, isInteractive() covers 18 roles
@@ -269,7 +279,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 05-02-PLAN.md (ChromeModeApi with 8 chr.* methods)
+Stopped at: Completed 05-03-PLAN.md (Chrome Mode API testing - Phase 5 complete)
 Resume file: None
 
 ---
