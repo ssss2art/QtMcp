@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 4 - Computer Use Mode (VERIFIED COMPLETE)
+**Current focus:** Phase 4 - Computer Use Mode (gap closure)
 
 ## Current Position
 
 Phase: 4 of 7 (Computer Use Mode)
-Plan: 3 of 3 in current phase
-Status: Phase verified complete
-Last activity: 2026-01-31 - Phase 4 verified complete (5/5 must-haves, 10/10 CU requirements)
+Plan: 4 of 5 in current phase (gap closure plans)
+Status: Gap closure in progress (04-04 complete, 04-05 pending)
+Last activity: 2026-01-31 - Completed 04-04-PLAN.md (probe resilience + objectId compat)
 
 Progress: [####################] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
-- Average duration: 11.4 min
-- Total execution time: 3.57 hours
+- Total plans completed: 20
+- Average duration: 11.0 min
+- Total execution time: 3.62 hours
 
 **By Phase:**
 
@@ -180,6 +180,7 @@ None yet.
 | 04-01 | Interaction Layer Primitives | COMPLETE |
 | 04-02 | ComputerUseModeApi | COMPLETE |
 | 04-03 | Testing | COMPLETE |
+| 04-04 | Probe Resilience Gap Closure | COMPLETE |
 
 **From Plan 04-01:**
 - KeyNameMapper provides case-insensitive Chrome/xdotool key name to Qt::Key lookup
@@ -221,11 +222,16 @@ None yet.
 - Without this fix, ALL global findByObjectId lookups by hierarchical path fail
 - testFindByIdGlobal regression test prevents this from regressing
 
+**From Plan 04-04 (Gap Closure):**
+- NativeModeApi and ComputerUseModeApi each in independent try/catch - probe survives partial API failure
+- All 11 legacy qtmcp.* methods accept both "id" and "objectId" parameter names
+- fprintf used for registration logging (safe in DLL context before Qt logging init)
+
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Phase 4 verified complete - all CU requirements met
+Stopped at: Completed 04-04-PLAN.md (probe resilience gap closure)
 Resume file: None
 
 ---
-*State updated: 2026-01-31 (post phase 4 verification)*
+*State updated: 2026-01-31 (post 04-04 gap closure)*
