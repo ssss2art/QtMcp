@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 3 - Native Mode (VERIFIED COMPLETE)
+**Current focus:** Phase 4 - Computer Use Mode (IN PROGRESS)
 
 ## Current Position
 
-Phase: 3 of 7 (Native Mode)
-Plan: 4 of 4 in current phase (includes gap closure)
-Status: Phase verified complete
-Last activity: 2026-01-31 - Completed 03-04-PLAN.md (Object ID Resolution Gap Closure)
+Phase: 4 of 7 (Computer Use Mode)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-31 - Completed 04-01-PLAN.md (Interaction Layer Primitives)
 
-Progress: [################--] 89%
+Progress: [#################-] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
-- Average duration: 12.4 min
-- Total execution time: 3.27 hours
+- Total plans completed: 17
+- Average duration: 11.8 min
+- Total execution time: 3.32 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [################--] 89%
 | 01-foundation | 6 | 66 min | 11.0 min |
 | 02-core-introspection | 6 | 104 min | 17.3 min |
 | 03-native-mode | 4 | 24 min | 6.0 min |
+| 04-computer-use-mode | 1 | 3 min | 3.0 min |
 
 **Recent Trend:**
-- Last 6 plans: 02-07 (18 min), 03-01 (5 min), 03-02 (10 min), 03-03 (7 min), 03-04 (2 min)
-- Trend: Gap closure plan executed in 2 min - single targeted fix + regression test
+- Last 6 plans: 03-01 (5 min), 03-02 (10 min), 03-03 (7 min), 03-04 (2 min), 04-01 (3 min)
+- Trend: Interaction primitives plan executed in 3 min - file creation and extension only
 
 *Updated after each plan completion*
 
@@ -80,6 +81,10 @@ Recent decisions affecting current work:
 | JsonRpcException for structured errors | Separate class in jsonrpc_handler.h with code + message + data | 03-02 |
 | CreateErrorResponse with data overload | QJsonDocument-based for proper nested JSON support | 03-02 |
 | Numeric IDs cleared on disconnect | Via WebSocketServer::clientDisconnected signal | 03-02 |
+| Chrome/xdotool key aliases both mapped | Enter/Return both to Key_Return, ArrowUp/Up both to Key_Up | 04-01 |
+| Manual QMouseEvent for new mouse ops | QTest kept for existing click/doubleClick, new ops use sendEvent | 04-01 |
+| Scroll 120 units per tick | Standard QWheelEvent angleDelta convention | 04-01 |
+| captureWindowLogical scales by DPR | 1:1 coordinate matching regardless of HiDPI | 04-01 |
 
 ### Pending Todos
 
@@ -164,6 +169,21 @@ None yet.
 - Numeric IDs cleared on client disconnect
 - Name map auto-loaded during Probe::initialize()
 
+## Phase 4 Progress
+
+| Plan | Name | Status |
+|------|------|--------|
+| 04-01 | Interaction Layer Primitives | COMPLETE |
+| 04-02 | ComputerUseModeApi | PENDING |
+| 04-03 | Testing | PENDING |
+
+**From Plan 04-01:**
+- KeyNameMapper provides case-insensitive Chrome/xdotool key name to Qt::Key lookup
+- InputSimulator extended with mousePress/mouseRelease/mouseMove/scroll/mouseDrag
+- Screenshot extended with captureScreen (full screen) and captureWindowLogical (HiDPI-aware)
+- New files need CMakeLists.txt update in Plan 02 for build integration
+- All new mouse methods use manual QMouseEvent construction (not QTest)
+
 ## Phase 3 Progress
 
 | Plan | Name | Status |
@@ -187,8 +207,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 03-04-PLAN.md (Gap Closure) - Phase 3 fully complete
+Stopped at: Completed 04-01-PLAN.md (Interaction Layer Primitives)
 Resume file: None
 
 ---
-*State updated: 2026-01-31 (post gap closure)*
+*State updated: 2026-01-31 (post 04-01 completion)*
