@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2025-01-29)
 ## Current Position
 
 Phase: 4 of 7 (Computer Use Mode)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-31 - Completed 04-01-PLAN.md (Interaction Layer Primitives)
+Last activity: 2026-01-31 - Completed 04-02-PLAN.md (ComputerUseModeApi)
 
-Progress: [#################-] 90%
+Progress: [##################-] 95%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
-- Average duration: 11.8 min
-- Total execution time: 3.32 hours
+- Total plans completed: 18
+- Average duration: 11.6 min
+- Total execution time: 3.43 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [#################-] 90%
 | 01-foundation | 6 | 66 min | 11.0 min |
 | 02-core-introspection | 6 | 104 min | 17.3 min |
 | 03-native-mode | 4 | 24 min | 6.0 min |
-| 04-computer-use-mode | 1 | 3 min | 3.0 min |
+| 04-computer-use-mode | 2 | 10 min | 5.0 min |
 
 **Recent Trend:**
 - Last 6 plans: 03-01 (5 min), 03-02 (10 min), 03-03 (7 min), 03-04 (2 min), 04-01 (3 min)
-- Trend: Interaction primitives plan executed in 3 min - file creation and extension only
+- Trend: CU API plan executed in 7 min - 13 methods + wiring
 
 *Updated after each plan completion*
 
@@ -85,6 +85,9 @@ Recent decisions affecting current work:
 | Manual QMouseEvent for new mouse ops | QTest kept for existing click/doubleClick, new ops use sendEvent | 04-01 |
 | Scroll 120 units per tick | Standard QWheelEvent angleDelta convention | 04-01 |
 | captureWindowLogical scales by DPR | 1:1 coordinate matching regardless of HiDPI | 04-01 |
+| Window-relative coords by default | screenAbsolute=true for screen coords, matches Chrome CU convention | 04-02 |
+| Active window fallback to visible widget | Searches QApplication::topLevelWidgets() if activeWindow() is null | 04-02 |
+| delay_ms param on click methods | Allows UI settle time before action | 04-02 |
 
 ### Pending Todos
 
@@ -174,7 +177,7 @@ None yet.
 | Plan | Name | Status |
 |------|------|--------|
 | 04-01 | Interaction Layer Primitives | COMPLETE |
-| 04-02 | ComputerUseModeApi | PENDING |
+| 04-02 | ComputerUseModeApi | COMPLETE |
 | 04-03 | Testing | PENDING |
 
 **From Plan 04-01:**
@@ -183,6 +186,13 @@ None yet.
 - Screenshot extended with captureScreen (full screen) and captureWindowLogical (HiDPI-aware)
 - New files need CMakeLists.txt update in Plan 02 for build integration
 - All new mouse methods use manual QMouseEvent construction (not QTest)
+
+**From Plan 04-02:**
+- 13 cu.* methods registered alongside 29 qt.* methods on same JsonRpcHandler
+- ComputerUseModeApi follows exact NativeModeApi pattern (anonymous namespace helpers, envelope wrapping)
+- key_name_mapper.cpp/h now included in CMakeLists.txt (was only created in 04-01)
+- Error codes -32060 to -32063 reserved for CU-specific errors
+- Both APIs active simultaneously - no mode gating yet
 
 ## Phase 3 Progress
 
@@ -207,7 +217,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 04-01-PLAN.md (Interaction Layer Primitives)
+Stopped at: Completed 04-02-PLAN.md (ComputerUseModeApi)
 Resume file: None
 
 ---
