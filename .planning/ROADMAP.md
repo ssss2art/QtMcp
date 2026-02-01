@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - DLL/LD_PRELOAD injection and WebSocket transport layer ✓
 - [x] **Phase 2: Core Introspection** - Object registry, signal monitoring, and UI interaction primitives ✓
 - [x] **Phase 3: Native Mode** - Full Qt introspection API exposed via JSON-RPC ✓
-- [ ] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API
+- [x] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API ✓
 - [ ] **Phase 5: Chrome Mode** - Accessibility tree with numbered refs API (RESEARCH FLAG)
 - [ ] **Phase 6: Extended Introspection** - QML items and Model/View data access
 - [ ] **Phase 7: Python Integration** - MCP server and client library
@@ -94,9 +94,9 @@ Plans:
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 04-01-PLAN.md — KeyNameMapper, InputSimulator extensions, Screenshot extensions (Wave 1)
-- [ ] 04-02-PLAN.md — ComputerUseModeApi with 13 cu.* methods + Probe wiring (Wave 2)
-- [ ] 04-03-PLAN.md — Integration tests for complete Computer Use API (Wave 3)
+- [x] 04-01-PLAN.md — KeyNameMapper, InputSimulator extensions, Screenshot extensions (Wave 1) ✓
+- [x] 04-02-PLAN.md — ComputerUseModeApi with 13 cu.* methods + Probe wiring (Wave 2) ✓
+- [x] 04-03-PLAN.md — Integration tests for complete Computer Use API (Wave 3) ✓
 
 ### Phase 5: Chrome Mode
 **Goal**: AI agents can control Qt applications using accessibility tree and numbered refs (RESEARCH FLAG)
@@ -158,7 +158,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 | 1. Foundation | 6/6 | Complete | 2026-01-30 |
 | 2. Core Introspection | 7/7 | Complete | 2026-01-30 |
 | 3. Native Mode | 4/4 | Complete | 2026-01-31 |
-| 4. Computer Use Mode | 0/3 | Planning complete | - |
+| 4. Computer Use Mode | 3/3 | Complete | 2026-01-31 |
 | 5. Chrome Mode | 0/TBD | Not started | - |
 | 6. Extended Introspection | 0/TBD | Not started | - |
 | 7. Python Integration | 0/TBD | Not started | - |

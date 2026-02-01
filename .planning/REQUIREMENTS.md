@@ -55,16 +55,16 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Computer Use Mode API
 
-- [ ] **CU-01**: Screenshot action returns base64 PNG image
-- [ ] **CU-02**: Left click at pixel coordinates
-- [ ] **CU-03**: Right click at pixel coordinates
-- [ ] **CU-04**: Double click at pixel coordinates
-- [ ] **CU-05**: Mouse move to coordinates
-- [ ] **CU-06**: Click and drag from start to end coordinates
-- [ ] **CU-07**: Type text at current focus
-- [ ] **CU-08**: Send key combinations (e.g., ctrl+s)
-- [ ] **CU-09**: Scroll at coordinates (up, down, left, right)
-- [ ] **CU-10**: Get cursor position
+- [x] **CU-01**: Screenshot action returns base64 PNG image ✓
+- [x] **CU-02**: Left click at pixel coordinates ✓
+- [x] **CU-03**: Right click at pixel coordinates ✓
+- [x] **CU-04**: Double click at pixel coordinates ✓
+- [x] **CU-05**: Mouse move to coordinates ✓
+- [x] **CU-06**: Click and drag from start to end coordinates ✓
+- [x] **CU-07**: Type text at current focus ✓
+- [x] **CU-08**: Send key combinations (e.g., ctrl+s) ✓
+- [x] **CU-09**: Scroll at coordinates (up, down, left, right) ✓
+- [x] **CU-10**: Get cursor position ✓
 
 ### Chrome Mode API
 
@@ -185,16 +185,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NAT-03 | Phase 3 | Complete |
 | NAT-04 | Phase 3 | Complete |
 | NAT-05 | Phase 3 | Complete |
-| CU-01 | Phase 4 | Pending |
-| CU-02 | Phase 4 | Pending |
-| CU-03 | Phase 4 | Pending |
-| CU-04 | Phase 4 | Pending |
-| CU-05 | Phase 4 | Pending |
-| CU-06 | Phase 4 | Pending |
-| CU-07 | Phase 4 | Pending |
-| CU-08 | Phase 4 | Pending |
-| CU-09 | Phase 4 | Pending |
-| CU-10 | Phase 4 | Pending |
+| CU-01 | Phase 4 | Complete |
+| CU-02 | Phase 4 | Complete |
+| CU-03 | Phase 4 | Complete |
+| CU-04 | Phase 4 | Complete |
+| CU-05 | Phase 4 | Complete |
+| CU-06 | Phase 4 | Complete |
+| CU-07 | Phase 4 | Complete |
+| CU-08 | Phase 4 | Complete |
+| CU-09 | Phase 4 | Complete |
+| CU-10 | Phase 4 | Complete |
 | CHR-01 | Phase 5 | Pending |
 | CHR-02 | Phase 5 | Pending |
 | CHR-03 | Phase 5 | Pending |
