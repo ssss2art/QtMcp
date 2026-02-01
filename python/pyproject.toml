@@ -1,0 +1,16 @@
+[project]
+name = "qtmcp"
+version = "0.1.0"
+description = "MCP server for controlling Qt applications via QtMCP probe"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.0,<3",
+    "websockets>=14.0",
+]
+
+[project.scripts]
+qtmcp = "qtmcp.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
