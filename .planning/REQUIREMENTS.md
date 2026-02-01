@@ -68,14 +68,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Chrome Mode API
 
-- [ ] **CHR-01**: Read page returns accessibility tree with numbered refs
-- [ ] **CHR-02**: Click element by ref number
-- [ ] **CHR-03**: Form input by ref number (for QLineEdit, QTextEdit, QSpinBox, etc.)
-- [ ] **CHR-04**: Get page text (all visible text content)
-- [ ] **CHR-05**: Find elements by natural language query
-- [ ] **CHR-06**: Navigate (tabs, menus, back/forward)
-- [ ] **CHR-07**: Tabs context (list windows, active window)
-- [ ] **CHR-08**: Read console messages (qDebug, qWarning, etc.)
+- [x] **CHR-01**: Read page returns accessibility tree with numbered refs ✓
+- [x] **CHR-02**: Click element by ref number ✓
+- [x] **CHR-03**: Form input by ref number (for QLineEdit, QTextEdit, QSpinBox, etc.) ✓
+- [x] **CHR-04**: Get page text (all visible text content) ✓
+- [x] **CHR-05**: Find elements by natural language query ✓
+- [x] **CHR-06**: Navigate (tabs, menus, back/forward) ✓
+- [x] **CHR-07**: Tabs context (list windows, active window) ✓
+- [x] **CHR-08**: Read console messages (qDebug, qWarning, etc.) ✓
 
 ### QML Support
 
@@ -195,14 +195,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CU-08 | Phase 4 | Complete |
 | CU-09 | Phase 4 | Complete |
 | CU-10 | Phase 4 | Complete |
-| CHR-01 | Phase 5 | Pending |
-| CHR-02 | Phase 5 | Pending |
-| CHR-03 | Phase 5 | Pending |
-| CHR-04 | Phase 5 | Pending |
-| CHR-05 | Phase 5 | Pending |
-| CHR-06 | Phase 5 | Pending |
-| CHR-07 | Phase 5 | Pending |
-| CHR-08 | Phase 5 | Pending |
+| CHR-01 | Phase 5 | Complete |
+| CHR-02 | Phase 5 | Complete |
+| CHR-03 | Phase 5 | Complete |
+| CHR-04 | Phase 5 | Complete |
+| CHR-05 | Phase 5 | Complete |
+| CHR-06 | Phase 5 | Complete |
+| CHR-07 | Phase 5 | Complete |
+| CHR-08 | Phase 5 | Complete |
 | QML-01 | Phase 6 | Pending |
 | QML-02 | Phase 6 | Pending |
 | QML-03 | Phase 6 | Pending |

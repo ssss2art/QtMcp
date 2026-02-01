@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Core Introspection** - Object registry, signal monitoring, and UI interaction primitives ✓
 - [x] **Phase 3: Native Mode** - Full Qt introspection API exposed via JSON-RPC ✓
 - [x] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API ✓
-- [ ] **Phase 5: Chrome Mode** - Accessibility tree with numbered refs API (RESEARCH FLAG)
+- [x] **Phase 5: Chrome Mode** - Accessibility tree with numbered refs API ✓
 - [ ] **Phase 6: Extended Introspection** - QML items and Model/View data access
 - [ ] **Phase 7: Python Integration** - MCP server and client library
 
@@ -115,9 +115,9 @@ Plans:
 **Research Flag**: QAccessible tree mapping to Chrome accessibility format is novel. Research completed - role/state/property mappings defined, ephemeral refs chosen, accessibility sub-interfaces for form input.
 
 Plans:
-- [ ] 05-01-PLAN.md — RoleMapper, ConsoleMessageCapture, AccessibilityTreeWalker infrastructure (Wave 1)
-- [ ] 05-02-PLAN.md — ChromeModeApi with all 8 chr.* methods + CMake + Probe wiring (Wave 2)
-- [ ] 05-03-PLAN.md — Integration tests for Chrome Mode API (Wave 3)
+- [x] 05-01-PLAN.md — RoleMapper, ConsoleMessageCapture, AccessibilityTreeWalker infrastructure (Wave 1) ✓
+- [x] 05-02-PLAN.md — ChromeModeApi with all 8 chr.* methods + CMake + Probe wiring (Wave 2) ✓
+- [x] 05-03-PLAN.md — Integration tests for Chrome Mode API (Wave 3) ✓
 
 ### Phase 6: Extended Introspection
 **Goal**: Probe can inspect QML items and navigate QAbstractItemModel hierarchies
@@ -163,7 +163,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 | 2. Core Introspection | 7/7 | Complete | 2026-01-30 |
 | 3. Native Mode | 4/4 | Complete | 2026-01-31 |
 | 4. Computer Use Mode | 5/5 | Complete | 2026-01-31 |
-| 5. Chrome Mode | 0/TBD | Not started | - |
+| 5. Chrome Mode | 3/3 | Complete | 2026-01-31 |
 | 6. Extended Introspection | 0/TBD | Not started | - |
 | 7. Python Integration | 0/TBD | Not started | - |
 
