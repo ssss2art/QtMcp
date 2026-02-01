@@ -141,8 +141,7 @@ void collectPageText(QAccessibleInterface* iface, QStringList& texts, int depth,
     case QAccessible::EditableText:
     case QAccessible::Heading:
     case QAccessible::Paragraph:
-    case QAccessible::Button:
-    case QAccessible::PushButton:
+    case QAccessible::PushButton:  // Same as QAccessible::Button
     case QAccessible::Link:
     case QAccessible::Label:
     case QAccessible::ListItem:

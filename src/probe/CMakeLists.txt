@@ -16,8 +16,12 @@ set(PROBE_SOURCES
     api/symbolic_name_map.cpp
     api/native_mode_api.cpp
     api/computer_use_mode_api.cpp
+    api/chrome_mode_api.cpp
     interaction/key_name_mapper.cpp
     core/object_resolver.cpp
+    accessibility/role_mapper.cpp
+    accessibility/console_message_capture.cpp
+    accessibility/accessibility_tree_walker.cpp
 )
 
 set(PROBE_HEADERS
@@ -39,7 +43,11 @@ set(PROBE_HEADERS
     api/symbolic_name_map.h
     api/native_mode_api.h
     api/computer_use_mode_api.h
+    api/chrome_mode_api.h
     interaction/key_name_mapper.h
+    accessibility/role_mapper.h
+    accessibility/console_message_capture.h
+    accessibility/accessibility_tree_walker.h
 )
 
 # Platform-specific initialization entry points

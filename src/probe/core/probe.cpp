@@ -19,9 +19,11 @@
 #define LOG_ERROR(msg) qCritical() << msg
 #endif
 
+#include "api/chrome_mode_api.h"
 #include "api/computer_use_mode_api.h"
 #include "api/native_mode_api.h"
 #include "api/symbolic_name_map.h"
+#include "accessibility/console_message_capture.h"
 #include "core/object_registry.h"
 #include "core/object_resolver.h"
 #include "introspection/signal_monitor.h"
@@ -155,6 +157,14 @@ bool Probe::initialize() {
 
     m_running = true;
 
+    // Install console message capture (before API registration so early messages are caught)
+    try {
+        ConsoleMessageCapture::instance()->install();
+        fprintf(stderr, "[QtMCP] Console message capture installed\n");
+    } catch (...) {
+        fprintf(stderr, "[QtMCP] WARNING: Failed to install console message capture\n");
+    }
+
     // Register Native Mode API (qt.* namespaced methods)
     try {
         auto* nativeApi = new NativeModeApi(m_server->rpcHandler(), this);
@@ -177,6 +187,17 @@ bool Probe::initialize() {
         fprintf(stderr, "[QtMCP] WARNING: Failed to register Computer Use Mode API (unknown exception)\n");
     }
 
+    // Register Chrome Mode API (chr.* namespaced methods)
+    try {
+        auto* chrApi = new ChromeModeApi(m_server->rpcHandler(), this);
+        Q_UNUSED(chrApi);
+        fprintf(stderr, "[QtMCP] Chrome Mode API (chr.*) registered\n");
+    } catch (const std::exception& e) {
+        fprintf(stderr, "[QtMCP] WARNING: Failed to register Chrome Mode API: %s\n", e.what());
+    } catch (...) {
+        fprintf(stderr, "[QtMCP] WARNING: Failed to register Chrome Mode API (unknown exception)\n");
+    }
+
     // Auto-load symbolic name map from env var or default file
     QString nameMapPath = qEnvironmentVariable("QTMCP_NAME_MAP");
     if (nameMapPath.isEmpty()) {
@@ -188,10 +209,11 @@ bool Probe::initialize() {
         fprintf(stderr, "[QtMCP] Loaded name map from %s\n", qPrintable(nameMapPath));
     }
 
-    // Clear numeric IDs on client disconnect to prevent stale references
+    // Clear numeric IDs and Chrome Mode refs on client disconnect
     connect(m_server, &WebSocketServer::clientDisconnected,
             this, []() {
         ObjectResolver::clearNumericIds();
+        ChromeModeApi::clearRefs();
     });
 
     // Wire signal notifications to WebSocket client
