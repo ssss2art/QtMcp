@@ -24,6 +24,7 @@
 #include "interaction/screenshot.h"
 #include "interaction/hit_test.h"
 #include "introspection/qml_inspector.h"
+#include "introspection/model_navigator.h"
 
 namespace qtmcp {
 
@@ -822,7 +823,87 @@ void NativeModeApi::registerQmlMethods() {
 // ============================================================================
 
 void NativeModeApi::registerModelMethods() {
-    // Placeholder - implemented in Task 2
+    // qt.models.list - discover all QAbstractItemModel instances
+    m_handler->RegisterMethod(QStringLiteral("qt.models.list"),
+        [](const QString& /*params*/) -> QString {
+            QJsonArray models = ModelNavigator::listModels();
+            return envelopeToString(ResponseEnvelope::wrap(models));
+        });
+
+    // qt.models.info - get model metadata (rows, columns, roles)
+    m_handler->RegisterMethod(QStringLiteral("qt.models.info"),
+        [](const QString& params) -> QString {
+            auto p = parseParams(params);
+            QObject* obj = resolveObjectParam(p, QStringLiteral("qt.models.info"));
+            QString objectId = p[QStringLiteral("objectId")].toString();
+
+            QAbstractItemModel* model = ModelNavigator::resolveModel(obj);
+            if (!model) {
+                throw JsonRpcException(
+                    ErrorCode::kNotAModel,
+                    QStringLiteral("Object is not a model and does not have an associated model"),
+                    QJsonObject{
+                        {QStringLiteral("objectId"), objectId},
+                        {QStringLiteral("hint"),
+                         QStringLiteral("Use qt.models.list to discover available models")}
+                    });
+            }
+
+            QJsonObject info = ModelNavigator::getModelInfo(model);
+            return envelopeToString(ResponseEnvelope::wrap(info, objectId));
+        });
+
+    // qt.models.data - fetch model data with pagination and role filtering
+    m_handler->RegisterMethod(QStringLiteral("qt.models.data"),
+        [](const QString& params) -> QString {
+            auto p = parseParams(params);
+            QObject* obj = resolveObjectParam(p, QStringLiteral("qt.models.data"));
+            QString objectId = p[QStringLiteral("objectId")].toString();
+
+            QAbstractItemModel* model = ModelNavigator::resolveModel(obj);
+            if (!model) {
+                throw JsonRpcException(
+                    ErrorCode::kNotAModel,
+                    QStringLiteral("Object is not a model and does not have an associated model"),
+                    QJsonObject{
+                        {QStringLiteral("objectId"), objectId},
+                        {QStringLiteral("hint"),
+                         QStringLiteral("Use qt.models.list to discover available models")}
+                    });
+            }
+
+            int offset = p[QStringLiteral("offset")].toInt(0);
+            int limit = p[QStringLiteral("limit")].toInt(-1);
+            int parentRow = p[QStringLiteral("parentRow")].toInt(-1);
+            int parentCol = p[QStringLiteral("parentCol")].toInt(0);
+
+            // Resolve roles parameter
+            QList<int> resolvedRoles;
+            QJsonArray rolesParam = p[QStringLiteral("roles")].toArray();
+            for (const QJsonValue& roleVal : rolesParam) {
+                if (roleVal.isDouble()) {
+                    resolvedRoles.append(roleVal.toInt());
+                } else if (roleVal.isString()) {
+                    QString roleName = roleVal.toString();
+                    int roleId = ModelNavigator::resolveRoleName(model, roleName);
+                    if (roleId < 0) {
+                        throw JsonRpcException(
+                            ErrorCode::kModelRoleNotFound,
+                            QStringLiteral("Role not found: %1").arg(roleName),
+                            QJsonObject{
+                                {QStringLiteral("roleName"), roleName},
+                                {QStringLiteral("availableRoles"),
+                                 ModelNavigator::getRoleNames(model)}
+                            });
+                    }
+                    resolvedRoles.append(roleId);
+                }
+            }
+
+            QJsonObject data = ModelNavigator::getModelData(
+                model, offset, limit, resolvedRoles, parentRow, parentCol);
+            return envelopeToString(ResponseEnvelope::wrap(data, objectId));
+        });
 }
 
 }  // namespace qtmcp
