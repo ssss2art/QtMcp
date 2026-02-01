@@ -1,419 +1,653 @@
-# Technology Stack
+# Technology Stack: Distribution, CI/CD & Packaging
 
-**Project:** QtMCP
-**Researched:** 2026-01-29
-**Overall Confidence:** HIGH (verified against official docs and current releases)
+**Project:** QtMCP - Distribution Milestone
+**Researched:** 2026-02-01
+**Overall Confidence:** HIGH (verified against current GitHub Action repos, official docs, PyPI)
 
 ---
 
 ## Executive Summary
 
-QtMCP requires a carefully chosen stack that balances Qt integration, cross-platform compatibility (Windows + Linux), and ease of development. The core constraint is Qt 5.15 LTS as primary target with C++17, while the Python MCP server uses the official Anthropic SDK.
+This document covers the stack additions needed to distribute QtMCP as a multi-Qt-version library with CI/CD, vcpkg packaging, PyPI publishing, and GitHub Releases automation. The existing build system (CMake 3.16+, vcpkg manifest, CMakePresets.json) provides a solid foundation but needs several upgrades and additions.
 
-The recommended stack prioritizes:
-1. **Native Qt modules** where available (WebSockets, JSON) to minimize dependencies
-2. **vcpkg manifest mode** for third-party dependency management
-3. **Official MCP Python SDK** for the server component
-4. **Modern CMake patterns** with presets for cross-platform builds
+Key constraints driving decisions:
+1. **Qt ABI incompatibility across minors** -- probe DLL/SO must be compiled per Qt version (5.15, 6.2, 6.8, 6.9)
+2. **Qt 5.15 open-source availability is degrading** -- only 5.15.2 reliably available via aqtinstall; newer patches require commercial
+3. **Python package is Qt-version-independent** -- separate publish pipeline
+4. **Existing CI uses outdated action versions** -- install-qt-action@v3, run-vcpkg@v11 with stale commit ID
 
 ---
 
-## C++ Probe Stack
+## 1. GitHub Actions CI/CD
 
-### Core Framework
+### Core Actions
 
-| Technology | Version | Purpose | Confidence | Rationale |
-|------------|---------|---------|------------|-----------|
-| **Qt 5.15 LTS** | 5.15.x | Primary target framework | HIGH | Industry LTS standard, supported until 2025+. Most deployed Qt apps use 5.15. GammaRay supports 5.15+. |
-| **Qt 6.3+** | 6.3 - 6.10 | Secondary target | HIGH | Qt 6 requires C++17. Version 6.3+ supported by GammaRay 3.1.0. Current is Qt 6.10 (Oct 2025). |
-| **C++17** | ISO C++17 | Language standard | HIGH | Required by Qt 6. Supported by Qt 5.15. Provides `std::optional`, structured bindings, `if constexpr`. |
+| Action | Recommended Version | Purpose | Confidence |
+|--------|---------------------|---------|------------|
+| **jurplel/install-qt-action** | **@v4** | Install Qt versions for CI builds | HIGH |
+| **lukka/run-vcpkg** | **@v11** (v11.5) | Setup vcpkg with binary caching | HIGH |
+| **actions/checkout** | **@v4** | Repository checkout | HIGH |
+| **actions/upload-artifact** | **@v4** | Upload build artifacts | HIGH |
+| **actions/download-artifact** | **@v4** | Download artifacts in release job | HIGH |
+| **actions/setup-python** | **@v5** | Python environment for PyPI publish | HIGH |
+| **softprops/action-gh-release** | **@v2** | Create GitHub releases with assets | HIGH |
+| **pypa/gh-action-pypi-publish** | **@release/v1** | Trusted publisher PyPI upload | HIGH |
+| **jidicula/clang-format-action** | **@v4.11.0** | Code formatting check (existing) | HIGH |
+| **github/codeql-action** | **@v3** | Security scanning (existing) | HIGH |
 
-**Why C++17 (not C++20):**
-- Qt 5.15 builds with C++17 out of the box
-- Qt 6 requires C++17 minimum
-- C++20 has inconsistent compiler support across MSVC/GCC versions
-- C++20 features (modules, coroutines) not needed for this project
+### install-qt-action@v4 Details
 
-### Compilers
+**Upgrade from v3 is required.** v4 uses aqtinstall 3.2.x (default), which fixed issues with Qt 6.7+ installation. The current CI uses v3 which is outdated.
 
-| Platform | Compiler | Minimum Version | Recommended | Confidence |
-|----------|----------|-----------------|-------------|------------|
-| **Windows** | MSVC 2022 | 17.0 | 17.8+ | HIGH | Qt 6.10 officially supports MSVC 2022. Full C++17 support. |
-| **Windows** | MinGW-w64 | 8.1 | 13.1 | HIGH | Qt 6.10 bundles MinGW 13.1. Older versions work for Qt 5.15. |
-| **Linux** | GCC | 9.0 | 11+ | HIGH | GCC 9 minimum for Qt 6. GCC 11+ recommended for better C++17 conformance. |
-| **Linux** | Clang | 10.0 | 15+ | MEDIUM | Clang works but GCC is more commonly tested with Qt on Linux. |
+**Qt version availability via aqtinstall (open-source):**
 
-**Why NOT Clang on Windows:**
-- clang-cl has Qt build quirks
-- MSVC is the path of least resistance on Windows
-- Better debugging experience with Visual Studio
+| Qt Version | Available | Modules Needed | Notes |
+|------------|-----------|----------------|-------|
+| 5.15.2 | YES | `qtwebsockets` | Last open-source 5.15 patch reliably available |
+| 5.15.x-patched | NO | N/A | Requires commercial license (`use-official: true`) |
+| 6.2.x | YES | `qtwebsockets` | LTS, should work with aqtinstall |
+| 6.8.x | YES | `qtwebsockets` | Current LTS, default version in v4 is 6.8.3 |
+| 6.9.x | YES | `qtwebsockets` | Latest feature release |
 
-### Qt Modules Required
+**Critical: CorePrivate headers.** The probe links `Qt::CorePrivate` for `qhooks_p.h`. The install-qt-action installs the full SDK including private headers, so this should work. However, this is a risk area -- if aqtinstall ever strips private headers, builds will fail. No `modules` parameter is needed for CorePrivate; it ships with qtbase.
 
-| Module | Package | Purpose | Confidence |
-|--------|---------|---------|------------|
-| **Qt Core** | qtbase | QObject, meta-object system, signals/slots | HIGH |
-| **Qt Network** | qtbase | TCP networking foundation | HIGH |
-| **Qt WebSockets** | qtwebsockets | WebSocket server for probe communication | HIGH |
-| **Qt GUI** | qtbase | Screenshot capture, widget access | HIGH |
-| **Qt Widgets** | qtbase | Widget introspection (if target uses Widgets) | HIGH |
+**Runner OS requirements:**
 
-### WebSocket Library
+| Qt Version | Linux Runner | Windows Runner |
+|------------|--------------|----------------|
+| 5.15.2 | `ubuntu-22.04` | `windows-2022` |
+| 6.2.x | `ubuntu-22.04` | `windows-2022` |
+| 6.8.x | `ubuntu-24.04` (or `ubuntu-latest`) | `windows-2022` |
+| 6.9.x | `ubuntu-24.04` (or `ubuntu-latest`) | `windows-2022` |
 
-| Technology | Version | Purpose | Confidence | Rationale |
-|------------|---------|---------|------------|-----------|
-| **Qt WebSockets** | (bundled) | WebSocket server in probe | HIGH | Native Qt integration, no external deps, signal/slot based |
+Note: `ubuntu-latest` now points to Ubuntu 24.04 as of January 2025. Qt 5.15 may have issues on Ubuntu 24.04 due to older OpenSSL/glibc expectations -- use `ubuntu-22.04` explicitly for Qt 5.15 builds.
 
-**Why Qt WebSockets (not alternatives):**
-- **websocketpp**: Requires Boost or standalone ASIO - unnecessary dependency
-- **Boost.Beast**: Heavyweight, requires Boost
-- **libwebsockets**: C library, doesn't integrate well with Qt event loop
-- Qt WebSockets uses Qt's event loop natively, making it trivial to integrate with the rest of the probe
+**Matrix strategy pattern:**
 
-**CMake:**
-```cmake
-find_package(Qt6 REQUIRED COMPONENTS Core Network WebSockets)
-# or for Qt 5:
-find_package(Qt5 5.15 REQUIRED COMPONENTS Core Network WebSockets)
+```yaml
+strategy:
+  fail-fast: false
+  matrix:
+    include:
+      - qt-version: '5.15.2'
+        os: ubuntu-22.04
+        preset: ci-linux
+        artifact-suffix: linux-qt5.15
+      - qt-version: '5.15.2'
+        os: windows-2022
+        preset: ci-windows
+        artifact-suffix: windows-qt5.15
+      - qt-version: '6.2.*'
+        os: ubuntu-22.04
+        preset: ci-linux
+        artifact-suffix: linux-qt6.2
+      - qt-version: '6.2.*'
+        os: windows-2022
+        preset: ci-windows
+        artifact-suffix: windows-qt6.2
+      - qt-version: '6.8.*'
+        os: ubuntu-24.04
+        preset: ci-linux
+        artifact-suffix: linux-qt6.8
+      - qt-version: '6.8.*'
+        os: windows-2022
+        preset: ci-windows
+        artifact-suffix: windows-qt6.8
+      - qt-version: '6.9.*'
+        os: ubuntu-24.04
+        preset: ci-linux
+        artifact-suffix: linux-qt6.9
+      - qt-version: '6.9.*'
+        os: windows-2022
+        preset: ci-windows
+        artifact-suffix: windows-qt6.9
 ```
 
-### JSON Library
+**Why `include` instead of cross-product matrix:** Different Qt versions need different Ubuntu runners. An `include`-based matrix gives explicit control over which OS pairs with which Qt version.
 
-| Technology | Version | Purpose | Confidence | Rationale |
-|------------|---------|---------|------------|-----------|
-| **QJsonDocument** | (bundled) | JSON-RPC parsing/generation | HIGH | Part of Qt Core, no external deps, sufficient for protocol |
-| **nlohmann/json** | 3.12.0 | *Optional alternative* | HIGH | Better ergonomics, but adds dependency |
+### vcpkg Binary Caching in CI
 
-**Recommendation: Use QJsonDocument**
+**Important change (2025):** The `x-gha` binary caching backend was removed from vcpkg. The current recommended approaches are:
 
-**Why QJsonDocument (not nlohmann/json):**
-- Zero external dependencies
-- Native QString/QVariant integration
-- Sufficient for JSON-RPC 2.0 protocol needs
-- Already part of Qt Core (no vcpkg needed)
+1. **GitHub Packages NuGet feed** (recommended by Microsoft) -- uses `GITHUB_TOKEN`, stores built packages in GitHub Packages
+2. **lukka/run-vcpkg@v11** built-in caching -- caches the vcpkg executable and build trees via GitHub Actions cache
 
-**When to consider nlohmann/json:**
-- Only if complex JSON manipulation becomes unwieldy
-- If team strongly prefers modern C++ API (`json["key"]` vs `obj.value("key")`)
+**Recommendation: Use lukka/run-vcpkg@v11 with its built-in caching.** Since QtMCP has minimal vcpkg deps (nlohmann-json, spdlog are optional), the caching complexity of NuGet feeds is not worth it. The built-in action cache is sufficient.
 
-**Performance is not a concern:** JSON-RPC messages are small. The 3-4x performance difference between nlohmann and RapidJSON is irrelevant here.
+**Update the vcpkg commit ID.** The current CI uses `vcpkgGitCommitId: '2024.01.12'` which is over 2 years old. Use a recent baseline from the vcpkg repository.
 
-### Testing Framework
+```yaml
+- name: Setup vcpkg
+  uses: lukka/run-vcpkg@v11
+  with:
+    vcpkgGitCommitId: 'a0e1fc3'  # Update to recent commit
+```
 
-| Technology | Version | Purpose | Confidence | Rationale |
-|------------|---------|---------|------------|-----------|
-| **Qt Test** | (bundled) | Unit tests for probe | HIGH | Native Qt signal/slot testing, QSignalSpy, zero config |
-| **Catch2** | 3.12.0 | *Alternative* | MEDIUM | Better assertion macros, but requires vcpkg |
+### CI Environment Variables
 
-**Recommendation: Qt Test for probe, Catch2 optional for pure C++ utilities**
+```yaml
+env:
+  # Set by install-qt-action automatically:
+  # Qt5_DIR or Qt6_DIR (depending on version)
+  # CMAKE_PREFIX_PATH (includes Qt)
 
-**Why Qt Test:**
-- `QSignalSpy` for testing signals - essential for this project
-- `QCOMPARE`, `QVERIFY` work well with Qt types
-- `QTest::mouseClick`, `QTest::keyClick` for UI testing
-- Qt Creator has built-in support
-- No additional dependency
+  # For CMake to find Qt:
+  CMAKE_PREFIX_PATH: ${{ env.Qt5_DIR || env.Qt6_DIR }}
+```
 
-**Why NOT GoogleTest:**
-- Heavier setup than Catch2
-- No Qt-specific features
-- Catch2 is preferred if you need non-Qt testing
+**Note:** install-qt-action@v4 sets environment variables differently depending on Qt major version. The workflow must handle both `Qt5_DIR` and `Qt6_DIR`.
 
 ---
 
-## Build System
+## 2. vcpkg Port Creation
 
-### CMake Configuration
+### Port Structure
 
-| Technology | Version | Purpose | Confidence |
-|------------|---------|---------|------------|
-| **CMake** | 3.21+ | Build system | HIGH |
-| **CMakePresets.json** | Version 3+ | Build configuration | HIGH |
-| **vcpkg** | Latest | Dependency management | HIGH |
+A vcpkg overlay port for QtMCP should live in a `ports/` directory in the repo (or a separate registry repo).
 
-**Why CMake 3.21+:**
-- `CMakePresets.json` support (added 3.19, matured 3.21)
-- Better Qt6 integration
-- `CMAKE_TOOLCHAIN_FILE` works reliably with presets
+```
+ports/
+  qtmcp/
+    portfile.cmake
+    vcpkg.json
+    usage              # Shown to user after install
+```
 
-### vcpkg Manifest Mode
+### Source Port (vcpkg.json)
 
-**Recommended:** Use vcpkg manifest mode with `vcpkg.json` in project root.
-
-**vcpkg.json example:**
 ```json
 {
   "name": "qtmcp",
   "version": "0.1.0",
+  "port-version": 0,
+  "description": "Qt application introspection and automation library with MCP integration",
+  "homepage": "https://github.com/ssss2art/QtMcp",
+  "license": "MIT",
   "dependencies": [
-    "catch2"
+    "vcpkg-cmake",
+    "vcpkg-cmake-config"
   ],
-  "overrides": [],
-  "builtin-baseline": "2024.01.12"
+  "features": {
+    "qml": {
+      "description": "QML/Quick introspection support",
+      "dependencies": []
+    }
+  }
 }
 ```
 
-**Why NOT include Qt in vcpkg:**
-- Qt via vcpkg is complex and slow to build
-- Most users have Qt installed via official installer
-- QtMCP must build against user's Qt installation (matches GammaRay approach)
+**Why no Qt dependency in vcpkg.json:** Qt must come from outside vcpkg (user's installation). The probe must link against the same Qt version as the target application. Building Qt from vcpkg would defeat the purpose.
 
-**Why vcpkg for other deps:**
-- Cross-platform package management
-- CMake integration via toolchain file
-- Manifest mode tracks deps in git
+### Source Port (portfile.cmake)
 
-### CMakePresets.json Structure
+```cmake
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO ssss2art/QtMcp
+    REF "v${VERSION}"
+    SHA512 <hash>
+    HEAD_REF main
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH "${SOURCE_PATH}"
+    OPTIONS
+        -DQTMCP_BUILD_TESTS=OFF
+        -DQTMCP_BUILD_TEST_APP=OFF
+)
+
+vcpkg_cmake_install()
+vcpkg_cmake_config_fixup(PACKAGE_NAME QtMCP CONFIG_PATH lib/cmake/QtMCP)
+vcpkg_copy_pdbs()
+
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")
+```
+
+### Binary Overlay Port
+
+For pre-built binaries (per Qt version), a binary overlay port downloads the correct artifact:
+
+```cmake
+# portfile.cmake for binary distribution
+set(QT_MAJOR_VERSION "" CACHE STRING "Qt major version to use (5 or 6)")
+
+if(VCPKG_TARGET_IS_WINDOWS)
+    vcpkg_download_distfile(ARCHIVE
+        URLS "https://github.com/ssss2art/QtMcp/releases/download/v${VERSION}/qtmcp-${VERSION}-windows-qt${QT_MAJOR_VERSION}.zip"
+        FILENAME "qtmcp-${VERSION}-windows-qt${QT_MAJOR_VERSION}.zip"
+        SHA512 <hash>
+    )
+elseif(VCPKG_TARGET_IS_LINUX)
+    vcpkg_download_distfile(ARCHIVE
+        URLS "https://github.com/ssss2art/QtMcp/releases/download/v${VERSION}/qtmcp-${VERSION}-linux-qt${QT_MAJOR_VERSION}.tar.gz"
+        FILENAME "qtmcp-${VERSION}-linux-qt${QT_MAJOR_VERSION}.tar.gz"
+        SHA512 <hash>
+    )
+endif()
+
+vcpkg_extract_source_archive(SOURCE_PATH ARCHIVE "${ARCHIVE}")
+file(INSTALL "${SOURCE_PATH}/include/" DESTINATION "${CURRENT_PACKAGES_DIR}/include")
+file(INSTALL "${SOURCE_PATH}/lib/" DESTINATION "${CURRENT_PACKAGES_DIR}/lib")
+# ... etc
+```
+
+### Using Overlay Ports
+
+Users configure via `vcpkg-configuration.json`:
 
 ```json
 {
-  "version": 6,
-  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
-  "configurePresets": [
-    {
-      "name": "base",
-      "hidden": true,
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_CXX_STANDARD": "17",
-        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "windows-msvc",
-      "inherits": "base",
-      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
-      }
-    },
-    {
-      "name": "linux-gcc",
-      "inherits": "base",
-      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-linux"
-      }
-    }
-  ],
-  "buildPresets": [
-    { "name": "windows-debug", "configurePreset": "windows-msvc", "configuration": "Debug" },
-    { "name": "windows-release", "configurePreset": "windows-msvc", "configuration": "Release" },
-    { "name": "linux-debug", "configurePreset": "linux-gcc", "configuration": "Debug" },
-    { "name": "linux-release", "configurePreset": "linux-gcc", "configuration": "Release" }
-  ]
+  "overlay-ports": ["./ports"]
 }
 ```
 
----
+Or via command line: `--overlay-ports=./ports`
 
-## Injection Mechanism
-
-### Windows: DLL Injection
-
-| Technique | Confidence | Rationale |
-|-----------|------------|-----------|
-| **CreateRemoteThread + LoadLibrary** | HIGH | Standard technique, used by GammaRay's `windll` injector |
-| Launch with injector EXE | HIGH | Simpler than attaching - matches MVP scope |
-
-**Implementation approach:**
-1. `qtmcp-launch.exe` spawns target process suspended
-2. Allocates memory in target, writes DLL path
-3. `CreateRemoteThread` calls `LoadLibraryW`
-4. Resume target process
-
-**Library option:** [kubo/injector](https://github.com/kubo/injector) - cross-platform injection library with Windows and Linux support.
-
-### Linux: LD_PRELOAD
-
-| Technique | Confidence | Rationale |
-|-----------|------------|-----------|
-| **LD_PRELOAD** | HIGH | Standard technique, used by GammaRay, Qt-Inspector, Qat |
-| Launch wrapper script | HIGH | Simplest approach for MVP |
-
-**Implementation approach:**
-```bash
-LD_PRELOAD=/path/to/libqtmcp-probe.so ./target-app
-```
-
-**Probe initialization:**
-- Use `__attribute__((constructor))` function
-- Or hook into Qt via `qtHookData` (GammaRay approach)
+Or via environment variable: `VCPKG_OVERLAY_PORTS=./ports`
 
 ---
 
-## Python MCP Server Stack
+## 3. Python PyPI Publishing
 
-### Core Framework
+### Build Toolchain
 
-| Technology | Version | Purpose | Confidence | Rationale |
-|------------|---------|---------|------------|-----------|
-| **Python** | 3.10+ | Runtime | HIGH | MCP SDK requires 3.10+. 3.10 is lowest common denominator. |
-| **mcp (official SDK)** | 1.26.0 | MCP protocol implementation | HIGH | Official Anthropic SDK, production-ready, stable v1.x |
+| Tool | Version | Purpose | Confidence |
+|------|---------|---------|------------|
+| **hatchling** | 1.28.0 | Build backend (already in pyproject.toml) | HIGH |
+| **hatch** | (latest) | Build frontend (optional, `python -m build` also works) | HIGH |
+| **pypa/gh-action-pypi-publish** | @release/v1 (v1.12.3+) | Trusted publisher upload | HIGH |
 
-**Why official MCP SDK (not FastMCP 2.0/3.0):**
-- Official SDK is maintained by Anthropic
-- FastMCP 1.0 was incorporated into official SDK
-- FastMCP 2.0/3.0 adds complexity not needed for this project
-- Official SDK provides `mcp.server.fastmcp.FastMCP` for simple server creation
+**Why keep hatchling (not switch to setuptools or poetry):**
+- Already configured in `python/pyproject.toml` -- no migration needed
+- Hatchling 1.28.0 is current and well-maintained (released Nov 2025)
+- Supports PEP 517/518/621 natively
+- Lighter than poetry (no lock file needed for a library)
+- Better than setuptools for modern Python packaging
 
-### WebSocket Client
+### Trusted Publishers (no API tokens needed)
 
-| Technology | Version | Purpose | Confidence | Rationale |
-|------------|---------|---------|------------|-----------|
-| **websockets** | 16.0 | WebSocket client for probe communication | HIGH | asyncio-native, production stable, simple API |
+PyPI Trusted Publishers with OIDC is the modern standard. No `PYPI_TOKEN` secret required.
 
-**Why websockets (not aiohttp):**
-- Dedicated WebSocket library (aiohttp is full HTTP framework)
-- Simpler API: `await ws.recv()` / `await ws.send()`
-- Better performance for WebSocket-only use case
-- Recommended for async applications in 2025
+**Setup steps:**
+1. On PyPI, go to project settings > Publishing > Add GitHub Actions as trusted publisher
+2. Configure: owner=`ssss2art`, repo=`QtMcp`, workflow=`release.yml`, environment=`pypi`
+3. In workflow, set `permissions: id-token: write`
 
-**Why NOT websocket-client:**
-- Synchronous/threaded - doesn't fit MCP SDK's async model
-- MCP SDK uses asyncio natively
+### pyproject.toml Additions
 
-### Additional Python Dependencies
+The existing `python/pyproject.toml` needs metadata additions for PyPI:
 
-| Technology | Version | Purpose | Confidence |
-|------------|---------|---------|------------|
-| **pydantic** | 2.x | Data validation (used by MCP SDK) | HIGH |
-| **pytest** | 8.x | Testing | HIGH |
-| **pytest-asyncio** | 0.23+ | Async test support | HIGH |
-
-### Python Package Structure
-
-```
-qtmcp/
-  pyproject.toml
-  src/
-    qtmcp/
-      __init__.py
-      server.py      # MCP server
-      client.py      # WebSocket client to probe
-      protocol.py    # JSON-RPC message types
-  tests/
-    conftest.py
-    test_server.py
-    test_client.py
-```
-
-**pyproject.toml dependencies:**
 ```toml
 [project]
 name = "qtmcp"
-requires-python = ">=3.10"
+version = "0.1.0"
+description = "MCP server for controlling Qt applications via QtMCP probe"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    {name = "QtMCP Contributors"}
+]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+]
+keywords = ["mcp", "qt", "automation", "introspection"]
 dependencies = [
-    "mcp>=1.26.0",
-    "websockets>=16.0",
+    "fastmcp>=2.0,<3",
+    "websockets>=14.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
-]
+[project.urls]
+Homepage = "https://github.com/ssss2art/QtMcp"
+Repository = "https://github.com/ssss2art/QtMcp"
+Issues = "https://github.com/ssss2art/QtMcp/issues"
+
+[project.scripts]
+qtmcp = "qtmcp.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/qtmcp/**"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qtmcp"]
+```
+
+### Publish Workflow Snippet
+
+```yaml
+publish-pypi:
+  name: Publish to PyPI
+  runs-on: ubuntu-latest
+  needs: [build-matrix]  # Wait for all C++ builds to pass
+  if: github.ref_type == 'tag'
+  environment:
+    name: pypi
+    url: https://pypi.org/p/qtmcp
+  permissions:
+    id-token: write  # Required for trusted publishing
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Build package
+      run: |
+        pip install build
+        python -m build python/
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: python/dist/
 ```
 
 ---
 
-## What NOT to Use
+## 4. GitHub Releases Automation
 
-| Technology | Why Avoid |
-|------------|-----------|
-| **Boost** | Heavyweight, unnecessary when Qt provides equivalent functionality |
-| **RapidJSON** | Performance overkill, QJsonDocument sufficient |
-| **nlohmann/json** | Optional - adds dependency when QJsonDocument works |
-| **websocketpp** | Requires Boost/ASIO, Qt WebSockets is better integrated |
-| **GoogleTest** | Qt Test is better for Qt-specific testing; Catch2 if you need non-Qt |
-| **FastMCP 2.0/3.0** | Unnecessary complexity over official SDK for this project |
-| **aiohttp** | Overkill for WebSocket-only client; websockets is simpler |
-| **Qt from vcpkg** | Complex, slow builds; use official Qt installer instead |
-| **Clang on Windows** | MSVC is better tested and debugged with Qt |
-| **C++20** | Inconsistent compiler support, C++17 is the sweet spot |
+### Release Action
+
+| Tool | Version | Purpose | Confidence |
+|------|---------|---------|------------|
+| **softprops/action-gh-release** | **@v2** | Create release with artifacts | HIGH |
+
+**Why softprops/action-gh-release over `gh release create`:**
+- Declarative (YAML config vs imperative shell commands)
+- Built-in glob pattern support for assets
+- Handles release creation and asset upload atomically
+- Idempotent (updates existing release if tag already has one)
+
+### Artifact Naming Convention
+
+Each CI matrix job uploads artifacts with a consistent naming scheme:
+
+```
+qtmcp-{version}-{platform}-qt{qt_version}.{ext}
+```
+
+Examples:
+- `qtmcp-0.1.0-windows-qt5.15.zip`
+- `qtmcp-0.1.0-windows-qt6.8.zip`
+- `qtmcp-0.1.0-linux-qt5.15.tar.gz`
+- `qtmcp-0.1.0-linux-qt6.8.tar.gz`
+
+### Release Workflow Pattern
+
+```yaml
+release:
+  name: Create Release
+  runs-on: ubuntu-latest
+  needs: [build-matrix, publish-pypi]
+  if: github.ref_type == 'tag'
+  permissions:
+    contents: write
+  steps:
+    - uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        merge-multiple: true
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: artifacts/**/*
+        generate_release_notes: true
+        draft: false
+        prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') }}
+```
+
+### Artifact Collection Strategy
+
+Each matrix build job uploads its artifacts separately:
+
+```yaml
+- name: Package artifacts
+  run: |
+    mkdir -p dist
+    # Copy probe DLL/SO, launcher, headers
+    # Create archive with consistent naming
+
+- uses: actions/upload-artifact@v4
+  with:
+    name: qtmcp-${{ matrix.artifact-suffix }}
+    path: dist/
+    retention-days: 5
+```
+
+The release job uses `actions/download-artifact@v4` with `merge-multiple: true` to collect all matrix artifacts into a single directory.
 
 ---
 
-## Version Summary Table
+## 5. CMake Changes for Multi-Qt-Version Compatibility
 
-| Component | Recommended Version | Min Version | Notes |
-|-----------|---------------------|-------------|-------|
-| C++ Standard | C++17 | C++17 | Required by Qt 6, supported by Qt 5.15 |
-| Qt | 5.15 LTS / 6.3+ | 5.15 | 5.15 primary, 6.x secondary |
-| CMake | 3.25 | 3.21 | For CMakePresets.json support |
-| MSVC | 2022 (17.8+) | 2019 | Qt 6.10 bundles 2022 |
-| GCC | 11+ | 9 | Qt 6 minimum is GCC 9 |
-| vcpkg | Latest | 2024.01 | Manifest mode |
-| Python | 3.11 | 3.10 | MCP SDK requirement |
-| MCP SDK | 1.26.0 | 1.20 | Official Anthropic SDK |
-| websockets | 16.0 | 14.0 | Async WebSocket client |
-| Catch2 | 3.12.0 | 3.0 | Optional, for non-Qt tests |
+### Current State (Issues to Fix)
+
+The existing CMakeLists.txt has several issues for distribution:
+
+1. **QtMCPConfig.cmake.in hardcodes Qt5:** Line `find_dependency(Qt5 5.15 ...)` will fail for Qt6 consumers
+2. **cmake_minimum_required says 3.16 but presets say 3.16 too:** Should be 3.16 minimum (fine for Qt5/6)
+3. **No versionless target support:** Project uses explicit `Qt5::` / `Qt6::` branches everywhere
+4. **No Qt version in output filenames:** `qtmcp-probe.dll` is identical regardless of Qt version built against
+
+### Qt5/Qt6 Compatibility Patterns
+
+**Official Qt recommendation (from doc.qt.io):** Use `QT_VERSION_MAJOR` variable approach for supporting Qt < 5.15 versionless targets. Since QtMCP already does this, the pattern is correct. However, it should be streamlined.
+
+**Current approach (acceptable):**
+```cmake
+find_package(Qt6 QUIET COMPONENTS Core ...)
+if(NOT Qt6_FOUND)
+    find_package(Qt5 5.15 REQUIRED COMPONENTS Core ...)
+endif()
+# Then use Qt${QT_VERSION_MAJOR}::Core everywhere
+```
+
+**Alternative (cleaner, uses versionless targets):**
+```cmake
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network WebSockets Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core CorePrivate Network WebSockets Widgets)
+# Can now use Qt${QT_VERSION_MAJOR}::Core or Qt::Core (if Qt 5.15+)
+```
+
+**Recommendation: Keep the current explicit approach** because:
+- It already works
+- `CorePrivate` handling differs between Qt5 and Qt6
+- Versionless targets have a pitfall: "Projects must not export targets that expose the versionless targets" (official Qt docs)
+- Since QtMCP exports CMake targets (`QtMCPTargets.cmake`), it MUST use versioned targets in exports
+
+### Required CMake Fixes
+
+#### Fix 1: QtMCPConfig.cmake.in must be Qt-version-aware
+
+The current config hardcodes Qt5. It must detect which Qt version the consumer has:
+
+```cmake
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Find the same Qt version that QtMCP was built against
+set(_QTMCP_QT_MAJOR_VERSION @QT_VERSION_MAJOR@)
+
+if(_QTMCP_QT_MAJOR_VERSION EQUAL 6)
+    find_dependency(Qt6 @QT_MIN_VERSION_6@ COMPONENTS Core Widgets WebSockets)
+else()
+    find_dependency(Qt5 @QT_MIN_VERSION_5@ COMPONENTS Core Widgets WebSockets)
+endif()
+
+# Optional dependencies (only if QtMCP was built with them)
+if(@QTMCP_HAS_NLOHMANN_JSON@)
+    find_dependency(nlohmann_json)
+endif()
+if(@QTMCP_HAS_SPDLOG@)
+    find_dependency(spdlog)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/QtMCPTargets.cmake")
+
+check_required_components(QtMCP)
+```
+
+#### Fix 2: Qt version in output filename
+
+For distributing binaries built against different Qt versions, the output filename should include the Qt version:
+
+```cmake
+# Encode Qt version in library name for binary distribution
+option(QTMCP_VERSIONED_OUTPUT "Include Qt version in output filename" OFF)
+
+if(QTMCP_VERSIONED_OUTPUT)
+    set_target_properties(qtmcp_probe PROPERTIES
+        OUTPUT_NAME "qtmcp-probe-qt${QT_VERSION_MAJOR}.${QT_VERSION_MINOR}"
+    )
+endif()
+```
+
+This produces: `qtmcp-probe-qt5.15.dll`, `qtmcp-probe-qt6.8.dll`, etc.
+
+For CI builds: `-DQTMCP_VERSIONED_OUTPUT=ON`
+For local dev: leave OFF (default) for simplicity.
+
+#### Fix 3: Install component separation
+
+Allow installing just the probe, just headers, or just CMake config:
+
+```cmake
+install(TARGETS qtmcp_probe
+    EXPORT QtMCPTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT Runtime
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT Development
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT Runtime
+)
+
+install(DIRECTORY src/probe/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/qtmcp
+    COMPONENT Development
+    FILES_MATCHING PATTERN "*.h"
+)
+```
+
+#### Fix 4: Qt 5 vs 6 API differences to watch
+
+| API | Qt 5 | Qt 6 | Impact |
+|-----|------|------|--------|
+| `QVariant::type()` | Returns `QVariant::Type` | Deprecated, use `typeId()` or `metaType()` | Probe introspection code |
+| `QList` | Backed by `QList` (pointer-based) | Backed by `QVector` (contiguous) | Mostly transparent |
+| `QStringRef` | Available | Removed, use `QStringView` | If used in JSON parsing |
+| `QRegExp` | Available | Removed, use `QRegularExpression` | If used anywhere |
+| `QTextCodec` | Available | Moved to Qt5Compat | Should not be needed |
+| `UNICODE` define | Not set by CMake | Set by default in Qt6 | Already handled (NOMINMAX etc.) |
+
+**Recommendation:** Use `#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)` guards for divergent APIs. The existing codebase likely already handles most of these if it builds with both Qt5 and Qt6.
 
 ---
 
-## Installation Commands
+## 6. Complete Workflow Architecture
 
-### Windows (MSVC)
+### Workflow Files Needed
 
-```powershell
-# Install vcpkg (if not already)
-git clone https://github.com/microsoft/vcpkg.git
-.\vcpkg\bootstrap-vcpkg.bat
-
-# Set environment variable
-$env:VCPKG_ROOT = "C:\path\to\vcpkg"
-
-# Configure and build
-cmake --preset windows-msvc
-cmake --build --preset windows-debug
+```
+.github/
+  workflows/
+    ci.yml              # Matrix build on push/PR (existing, needs upgrade)
+    release.yml         # Tag-triggered: build + package + release + PyPI publish
 ```
 
-### Linux (GCC)
+### ci.yml Responsibilities
+- Lint (clang-format)
+- Build matrix: 4 Qt versions x 2 platforms = 8 jobs
+- Run tests per matrix cell
+- Upload artifacts (for PR review, not release)
+- Python tests (separate job, no Qt needed)
+- CodeQL analysis
 
-```bash
-# Install vcpkg (if not already)
-git clone https://github.com/microsoft/vcpkg.git
-./vcpkg/bootstrap-vcpkg.sh
+### release.yml Responsibilities
+- Triggered by tag push (`v*`)
+- Same build matrix as CI (reuse via workflow call or duplication)
+- Package artifacts with consistent naming
+- Create GitHub Release with all artifacts
+- Publish Python package to PyPI
+- Optionally publish to TestPyPI first
 
-# Set environment variable
-export VCPKG_ROOT=/path/to/vcpkg
+### Workflow Trigger Pattern
 
-# Configure and build
-cmake --preset linux-gcc
-cmake --build --preset linux-debug
+```yaml
+# ci.yml
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# release.yml
+on:
+  push:
+    tags: ['v*']
 ```
 
-### Python Environment
+---
 
-```bash
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux
-.venv\Scripts\activate     # Windows
+## 7. Alternatives Considered
 
-# Install dependencies
-pip install -e ".[dev]"
-```
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Qt installer | jurplel/install-qt-action@v4 | Manual aqtinstall pip install | Action handles caching, env vars, path setup automatically |
+| vcpkg caching | lukka/run-vcpkg@v11 built-in | GitHub Packages NuGet feed | Overkill for 2-3 optional deps |
+| Python build | hatchling | setuptools, poetry | Already configured, modern, lightweight |
+| PyPI publish | Trusted Publishers (OIDC) | API token secret | More secure, no secret management, PyPI recommended |
+| Release creation | softprops/action-gh-release@v2 | `gh release create` | Declarative, idempotent, glob support |
+| CMake Qt compat | QT_VERSION_MAJOR variable | Versionless targets (Qt::Core) | Cannot export versionless targets; must use versioned in installed config |
+
+---
+
+## 8. Version Summary
+
+| Component | Current in Repo | Recommended | Action Needed |
+|-----------|-----------------|-------------|---------------|
+| install-qt-action | v3 | **v4** | Upgrade |
+| run-vcpkg | v11 (old commit) | **v11** (recent commit) | Update commit ID |
+| upload-artifact | v4 | v4 | OK |
+| softprops/action-gh-release | (not used) | **v2** | Add |
+| pypa/gh-action-pypi-publish | (not used) | **@release/v1** | Add |
+| actions/setup-python | v5 | v5 | OK |
+| hatchling | 1.x | **1.28.0** | OK (already configured) |
+| Ubuntu runner | ubuntu-22.04 | **ubuntu-22.04** (Qt5) / **ubuntu-24.04** (Qt6.8+) | Split by Qt version |
+| Windows runner | windows-2022 | **windows-2022** | OK |
+| CMakePresets version | 6 | 6 | OK |
+| CMake minimum | 3.16 | 3.16 | OK |
 
 ---
 
 ## Sources
 
 ### Verified (HIGH Confidence)
-- [Qt 6.10 Supported Platforms](https://doc.qt.io/qt-6/supported-platforms.html) - Compiler requirements
-- [Qt WebSockets Documentation](https://doc.qt.io/qt-6/qtwebsockets-index.html) - Native WebSocket module
-- [MCP Python SDK (PyPI)](https://pypi.org/project/mcp/) - Version 1.26.0, Python 3.10+
-- [websockets (PyPI)](https://pypi.org/project/websockets/) - Version 16.0, Python 3.10+
-- [nlohmann/json Releases](https://github.com/nlohmann/json/releases) - Version 3.12.0 (April 2025)
-- [Catch2 GitHub](https://github.com/catchorg/Catch2) - Version 3.12.0, C++14 minimum
-- [GammaRay GitHub](https://github.com/KDAB/GammaRay) - Architecture reference, Qt 5.15+/6.3+ support
-- [vcpkg CMake Integration](https://learn.microsoft.com/en-us/vcpkg/users/buildsystems/cmake-integration) - Manifest mode docs
+- [jurplel/install-qt-action](https://github.com/jurplel/install-qt-action) -- v4, default Qt 6.8.3, aqtinstall 3.2.x
+- [install-qt-action README](https://github.com/jurplel/install-qt-action/blob/master/README.md) -- Configuration options, caching, modules
+- [Qt 5.15.2 availability issue #283](https://github.com/jurplel/install-qt-action/issues/283) -- Windows x86 issues, open-source availability
+- [softprops/action-gh-release](https://github.com/softprops/action-gh-release) -- v2 latest, file glob support
+- [pypa/gh-action-pypi-publish](https://github.com/pypa/gh-action-pypi-publish) -- release/v1, v1.12.3, trusted publishers
+- [hatchling on PyPI](https://pypi.org/project/hatchling/) -- v1.28.0 (Nov 2025)
+- [lukka/run-vcpkg](https://github.com/lukka/run-vcpkg) -- v11.5, binary caching
+- [vcpkg overlay ports docs](https://learn.microsoft.com/en-us/vcpkg/concepts/overlay-ports) -- Port structure and resolution
+- [vcpkg binary caching with GitHub Packages](https://learn.microsoft.com/en-us/vcpkg/consume/binary-caching-github-packages) -- NuGet feed approach
+- [Qt CMake Qt5/Qt6 compatibility](https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html) -- Official versionless targets guidance
+- [Qt versionless CMake targets blog](https://www.qt.io/blog/versionless-cmake-targets-qt-5.15) -- Qt 5.15 versionless target introduction
+- [GitHub Actions ubuntu-latest migration](https://github.com/actions/runner-images/issues/10636) -- ubuntu-latest = 24.04 since Jan 2025
+- [PyPI Trusted Publishers](https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/) -- Official Python packaging guide
+- [vcpkg x-gha removal issue](https://github.com/lukka/run-vcpkg/issues/251) -- x-gha cache backend removed
 
 ### Cross-Referenced (MEDIUM Confidence)
-- [Qt Wiki: Supported C++ Versions](https://wiki.qt.io/Supported_C++_Versions) - C++ standard requirements
-- [kubo/injector](https://github.com/kubo/injector) - Cross-platform injection library
-- [Qat Architecture](https://qat.readthedocs.io/en/1.2.0/doc/contributing/Architecture.html) - Similar project reference
+- [KDAB GitHub Actions for Qt](https://www.kdab.com/github-actions-for-cpp-and-qt/) -- Matrix build patterns
+- [Qt Forum CI best practices](https://forum.qt.io/topic/161356/github-actions-ci-best-known-methods-to-support-qt-applications) -- Community patterns
+- [PyOpenSci Python packaging guide](https://www.pyopensci.org/python-package-guide/tutorials/publish-pypi.html) -- Trusted publisher workflow

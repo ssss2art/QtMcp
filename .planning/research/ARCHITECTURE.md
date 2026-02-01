@@ -1,66 +1,809 @@
 # Architecture Patterns
 
-**Domain:** Qt introspection/injection tools
-**Researched:** 2026-01-29
+**Domain:** Qt introspection/injection tools - Distribution & Packaging
+**Researched:** 2026-02-01 (v1.1 distribution milestone)
+**Supersedes:** 2026-01-29 v1.0 runtime architecture (preserved below)
 
-## Recommended Architecture
+---
+
+## Part A: Distribution & Packaging Architecture (v1.1)
+
+### Overview
+
+The v1.1 distribution architecture adds multi-Qt-version builds, CI/CD, and multiple packaging channels to the existing v1.0 codebase. The core constraint is: **the probe DLL/SO is ABI-bound to a specific Qt version.** A probe built against Qt 5.15.2 cannot be loaded into a Qt 6.8 application. This means every distribution artifact must encode the Qt version it targets.
+
+```
+                    DISTRIBUTION ARCHITECTURE
+
+  Source Code (single)
+       |
+       v
+  CMake Build System (Qt-version-aware)
+       |
+       +--- Qt 5.15.2 build -------> qtmcp-probe-qt5.15.2-{os}-{arch}.{dll/so}
+       +--- Qt 5.15.1-patched -----> qtmcp-probe-qt5.15.1p-{os}-{arch}.{dll/so}
+       +--- Qt 6.2.x build --------> qtmcp-probe-qt6.2-{os}-{arch}.{dll/so}
+       +--- Qt 6.8.x build --------> qtmcp-probe-qt6.8-{os}-{arch}.{dll/so}
+       +--- Qt 6.9.x build --------> qtmcp-probe-qt6.9-{os}-{arch}.{dll/so}
+       |
+       v
+  Distribution Channels:
+       +--- GitHub Releases (prebuilt binaries, 10 artifacts)
+       +--- vcpkg port (source build against user's Qt)
+       +--- PyPI (Python MCP server + optional probe download)
+```
+
+### Component Inventory: New vs Modified
+
+| Component | Status | File(s) | Purpose |
+|-----------|--------|---------|---------|
+| Root CMakeLists.txt | **MODIFY** | `CMakeLists.txt` | Add Qt version encoding in output names |
+| CMakePresets.json | **MODIFY** | `CMakePresets.json` | Add per-Qt-version presets |
+| QtMCPConfig.cmake.in | **MODIFY** | `cmake/QtMCPConfig.cmake.in` | Fix Qt5-only hardcode, support both Qt versions |
+| CI workflow | **MODIFY** | `.github/workflows/ci.yml` | Matrix build, artifact upload |
+| Release workflow | **NEW** | `.github/workflows/release.yml` | Tag-triggered release with all artifacts |
+| Custom Qt build workflow | **NEW** | `.github/workflows/build-qt.yml` | Build patched Qt 5.15.1 from source, cache it |
+| vcpkg overlay port | **NEW** | `ports/qtmcp/portfile.cmake`, `ports/qtmcp/vcpkg.json` | Source-build port |
+| Python pyproject.toml | **MODIFY** | `python/pyproject.toml` | Add metadata for PyPI, optional extras |
+| Python probe downloader | **NEW** | `python/src/qtmcp/probe.py` | Download prebuilt probe from GitHub Releases |
+| Probe CMakeLists.txt | **MODIFY** | `src/probe/CMakeLists.txt` | Encode Qt version in output name |
+
+---
+
+### 1. CMake Multi-Qt Architecture
+
+#### Current State
+
+The root `CMakeLists.txt` already has a working dual Qt 5/6 discovery pattern (lines 43-88). It tries Qt6 first, falls back to Qt5. The probe CMakeLists.txt branches on `QT_VERSION_MAJOR` for link targets. Output name is `qtmcp-probe` regardless of Qt version.
+
+#### Problem
+
+A single build produces `qtmcp-probe.dll` whether built against Qt 5.15 or Qt 6.8. Users cannot distinguish them. Installing both to the same prefix would overwrite.
+
+#### Recommended Change: Qt-Version-Encoded Output Names
+
+Encode the Qt major.minor version in the library output name. This is the approach used by KDE Frameworks (KF5 vs KF6) and GammaRay.
+
+```cmake
+# In src/probe/CMakeLists.txt, replace the OUTPUT_NAME line:
+
+# Encode Qt version in library name for side-by-side installation
+set(QTMCP_QT_SUFFIX "qt${QT_VERSION_MAJOR}.${Qt${QT_VERSION_MAJOR}_VERSION_MINOR}")
+# Produces: qt5.15, qt6.2, qt6.8, qt6.9
+
+set_target_properties(qtmcp_probe PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+    OUTPUT_NAME "qtmcp-probe-${QTMCP_QT_SUFFIX}"
+    EXPORT_NAME probe
+)
+```
+
+This produces:
+- `qtmcp-probe-qt5.15.dll` / `libqtmcp-probe-qt5.15.so`
+- `qtmcp-probe-qt6.8.dll` / `libqtmcp-probe-qt6.8.so`
+
+Similarly for the launcher:
+```cmake
+set_target_properties(qtmcp_launcher PROPERTIES
+    OUTPUT_NAME "qtmcp-launch-${QTMCP_QT_SUFFIX}"
+)
+```
+
+#### CMake Preset Strategy
+
+Add per-Qt-version presets that explicitly set `CMAKE_PREFIX_PATH`. The current presets use a single `vcpkg-base` with no Qt path -- Qt is found via environment variable at configure time. This works but is implicit. For CI clarity, add explicit presets:
+
+```jsonc
+// New presets to add to CMakePresets.json
+{
+    "name": "ci-linux-qt515",
+    "displayName": "CI Linux Qt 5.15",
+    "inherits": "vcpkg-base",
+    "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PREFIX_PATH": "$env{Qt5_DIR}",
+        "QTMCP_BUILD_TESTS": "ON"
+    }
+},
+{
+    "name": "ci-linux-qt68",
+    "displayName": "CI Linux Qt 6.8",
+    "inherits": "vcpkg-base",
+    "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PREFIX_PATH": "$env{Qt6_DIR}",
+        "QTMCP_BUILD_TESTS": "ON"
+    }
+}
+```
+
+Each preset produces a separate build directory (`build/ci-linux-qt515/`, `build/ci-linux-qt68/`), so artifacts do not collide.
+
+#### QtMCPConfig.cmake.in Fix (Critical Bug)
+
+The current `cmake/QtMCPConfig.cmake.in` hardcodes Qt5:
+
+```cmake
+find_dependency(Qt5 5.15 COMPONENTS Core Widgets WebSockets)  # BUG: hardcoded Qt5
+find_dependency(nlohmann_json)  # BUG: not optional at install time
+find_dependency(spdlog)         # BUG: not optional at install time
+```
+
+This must be fixed to be Qt-version-aware and handle optional deps:
+
+```cmake
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Qt version detected at build time
+set(QTMCP_QT_VERSION_MAJOR @QT_VERSION_MAJOR@)
+
+if(QTMCP_QT_VERSION_MAJOR EQUAL 6)
+    find_dependency(Qt6 @QT_MIN_VERSION_6@ COMPONENTS Core Widgets WebSockets)
+else()
+    find_dependency(Qt5 @QT_MIN_VERSION_5@ COMPONENTS Core Widgets WebSockets)
+endif()
+
+if(@QTMCP_HAS_NLOHMANN_JSON@)
+    find_dependency(nlohmann_json)
+endif()
+
+if(@QTMCP_HAS_SPDLOG@)
+    find_dependency(spdlog)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/QtMCPTargets.cmake")
+check_required_components(QtMCP)
+```
+
+**Confidence: HIGH** -- This is standard CMake `configure_package_config_file` practice documented in the [CMake packaging guide](https://cmake.org/cmake/help/latest/guide/importing-exporting/index.html).
+
+---
+
+### 2. GitHub Actions CI/CD Architecture
+
+#### Build Matrix Design
+
+The CI needs to build: 5 Qt versions x 2 platforms = 10 probe artifacts. Additionally, the patched Qt 5.15.1 requires a custom-built Qt (not available from `install-qt-action`).
+
+```yaml
+# Matrix structure for the standard builds
+strategy:
+  fail-fast: false
+  matrix:
+    include:
+      # Qt 5.15.2 - available from install-qt-action
+      - qt-version: '5.15.2'
+        qt-major: 5
+        os: ubuntu-22.04
+        artifact-suffix: qt5.15.2-linux-x64
+      - qt-version: '5.15.2'
+        qt-major: 5
+        os: windows-2022
+        artifact-suffix: qt5.15.2-windows-x64
+
+      # Qt 6.2.x LTS
+      - qt-version: '6.2.4'
+        qt-major: 6
+        os: ubuntu-22.04
+        artifact-suffix: qt6.2-linux-x64
+      - qt-version: '6.2.4'
+        qt-major: 6
+        os: windows-2022
+        artifact-suffix: qt6.2-windows-x64
+
+      # Qt 6.8.x LTS
+      - qt-version: '6.8.3'
+        qt-major: 6
+        os: ubuntu-22.04
+        artifact-suffix: qt6.8-linux-x64
+      - qt-version: '6.8.3'
+        qt-major: 6
+        os: windows-2022
+        artifact-suffix: qt6.8-windows-x64
+
+      # Qt 6.9.x latest
+      - qt-version: '6.9.1'
+        qt-major: 6
+        os: ubuntu-22.04
+        artifact-suffix: qt6.9-linux-x64
+      - qt-version: '6.9.1'
+        qt-major: 6
+        os: windows-2022
+        artifact-suffix: qt6.9-windows-x64
+```
+
+**Note on `include` vs cross-product:** Using explicit `include` entries instead of `os: [ubuntu, windows]` x `qt-version: [5.15, 6.2, ...]` because:
+1. Some Qt versions may need different `modules` values (e.g., Qt 5 uses `qtwebsockets`, Qt 6 may need `qt5compat`)
+2. The patched Qt 5.15.1 job is completely different (no `install-qt-action`)
+3. Explicit is more maintainable than implicit for 10 cells
+
+#### Workflow Structure: Three Workflows
+
+**Workflow 1: `ci.yml` (on push/PR)**
+- Lint job (existing, unchanged)
+- Matrix build job (8 standard Qt versions x platforms)
+- Patched Qt 5.15.1 build job (separate, depends on cached Qt)
+- Python test job (existing, unchanged)
+- Artifact upload per matrix cell
+
+**Workflow 2: `release.yml` (on tag push `v*`)**
+- Triggers on `v*` tags
+- Runs the full matrix build (same as CI but Release mode)
+- Collects all artifacts into a GitHub Release
+- Publishes Python package to PyPI
+
+**Workflow 3: `build-qt.yml` (manual/scheduled)**
+- Builds patched Qt 5.15.1 from source
+- Caches the result as a GitHub Actions cache or artifact
+- Only runs when cache is stale or manually triggered
+
+#### Caching Strategy
+
+| What | Cache Key | Expected Size | TTL |
+|------|-----------|---------------|-----|
+| vcpkg packages | `vcpkg-{os}-{hash(vcpkg.json)}` | ~50-100MB | Until vcpkg.json changes |
+| Qt (install-qt-action) | Built-in, keyed by version+modules | ~500MB-1GB per version | Managed by action |
+| Patched Qt 5.15.1 build | `qt-5.15.1-patched-{os}-{hash(patches)}` | ~1-2GB | Until patches change |
+| CMake build (ccache) | `ccache-{os}-{qt-version}-{hash(src)}` | ~100-200MB | Rolling, prefix match |
+
+**Important:** GitHub Actions cache is limited to 10GB per repository. With 2 platforms x 4 Qt versions from `install-qt-action` at ~500MB each = 4GB. Adding patched Qt at ~1.5GB x 2 platforms = 3GB. This is tight. Recommendation: Use `install-qt-action`'s built-in caching (which is separate from the GitHub Actions cache) and only use explicit caching for the patched Qt and vcpkg.
+
+#### Patched Qt 5.15.1: CI Strategy
+
+This is the hardest part. `install-qt-action` cannot install a custom-patched Qt build. Options:
+
+**Option A: Build Qt from source in CI (RECOMMENDED)**
+
+```yaml
+build-patched-qt:
+  runs-on: ${{ matrix.os }}
+  strategy:
+    matrix:
+      os: [ubuntu-22.04, windows-2022]
+  steps:
+    - uses: actions/checkout@v4
+
+    - name: Cache patched Qt
+      id: qt-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/qt-5.15.1-patched
+        key: qt-5.15.1-patched-${{ matrix.os }}-${{ hashFiles('patches/**') }}
+
+    - name: Build Qt from source
+      if: steps.qt-cache.outputs.cache-hit != 'true'
+      run: |
+        git clone --branch v5.15.1 --depth 1 https://code.qt.io/qt/qt5.git
+        cd qt5
+        perl init-repository --module-subset=qtbase,qtwebsockets
+        # Apply patches
+        cd qtbase
+        git apply $GITHUB_WORKSPACE/patches/*.patch
+        cd ..
+        # Configure and build
+        ./configure -prefix ~/qt-5.15.1-patched -opensource -confirm-license \
+          -nomake tests -nomake examples -release
+        make -j$(nproc)
+        make install
+      # Windows equivalent uses configure.bat and nmake/jom
+
+    - name: Upload Qt build
+      uses: actions/upload-artifact@v4
+      with:
+        name: qt-5.15.1-patched-${{ matrix.os }}
+        path: ~/qt-5.15.1-patched
+```
+
+**Build time:** ~30-60 minutes for qtbase+qtwebsockets on a GitHub Actions runner. The cache makes subsequent runs instant.
+
+**Option B: Pre-built Qt as release artifact (alternative)**
+
+Build the patched Qt once locally, upload as a release artifact to a separate repo or as a GitHub Release asset on the QtMCP repo itself. CI downloads it instead of building.
+
+Pros: Faster CI, no Qt build in pipeline.
+Cons: Manual process, harder to keep in sync with patches.
+
+**Recommendation:** Start with Option A (build from source with aggressive caching). If CI time becomes a problem, switch to Option B later.
+
+**Confidence: MEDIUM** -- The Vector35/qt-build project validates that building Qt from source in CI is practical, but specific build times for GitHub Actions runners with Qt 5.15.1 subset builds are not verified.
+
+---
+
+### 3. vcpkg Port Architecture
+
+#### Port Type: Source Build (Overlay Port)
+
+vcpkg's philosophy is build-from-source. The official curated registry does not accept ports that download prebuilt binaries. QtMCP should provide an overlay port that builds the probe from source against whatever Qt the user has installed.
+
+#### Directory Structure
+
+```
+ports/
+  qtmcp/
+    portfile.cmake      # Build instructions
+    vcpkg.json          # Port manifest
+    usage               # Post-install usage instructions
+```
+
+**Note:** This goes in the QtMCP repo root under `ports/`, not in the vcpkg tree. Users add it as `--overlay-ports=./ports`.
+
+#### portfile.cmake
+
+```cmake
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO ssss2art/QtMcp
+    REF "v${VERSION}"
+    SHA512 0  # Updated on each release
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH "${SOURCE_PATH}"
+    OPTIONS
+        -DQTMCP_BUILD_TESTS=OFF
+        -DQTMCP_BUILD_TEST_APP=OFF
+)
+
+vcpkg_cmake_install()
+
+vcpkg_cmake_config_fixup(
+    PACKAGE_NAME QtMCP
+    CONFIG_PATH lib/cmake/QtMCP
+)
+
+file(REMOVE_RECURSE
+    "${CURRENT_PACKAGES_DIR}/debug/include"
+    "${CURRENT_PACKAGES_DIR}/debug/share"
+)
+
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")
+
+file(INSTALL "${CMAKE_CURRENT_LIST_DIR}/usage"
+    DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}")
+```
+
+#### vcpkg.json (Port Manifest)
+
+```json
+{
+  "name": "qtmcp",
+  "version": "1.1.0",
+  "description": "Qt application introspection and automation library with MCP integration",
+  "homepage": "https://github.com/ssss2art/QtMcp",
+  "license": "MIT",
+  "supports": "windows | linux",
+  "dependencies": [
+    "vcpkg-cmake",
+    "vcpkg-cmake-config"
+  ],
+  "features": {
+    "extras": {
+      "description": "Additional dependencies (nlohmann-json, spdlog)",
+      "dependencies": ["nlohmann-json", "spdlog"]
+    }
+  }
+}
+```
+
+**Key design decision:** The port does NOT declare `qtbase` or `qtwebsockets` as vcpkg dependencies. Why? Because:
+1. Users likely already have Qt installed system-wide or via Qt installer (not vcpkg)
+2. vcpkg's Qt ports are notoriously slow to build (~1-2 hours)
+3. The probe must match the EXACT Qt version the target app uses
+
+Instead, the port relies on `CMAKE_PREFIX_PATH` to find Qt at configure time. The `usage` file explains this:
+
+```
+qtmcp provides CMake targets:
+    find_package(QtMCP CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE QtMCP::probe)
+
+Note: QtMCP requires Qt (5.15+ or 6.x) with Core, Widgets, Network, and
+WebSockets modules. Set CMAKE_PREFIX_PATH to your Qt installation.
+```
+
+**Confidence: HIGH** -- This follows the standard vcpkg overlay port pattern documented in [Microsoft's vcpkg overlay ports guide](https://learn.microsoft.com/en-us/vcpkg/concepts/overlay-ports).
+
+#### Binary Download Variant (Separate Overlay)
+
+For users who want prebuilt binaries without building from source, provide a second overlay port:
+
+```
+ports/
+  qtmcp/          # Source build (primary)
+  qtmcp-prebuilt/ # Binary download (convenience)
+```
+
+The `qtmcp-prebuilt` portfile downloads from GitHub Releases instead of building:
+
+```cmake
+# Determine Qt version and platform
+if(VCPKG_TARGET_IS_WINDOWS)
+    set(PLATFORM "windows")
+    set(EXT "zip")
+else()
+    set(PLATFORM "linux")
+    set(EXT "tar.gz")
+endif()
+
+# User must set QTMCP_QT_VERSION (e.g., "qt5.15", "qt6.8")
+if(NOT DEFINED QTMCP_QT_VERSION)
+    message(FATAL_ERROR "Set QTMCP_QT_VERSION to match your Qt (e.g., qt5.15, qt6.8)")
+endif()
+
+vcpkg_download_distfile(ARCHIVE
+    URLS "https://github.com/ssss2art/QtMcp/releases/download/v${VERSION}/qtmcp-${VERSION}-${QTMCP_QT_VERSION}-${PLATFORM}-x64.${EXT}"
+    FILENAME "qtmcp-${VERSION}-${QTMCP_QT_VERSION}-${PLATFORM}-x64.${EXT}"
+    SHA512 0
+)
+
+vcpkg_extract_source_archive(SOURCE_PATH ARCHIVE "${ARCHIVE}")
+
+# Install pre-built files
+file(INSTALL "${SOURCE_PATH}/lib/" DESTINATION "${CURRENT_PACKAGES_DIR}/lib")
+file(INSTALL "${SOURCE_PATH}/include/" DESTINATION "${CURRENT_PACKAGES_DIR}/include")
+# ... etc
+```
+
+**Confidence: MEDIUM** -- This pattern is used by some overlay ports (e.g., CUDA) but is not standard vcpkg practice. It requires careful SHA512 management per release per Qt version.
+
+---
+
+### 4. Python Package Architecture (PyPI)
+
+#### Current State
+
+The Python package at `python/` uses hatchling with a simple `pyproject.toml`:
+- Name: `qtmcp`
+- Entry point: `qtmcp = "qtmcp.cli:main"`
+- Dependencies: `fastmcp>=2.0,<3`, `websockets>=14.0`
+
+#### Recommended PyPI Distribution Strategy
+
+The Python package is **pure Python** (no native code). It connects to the C++ probe over WebSocket. The probe binary is NOT included in the wheel. Instead:
+
+1. `pip install qtmcp` installs the pure-Python MCP server
+2. Users obtain the probe DLL/SO separately (GitHub Releases, vcpkg, or manual build)
+3. Optionally, `qtmcp` provides a CLI command to download the probe: `qtmcp probe download --qt-version 5.15`
+
+This avoids the hatchling platform-specific wheel issue (hatchling produces `py3-none-any` wheels even with binary artifacts, as documented in [pypa/hatch#1955](https://github.com/pypa/hatch/issues/1955)).
+
+#### Enhanced pyproject.toml
+
+```toml
+[project]
+name = "qtmcp"
+version = "1.1.0"
+description = "MCP server for controlling Qt applications via QtMCP probe"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "QtMCP Contributors"}
+]
+readme = "README.md"
+keywords = ["qt", "mcp", "automation", "introspection", "claude"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "fastmcp>=2.0,<3",
+    "websockets>=14.0",
+    "httpx>=0.25",  # For probe download
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+qtmcp = "qtmcp.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ssss2art/QtMcp"
+Documentation = "https://github.com/ssss2art/QtMcp/blob/main/python/README.md"
+Issues = "https://github.com/ssss2art/QtMcp/issues"
+Changelog = "https://github.com/ssss2art/QtMcp/releases"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/qtmcp"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qtmcp"]
+```
+
+#### Probe Download Helper
+
+New file: `python/src/qtmcp/probe.py`
+
+```python
+"""Download prebuilt probe binaries from GitHub Releases."""
+
+import platform
+import httpx
+from pathlib import Path
+
+GITHUB_RELEASE_URL = "https://github.com/ssss2art/QtMcp/releases/download"
+
+def get_probe_filename(qt_version: str) -> str:
+    """Get the expected probe filename for this platform."""
+    os_name = "windows" if platform.system() == "Windows" else "linux"
+    ext = "dll" if os_name == "windows" else "so"
+    return f"qtmcp-probe-{qt_version}.{ext}"
+
+def download_probe(qt_version: str, version: str = "latest", dest: Path | None = None) -> Path:
+    """Download probe binary from GitHub Releases."""
+    # Implementation: resolve 'latest', download, verify, place in dest
+    ...
+```
+
+This is integrated into the CLI:
+
+```
+qtmcp probe download --qt-version qt5.15
+qtmcp probe download --qt-version qt6.8 --dest /usr/local/lib
+qtmcp probe list  # Show available versions from GitHub Releases API
+```
+
+**Confidence: HIGH** for the pure-Python wheel approach. MEDIUM for the probe download helper (needs GitHub API integration).
+
+---
+
+### 5. Release Artifact Organization
+
+#### Naming Convention
+
+```
+qtmcp-{version}-{qt-suffix}-{os}-{arch}.{ext}
+```
+
+| Component | Values | Example |
+|-----------|--------|---------|
+| version | semver | `1.1.0` |
+| qt-suffix | `qt5.15`, `qt5.15.1p`, `qt6.2`, `qt6.8`, `qt6.9` | `qt5.15` |
+| os | `linux`, `windows` | `linux` |
+| arch | `x64` | `x64` |
+| ext | `tar.gz` (Linux), `zip` (Windows) | `tar.gz` |
+
+The `p` suffix on `qt5.15.1p` denotes the patched build, distinguishing it from stock Qt 5.15.1.
+
+#### Full Release Artifact List (v1.1.0 example)
+
+```
+qtmcp-1.1.0-qt5.15-linux-x64.tar.gz
+qtmcp-1.1.0-qt5.15-linux-x64.tar.gz.sha256
+qtmcp-1.1.0-qt5.15-windows-x64.zip
+qtmcp-1.1.0-qt5.15-windows-x64.zip.sha256
+qtmcp-1.1.0-qt5.15.1p-linux-x64.tar.gz
+qtmcp-1.1.0-qt5.15.1p-linux-x64.tar.gz.sha256
+qtmcp-1.1.0-qt5.15.1p-windows-x64.zip
+qtmcp-1.1.0-qt5.15.1p-windows-x64.zip.sha256
+qtmcp-1.1.0-qt6.2-linux-x64.tar.gz
+qtmcp-1.1.0-qt6.2-linux-x64.tar.gz.sha256
+qtmcp-1.1.0-qt6.2-windows-x64.zip
+qtmcp-1.1.0-qt6.2-windows-x64.zip.sha256
+qtmcp-1.1.0-qt6.8-linux-x64.tar.gz
+qtmcp-1.1.0-qt6.8-linux-x64.tar.gz.sha256
+qtmcp-1.1.0-qt6.8-windows-x64.zip
+qtmcp-1.1.0-qt6.8-windows-x64.zip.sha256
+qtmcp-1.1.0-qt6.9-linux-x64.tar.gz
+qtmcp-1.1.0-qt6.9-linux-x64.tar.gz.sha256
+qtmcp-1.1.0-qt6.9-windows-x64.zip
+qtmcp-1.1.0-qt6.9-windows-x64.zip.sha256
+```
+
+That is 20 files (10 archives + 10 checksums).
+
+#### Archive Internal Structure
+
+Each archive contains:
+
+```
+qtmcp-1.1.0-qt5.15-linux-x64/
+  lib/
+    libqtmcp-probe-qt5.15.so
+    libqtmcp-probe-qt5.15.so.1
+    libqtmcp-probe-qt5.15.so.1.1.0
+  bin/
+    qtmcp-launch-qt5.15
+  include/
+    qtmcp/
+      core/probe.h
+      core/injector.h
+      ...
+  lib/cmake/QtMCP/
+    QtMCPConfig.cmake
+    QtMCPConfigVersion.cmake
+    QtMCPTargets.cmake
+    QtMCPTargets-release.cmake
+  LICENSE
+  README.md
+```
+
+Windows variant uses `.dll`, `.lib`, `.exe` extensions.
+
+#### GitHub Actions Artifact to Release Flow
+
+```
+Matrix Build Jobs (parallel)
+  |
+  +-- Job 1: qt5.15 + linux --> upload-artifact: "qtmcp-qt5.15-linux-x64"
+  +-- Job 2: qt5.15 + windows --> upload-artifact: "qtmcp-qt5.15-windows-x64"
+  +-- Job 3: qt5.15.1p + linux --> upload-artifact: "qtmcp-qt5.15.1p-linux-x64"
+  ...
+  +-- Job 10: qt6.9 + windows --> upload-artifact: "qtmcp-qt6.9-windows-x64"
+  |
+  v
+Release Job (depends on all build jobs)
+  |
+  +-- download-artifact (all 10)
+  +-- package each into archive with naming convention
+  +-- generate checksums
+  +-- softprops/action-gh-release@v2 with all 20 files
+  +-- Publish Python to PyPI via trusted publishing
+```
+
+**Confidence: HIGH** -- Standard GitHub Actions release pattern, documented in [actions/upload-artifact](https://github.com/actions/upload-artifact) and [softprops/action-gh-release](https://github.com/softprops/action-gh-release).
+
+---
+
+### 6. Integration Points with Existing Architecture
+
+#### What Changes in Existing Files
+
+| File | Change | Risk |
+|------|--------|------|
+| `CMakeLists.txt` | Add `QTMCP_QT_SUFFIX` variable, pass to subdirectories | LOW - additive |
+| `src/probe/CMakeLists.txt` | Change `OUTPUT_NAME` to include Qt suffix | LOW - rename only |
+| `src/launcher/CMakeLists.txt` | Change `OUTPUT_NAME` to include Qt suffix | LOW - rename only |
+| `cmake/QtMCPConfig.cmake.in` | Fix Qt5 hardcode, handle optional deps | MEDIUM - consumers affected |
+| `CMakePresets.json` | Add per-Qt-version presets | LOW - additive |
+| `.github/workflows/ci.yml` | Matrix expansion, artifact naming | MEDIUM - full rewrite of build jobs |
+| `python/pyproject.toml` | Add PyPI metadata, bump version | LOW - additive |
+| `vcpkg.json` | No change needed (root manifest is for dev, not distribution) | NONE |
+
+#### What Does NOT Change
+
+- All source code in `src/probe/` and `src/launcher/` (zero C++ changes needed)
+- Python source code in `python/src/qtmcp/` (existing code unchanged)
+- Test code in `tests/`
+- The runtime architecture (probe injection, WebSocket, JSON-RPC)
+
+---
+
+### 7. Suggested Build Order for Phases
+
+```
+Phase 1: CMake Multi-Qt Foundation
+  1.1 Add QTMCP_QT_SUFFIX to root CMakeLists.txt
+  1.2 Update OUTPUT_NAME in probe and launcher CMakeLists.txt
+  1.3 Fix QtMCPConfig.cmake.in (Qt version + optional deps)
+  1.4 Add per-Qt-version presets to CMakePresets.json
+  1.5 Verify: build locally against Qt 5.15 and Qt 6.x, confirm different output names
+  Depends on: nothing (pure CMake changes)
+
+Phase 2: CI/CD Matrix Build
+  2.1 Restructure ci.yml with matrix strategy
+  2.2 Add install-qt-action for each standard Qt version
+  2.3 Add artifact upload with version-encoded names
+  2.4 Verify: all 8 standard matrix cells build green
+  Depends on: Phase 1 (output names must be correct before CI builds)
+
+Phase 3: Patched Qt 5.15.1 CI
+  3.1 Create patches/ directory with Qt source patches
+  3.2 Create build-qt.yml workflow for building patched Qt
+  3.3 Add patched Qt job to ci.yml (download cached build)
+  3.4 Verify: patched Qt builds produce qtmcp-probe-qt5.15.1p
+  Depends on: Phase 2 (CI infrastructure must exist)
+
+Phase 4: GitHub Releases
+  4.1 Create release.yml triggered on v* tags
+  4.2 Implement archive packaging (tar.gz/zip with correct structure)
+  4.3 Implement checksum generation
+  4.4 Create release with all 20 artifacts
+  4.5 Verify: tag push produces complete release
+  Depends on: Phase 2 + 3 (all matrix builds must work)
+
+Phase 5: vcpkg Port
+  5.1 Create ports/qtmcp/vcpkg.json
+  5.2 Create ports/qtmcp/portfile.cmake
+  5.3 Create ports/qtmcp/usage
+  5.4 Test: vcpkg install qtmcp --overlay-ports=./ports
+  5.5 (Optional) Create ports/qtmcp-prebuilt/ for binary download variant
+  Depends on: Phase 4 (source build port needs tagged releases for vcpkg_from_github)
+
+Phase 6: PyPI Publication
+  6.1 Enhance python/pyproject.toml with PyPI metadata
+  6.2 Add probe download helper (python/src/qtmcp/probe.py)
+  6.3 Add CLI commands for probe management
+  6.4 Configure trusted publishing in release.yml
+  6.5 Verify: pip install qtmcp works, qtmcp probe download works
+  Depends on: Phase 4 (probe download needs GitHub Releases to exist)
+```
+
+**Ordering rationale:**
+- CMake changes first because everything else depends on correct output naming
+- CI before releases because releases depend on CI builds
+- Patched Qt is the riskiest (building Qt from source in CI) so it gets its own phase
+- vcpkg and PyPI are parallel-capable but both need releases to exist first
+
+---
+
+## Part B: Runtime Architecture (v1.0 -- Preserved)
+
+### Recommended Architecture
 
 QtMCP follows the established architecture patterns used by GammaRay, Qt-Inspector, and Qat for Qt introspection tools. The architecture separates into four primary components with clear boundaries:
 
 ```
-                                    ┌─────────────────────────┐
-                                    │     Claude / LLM        │
-                                    │    (MCP Client)         │
-                                    └───────────┬─────────────┘
-                                                │ MCP Protocol
-                                                │ (stdio/HTTP)
-┌───────────────────────────────────────────────┼──────────────────────────────┐
-│  HOST MACHINE                                 │                              │
-│                                               ▼                              │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │  PYTHON MCP SERVER                                                      │ │
-│  │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────┐  │ │
-│  │  │ MCP Protocol │    │ Tool         │    │ WebSocket Client         │  │ │
-│  │  │ Handler      │───▶│ Dispatcher   │───▶│ (JSON-RPC)               │  │ │
-│  │  └──────────────┘    └──────────────┘    └────────────┬─────────────┘  │ │
-│  └───────────────────────────────────────────────────────│─────────────────┘ │
-│                                                          │ WebSocket         │
-│                                                          │ JSON-RPC 2.0      │
-│  ┌───────────────────────────────────────────────────────▼─────────────────┐ │
-│  │  TARGET Qt APPLICATION PROCESS                                          │ │
-│  │  ┌────────────────────────────────────────────────────────────────────┐ │ │
-│  │  │  C++ PROBE (libqtmcp.so / qtmcp.dll)                               │ │ │
-│  │  │                                                                     │ │ │
-│  │  │  ┌──────────────────────────────────────────────────────────────┐  │ │ │
-│  │  │  │  TRANSPORT LAYER                                             │  │ │ │
-│  │  │  │  ┌─────────────────┐    ┌────────────────────────────────┐   │  │ │ │
-│  │  │  │  │ WebSocket Server│    │ JSON-RPC Handler               │   │  │ │ │
-│  │  │  │  │ (QWebSocketSvr) │───▶│ (Request/Response routing)     │   │  │ │ │
-│  │  │  │  └─────────────────┘    └────────────────────────────────┘   │  │ │ │
-│  │  │  └──────────────────────────────────────────────────────────────┘  │ │ │
-│  │  │                                    │                                │ │ │
-│  │  │  ┌─────────────────────────────────▼────────────────────────────┐  │ │ │
-│  │  │  │  INTROSPECTION LAYER                                         │  │ │ │
-│  │  │  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐  │  │ │ │
-│  │  │  │  │ Object       │  │ Meta         │  │ Widget/A11y        │  │  │ │ │
-│  │  │  │  │ Registry     │  │ Inspector    │  │ Tree Builder       │  │  │ │ │
-│  │  │  │  └──────────────┘  └──────────────┘  └────────────────────┘  │  │ │ │
-│  │  │  └──────────────────────────────────────────────────────────────┘  │ │ │
-│  │  │                                    │                                │ │ │
-│  │  │  ┌─────────────────────────────────▼────────────────────────────┐  │ │ │
-│  │  │  │  HOOKS LAYER (Qt Internal APIs)                              │  │ │ │
-│  │  │  │  ┌──────────────────────┐  ┌──────────────────────────────┐  │  │ │ │
-│  │  │  │  │ qtHookData Callbacks │  │ Signal Spy Callbacks         │  │  │ │ │
-│  │  │  │  │ (AddQObject/Remove)  │  │ (qt_register_signal_spy_cb)  │  │  │ │ │
-│  │  │  │  └──────────────────────┘  └──────────────────────────────┘  │  │ │ │
-│  │  │  └──────────────────────────────────────────────────────────────┘  │ │ │
-│  │  │                                    │                                │ │ │
-│  │  │  ┌─────────────────────────────────▼────────────────────────────┐  │ │ │
-│  │  │  │  Qt Application Objects (QWidgets, QML Items, etc.)          │  │ │ │
-│  │  │  └──────────────────────────────────────────────────────────────┘  │ │ │
-│  │  └────────────────────────────────────────────────────────────────────┘ │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────────────────┘
+                                    +---------------------------+
+                                    |     Claude / LLM          |
+                                    |    (MCP Client)           |
+                                    +-----------+---------------+
+                                                | MCP Protocol
+                                                | (stdio/HTTP)
++-----------------------------------------------+------------------------------+
+|  HOST MACHINE                                 |                              |
+|                                               v                              |
+|  +-----------------------------------------------------------------------+   |
+|  |  PYTHON MCP SERVER                                                    |   |
+|  |  +----------------+    +----------------+    +----------------------+ |   |
+|  |  | MCP Protocol   |    | Tool           |    | WebSocket Client     | |   |
+|  |  | Handler        |--->| Dispatcher     |--->| (JSON-RPC)           | |   |
+|  |  +----------------+    +----------------+    +----------+-----------+ |   |
+|  +---------------------------------------------------------|-------------+   |
+|                                                            | WebSocket       |
+|                                                            | JSON-RPC 2.0   |
+|  +---------------------------------------------------------v-------------+   |
+|  |  TARGET Qt APPLICATION PROCESS                                        |   |
+|  |  +------------------------------------------------------------------+ |   |
+|  |  |  C++ PROBE (libqtmcp.so / qtmcp.dll)                             | |   |
+|  |  |                                                                   | |   |
+|  |  |  +--------------------------------------------------------------+ | |   |
+|  |  |  |  TRANSPORT LAYER                                             | | |   |
+|  |  |  |  +-------------------+    +--------------------------------+ | | |   |
+|  |  |  |  | WebSocket Server  |    | JSON-RPC Handler               | | | |   |
+|  |  |  |  | (QWebSocketSvr)   |--->| (Request/Response routing)     | | | |   |
+|  |  |  |  +-------------------+    +--------------------------------+ | | |   |
+|  |  |  +--------------------------------------------------------------+ | |   |
+|  |  |                                  |                                | |   |
+|  |  |  +-------------------------------v------------------------------+ | |   |
+|  |  |  |  INTROSPECTION LAYER                                        | | |   |
+|  |  |  |  +----------------+  +----------------+  +------------------+| | |   |
+|  |  |  |  | Object         |  | Meta           |  | Widget/A11y      || | |   |
+|  |  |  |  | Registry       |  | Inspector      |  | Tree Builder     || | |   |
+|  |  |  |  +----------------+  +----------------+  +------------------+| | |   |
+|  |  |  +--------------------------------------------------------------+ | |   |
+|  |  |                                  |                                | |   |
+|  |  |  +-------------------------------v------------------------------+ | |   |
+|  |  |  |  HOOKS LAYER (Qt Internal APIs)                              | | |   |
+|  |  |  |  +------------------------+  +------------------------------+| | |   |
+|  |  |  |  | qtHookData Callbacks   |  | Signal Spy Callbacks         || | |   |
+|  |  |  |  | (AddQObject/Remove)    |  | (qt_register_signal_spy_cb)  || | |   |
+|  |  |  |  +------------------------+  +------------------------------+| | |   |
+|  |  |  +--------------------------------------------------------------+ | |   |
+|  |  |                                  |                                | |   |
+|  |  |  +-------------------------------v------------------------------+ | |   |
+|  |  |  |  Qt Application Objects (QWidgets, QML Items, etc.)          | | |   |
+|  |  |  +--------------------------------------------------------------+ | |   |
+|  |  +------------------------------------------------------------------+ |   |
+|  +-----------------------------------------------------------------------+   |
++------------------------------------------------------------------------------+
 ```
 
 ### Component Boundaries
@@ -103,410 +846,23 @@ QtMCP follows the established architecture patterns used by GammaRay, Qt-Inspect
 7. (Optionally forwarded to Claude via MCP)
 ```
 
-## Patterns to Follow
-
-### Pattern 1: Qt Event Loop Integration
-
-**What:** All probe operations must integrate with the target application's Qt event loop, never block it.
-
-**When:** All network communication, async operations, and deferred callbacks.
-
-**Why:** The probe runs inside the target application. Blocking the event loop freezes the UI and prevents signals from firing.
-
-**Example:**
-```cpp
-// WebSocket server runs in the main Qt event loop
-class WebSocketServer : public QObject {
-    Q_OBJECT
-public:
-    WebSocketServer(QObject* parent = nullptr)
-        : QObject(parent), server_(new QWebSocketServer("QtMCP",
-                                   QWebSocketServer::NonSecureMode, this)) {
-        // Signal-based connection handling - non-blocking
-        connect(server_, &QWebSocketServer::newConnection,
-                this, &WebSocketServer::onNewConnection);
-    }
-
-private slots:
-    void onNewConnection() {
-        QWebSocket* socket = server_->nextPendingConnection();
-        connect(socket, &QWebSocket::textMessageReceived,
-                this, &WebSocketServer::onTextMessage);
-    }
-
-    void onTextMessage(const QString& message) {
-        // Process via event loop, never block
-        QMetaObject::invokeMethod(this, [this, message]() {
-            processMessage(message);
-        }, Qt::QueuedConnection);
-    }
-};
-```
-
-### Pattern 2: Object Lifecycle Tracking via qtHookData
-
-**What:** Use Qt's internal hook array to receive callbacks for every QObject creation and destruction.
-
-**When:** Tracking all objects in the application for the Object Registry.
-
-**Why:** This is the only reliable way to know about ALL objects, including those created before probe initialization.
-
-**Example:**
-```cpp
-#include <private/qhooks_p.h>
-
-namespace {
-    QHooks::AddQObjectCallback previousAddCallback = nullptr;
-    QHooks::RemoveQObjectCallback previousRemoveCallback = nullptr;
-}
-
-void onObjectAdded(QObject* object) {
-    // Call previous callback first (daisy-chain)
-    if (previousAddCallback)
-        previousAddCallback(object);
-
-    // Track in our registry
-    ObjectRegistry::instance()->registerObject(object);
-}
-
-void onObjectRemoved(QObject* object) {
-    if (previousRemoveCallback)
-        previousRemoveCallback(object);
-
-    ObjectRegistry::instance()->unregisterObject(object);
-}
-
-void installHooks() {
-    // Preserve existing callbacks (for tools like GammaRay)
-    previousAddCallback = reinterpret_cast<QHooks::AddQObjectCallback>(
-        qtHookData[QHooks::AddQObject]);
-    previousRemoveCallback = reinterpret_cast<QHooks::RemoveQObjectCallback>(
-        qtHookData[QHooks::RemoveQObject]);
-
-    // Install our callbacks
-    qtHookData[QHooks::AddQObject] = reinterpret_cast<quintptr>(&onObjectAdded);
-    qtHookData[QHooks::RemoveQObject] = reinterpret_cast<quintptr>(&onObjectRemoved);
-}
-```
-
-### Pattern 3: Signal Spy Callback Registration
-
-**What:** Use `qt_register_signal_spy_callbacks` to monitor all signal emissions.
-
-**When:** Implementing signal subscription and push notifications.
-
-**Why:** This is the standard Qt internal API for signal monitoring, used by GammaRay.
-
-**Example:**
-```cpp
-#include <private/qobject_p.h>
-
-// Callback set for signal monitoring
-static QSignalSpyCallbackSet s_callbacks = {
-    nullptr, nullptr, nullptr, nullptr
-};
-
-void signalBeginCallback(QObject* caller, int signal_index, void** argv) {
-    // Called before signal handlers run
-    SignalMonitor::instance()->onSignalEmit(caller, signal_index, argv);
-}
-
-void signalEndCallback(QObject* caller, int signal_index) {
-    // Called after all handlers complete
-}
-
-void installSignalSpy() {
-    s_callbacks.signal_begin_callback = signalBeginCallback;
-    s_callbacks.signal_end_callback = signalEndCallback;
-    qt_register_signal_spy_callbacks(s_callbacks);
-}
-```
-
-### Pattern 4: QPointer for Safe Object References
-
-**What:** Always use QPointer to hold references to tracked QObjects.
-
-**When:** Storing object references in registries, caches, or pending operations.
-
-**Why:** QObjects can be deleted at any time. QPointer automatically nullifies when the object is destroyed.
-
-**Example:**
-```cpp
-class ObjectRegistry {
-public:
-    QObject* findObject(const QString& id) {
-        auto it = idToObject_.find(id);
-        if (it == idToObject_.end())
-            return nullptr;
-
-        // QPointer automatically checks for deletion
-        if (it.value().isNull()) {
-            idToObject_.erase(it);  // Clean up stale entry
-            return nullptr;
-        }
-        return it.value().data();
-    }
-
-private:
-    QHash<QString, QPointer<QObject>> idToObject_;
-};
-```
-
-### Pattern 5: Thread-Safe Cross-Component Communication
-
-**What:** Use Qt's signal/slot mechanism with queued connections for thread safety.
-
-**When:** Communication between components that may be on different threads.
-
-**Why:** The probe runs in the target's main thread, but WebSocket I/O may occur on worker threads.
-
-**Example:**
-```cpp
-class Probe : public QObject {
-    Q_OBJECT
-signals:
-    void requestReceived(const QString& method, const QJsonObject& params, int requestId);
-    void responseReady(int requestId, const QJsonValue& result);
-
-public:
-    Probe() {
-        // Queued connection ensures main thread execution
-        connect(this, &Probe::requestReceived,
-                this, &Probe::handleRequest, Qt::QueuedConnection);
-    }
-
-private slots:
-    void handleRequest(const QString& method, const QJsonObject& params, int requestId) {
-        // Always runs on main thread - safe to access Qt objects
-        QJsonValue result = processMethod(method, params);
-        emit responseReady(requestId, result);
-    }
-};
-```
-
-### Pattern 6: Hierarchical ID Generation
-
-**What:** Generate stable, human-readable object IDs based on parent-child hierarchy.
-
-**When:** Assigning unique identifiers to QObjects for external reference.
-
-**Why:** Hierarchical IDs are debuggable and reflect the actual Qt object structure.
-
-**Example:**
-```cpp
-QString generateObjectId(QObject* obj) {
-    QStringList segments;
-    QObject* current = obj;
-
-    while (current) {
-        QString segment = current->metaObject()->className();
-
-        // Add objectName if set
-        if (!current->objectName().isEmpty()) {
-            segment += "#" + current->objectName();
-        } else {
-            // Add index for disambiguation among siblings
-            QObject* parent = current->parent();
-            if (parent) {
-                int index = 0;
-                for (QObject* sibling : parent->children()) {
-                    if (sibling == current) break;
-                    if (sibling->metaObject()->className() ==
-                        current->metaObject()->className())
-                        index++;
-                }
-                if (index > 0)
-                    segment += QString("[%1]").arg(index);
-            }
-        }
-
-        segments.prepend(segment);
-        current = current->parent();
-    }
-
-    return segments.join("/");
-}
-```
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: Blocking the Qt Event Loop
-
-**What:** Performing synchronous operations that block the main thread.
-
-**Why bad:** Freezes the UI, prevents signal delivery, can cause deadlocks with nested event loops.
-
-**Instead:** Use async operations with Qt signals/slots, or `QMetaObject::invokeMethod` with `Qt::QueuedConnection`.
-
-```cpp
-// BAD - blocks event loop
-void handleRequest(const QJsonObject& request) {
-    QThread::msleep(1000);  // NEVER do this
-    processRequest(request);
-}
-
-// GOOD - deferred execution
-void handleRequest(const QJsonObject& request) {
-    QTimer::singleShot(0, this, [this, request]() {
-        processRequest(request);
-    });
-}
-```
-
-### Anti-Pattern 2: Raw Pointers to QObjects
-
-**What:** Storing raw `QObject*` pointers in data structures.
-
-**Why bad:** QObjects can be deleted at any time by their parent or explicitly. Dangling pointer access causes crashes.
-
-**Instead:** Use `QPointer<QObject>` which automatically nullifies on object destruction.
-
-```cpp
-// BAD - dangling pointer risk
-QHash<QString, QObject*> objectCache_;
-
-// GOOD - safe references
-QHash<QString, QPointer<QObject>> objectCache_;
-```
-
-### Anti-Pattern 3: Ignoring Thread Affinity
-
-**What:** Accessing QObjects from threads other than the one they were created on.
-
-**Why bad:** Qt objects are not thread-safe. Accessing from wrong thread causes undefined behavior.
-
-**Instead:** Use `QMetaObject::invokeMethod` with `Qt::QueuedConnection` to dispatch to correct thread.
-
-```cpp
-// BAD - direct cross-thread access
-void workerThreadFunction(QWidget* widget) {
-    widget->setText("Hello");  // UNDEFINED BEHAVIOR
-}
-
-// GOOD - marshal to correct thread
-void workerThreadFunction(QWidget* widget) {
-    QMetaObject::invokeMethod(widget, [widget]() {
-        widget->setText("Hello");
-    }, Qt::QueuedConnection);
-}
-```
-
-### Anti-Pattern 4: Hardcoded Object Paths
-
-**What:** Using hardcoded hierarchical paths to find objects.
-
-**Why bad:** Widget hierarchy can change between application versions, breaking automation.
-
-**Instead:** Use `findByObjectName` or `findByClassName` with flexible matching.
-
-```cpp
-// BAD - brittle hardcoded path
-QObject* button = findObject("QMainWindow/centralWidget/QVBoxLayout/QPushButton[2]");
-
-// GOOD - flexible lookup
-QObject* button = findByObjectName("submitButton");
-// or
-QObject* button = findByClassName("QPushButton", [](QObject* obj) {
-    return obj->property("text").toString() == "Submit";
-});
-```
-
-### Anti-Pattern 5: Synchronous WebSocket Communication
-
-**What:** Blocking on WebSocket responses in the Python MCP server.
-
-**Why bad:** MCP tools should be responsive; blocking makes Claude wait unnecessarily.
-
-**Instead:** Use async/await patterns in Python with proper timeout handling.
-
-```python
-# BAD - blocking wait
-def call_probe(self, method, params):
-    self.ws.send(json.dumps(request))
-    return json.loads(self.ws.recv())  # Blocks indefinitely
-
-# GOOD - async with timeout
-async def call_probe(self, method, params, timeout=5.0):
-    await self.ws.send(json.dumps(request))
-    try:
-        response = await asyncio.wait_for(
-            self.ws.recv(), timeout=timeout
-        )
-        return json.loads(response)
-    except asyncio.TimeoutError:
-        raise ProbeTimeoutError(f"Probe did not respond within {timeout}s")
-```
-
-## Scalability Considerations
-
-| Concern | At 10 objects | At 1K objects | At 100K objects |
-|---------|---------------|---------------|-----------------|
-| **Object Registry** | HashMap lookup O(1) | HashMap lookup O(1) | Consider weak references, lazy enumeration |
-| **Tree Traversal** | Full traversal OK | Depth-limited traversal | Pagination, on-demand loading |
-| **Signal Monitoring** | Monitor all | Selective subscription | Must filter at callback level |
-| **Memory Overhead** | Negligible | ~1MB for metadata | Monitor via profiling, consider eviction |
-
-## Build Order (Dependencies Between Components)
-
-Based on the architecture, the recommended implementation order:
-
-```
-Phase 1: Foundation
-├── 1.1 CMake/vcpkg setup
-├── 1.2 Probe entry point (DllMain/constructor)
-└── 1.3 Basic WebSocket server (QWebSocketServer)
-
-Phase 2: Hooks Layer (No dependencies on other probe components)
-├── 2.1 qtHookData integration
-└── 2.2 Signal spy callback registration
-
-Phase 3: Object Registry (Depends on Hooks)
-├── 3.1 Object tracking via hooks
-├── 3.2 ID generation
-└── 3.3 QPointer-based storage
-
-Phase 4: Introspection Layer (Depends on Object Registry)
-├── 4.1 Meta Inspector (property/method introspection)
-├── 4.2 Widget Tree Builder
-└── 4.3 Accessibility tree generation
-
-Phase 5: Transport Layer (Depends on Introspection)
-├── 5.1 JSON-RPC request/response handling
-├── 5.2 Method dispatch routing
-└── 5.3 Push notification support
-
-Phase 6: Mode Handlers (Depends on Transport + Introspection)
-├── 6.1 Native mode (full introspection)
-├── 6.2 Computer Use mode (screenshot + coordinates)
-└── 6.3 Chrome mode (a11y tree + refs)
-
-Phase 7: Python MCP Server (Depends on WebSocket server being complete)
-├── 7.1 WebSocket client
-├── 7.2 MCP tool definitions
-└── 7.3 Claude integration
-```
-
-**Key Dependencies:**
-- Hooks Layer must exist before Object Registry can track objects
-- Object Registry must exist before Introspection can query objects
-- Introspection must exist before Mode Handlers can respond to requests
-- WebSocket Server must be functional before Python MCP Server can connect
+---
 
 ## Sources
 
-### HIGH Confidence (Official Documentation / Direct Source)
-- [GammaRay API Documentation](https://kdab.github.io/GammaRay/) - Probe class reference, signal spy callbacks
-- [GammaRay Source Code](https://github.com/KDAB/GammaRay) - probe.cpp implementation
-- [Qt QWebSocketServer Class](https://doc.qt.io/qt-6/qwebsocketserver.html) - Official API reference
-- [QObject Internals Wiki](https://wiki.qt.io/QObject-Internals) - Connection lists, method indexing
-- [Qat Architecture](https://qat.readthedocs.io/en/stable/doc/contributing/Architecture.html) - TCP/JSON communication pattern
-- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) - FastMCP, transport patterns
+### HIGH Confidence
+- [Qt 5 and Qt 6 CMake Compatibility](https://doc.qt.io/qt-6/cmake-qt5-and-qt6-compatibility.html) -- Official Qt docs on dual-version CMake support
+- [vcpkg Overlay Ports](https://learn.microsoft.com/en-us/vcpkg/concepts/overlay-ports) -- Official Microsoft docs
+- [actions/upload-artifact v4](https://github.com/actions/upload-artifact) -- Matrix artifact naming requirements
+- [jurplel/install-qt-action](https://github.com/jurplel/install-qt-action) -- Qt installation in GitHub Actions
+- [CMake Package Config Files](https://cmake.org/cmake/help/latest/guide/importing-exporting/index.html) -- CMake packaging guide
 
-### MEDIUM Confidence (WebSearch verified with secondary sources)
-- [libjsonrpcwebsocketserver](https://github.com/gustavosbarreto/libjsonrpcwebsocketserver) - Qt JSON-RPC pattern
-- [Qt Inspector](https://github.com/robertknight/Qt-Inspector) - LD_PRELOAD injection pattern
-- [Qt Signal/Slot Internals](https://woboq.com/blog/how-qt-signals-slots-work.html) - Signal emission mechanism
+### MEDIUM Confidence
+- [KDAB: GitHub Actions for Qt](https://www.kdab.com/github-actions-for-cpp-and-qt/) -- Matrix strategy patterns for Qt
+- [Vector35/qt-build](https://github.com/Vector35/qt-build) -- Custom Qt builds from source with patches
+- [Multi-platform release workflow](https://www.lucavall.in/blog/how-to-create-a-release-with-multiple-artifacts-from-a-github-actions-workflow-using-the-matrix-strategy) -- Artifact-to-release pattern
+- [hatchling platform wheel issue](https://github.com/pypa/hatch/issues/1955) -- Confirms pure-Python-only approach is correct
 
-### LOW Confidence (WebSearch only - requires validation)
-- qt_register_signal_spy_callbacks specific behavior (needs testing against Qt 5.15/6.x)
-- qtHookData stability across Qt minor versions (community consensus, but undocumented)
+### LOW Confidence
+- Patched Qt 5.15.1 build times in GitHub Actions CI (~30-60 min estimate, not measured)
+- GitHub Actions 10GB cache limit interaction with multi-Qt caching (may need tuning)
