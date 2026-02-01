@@ -94,18 +94,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Python MCP Server
 
-- [ ] **PY-01**: MCP server connects to probe via WebSocket
-- [ ] **PY-02**: MCP tool definitions for Native mode
-- [ ] **PY-03**: MCP tool definitions for Computer Use mode
-- [ ] **PY-04**: MCP tool definitions for Chrome mode
-- [ ] **PY-05**: Mode switching via configuration or command
+- [x] **PY-01**: MCP server connects to probe via WebSocket ✓
+- [x] **PY-02**: MCP tool definitions for Native mode ✓
+- [x] **PY-03**: MCP tool definitions for Computer Use mode ✓
+- [x] **PY-04**: MCP tool definitions for Chrome mode ✓
+- [x] **PY-05**: Mode switching via configuration or command ✓
 
 ### Python Client Library
 
-- [ ] **CLI-01**: WebSocket client connects to probe
-- [ ] **CLI-02**: Async API for all probe methods
-- [ ] **CLI-03**: Convenience methods for common operations
-- [ ] **CLI-04**: Example automation scripts
+- [x] **CLI-01**: WebSocket client connects to probe ✓
+- [x] **CLI-02**: Async API for all probe methods ✓
+- [x] **CLI-03**: Convenience methods for common operations ✓
+- [x] **CLI-04**: Example automation scripts ✓
 
 ## v2 Requirements
 
@@ -212,15 +212,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MV-02 | Phase 6 | Complete |
 | MV-03 | Phase 6 | Complete |
 | MV-04 | Phase 6 | Complete |
-| PY-01 | Phase 7 | Pending |
-| PY-02 | Phase 7 | Pending |
-| PY-03 | Phase 7 | Pending |
-| PY-04 | Phase 7 | Pending |
-| PY-05 | Phase 7 | Pending |
-| CLI-01 | Phase 7 | Pending |
-| CLI-02 | Phase 7 | Pending |
-| CLI-03 | Phase 7 | Pending |
-| CLI-04 | Phase 7 | Pending |
+| PY-01 | Phase 7 | Complete |
+| PY-02 | Phase 7 | Complete |
+| PY-03 | Phase 7 | Complete |
+| PY-04 | Phase 7 | Complete |
+| PY-05 | Phase 7 | Complete |
+| CLI-01 | Phase 7 | Complete |
+| CLI-02 | Phase 7 | Complete |
+| CLI-03 | Phase 7 | Complete |
+| CLI-04 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 59 total

@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API ✓
 - [x] **Phase 5: Chrome Mode** - Accessibility tree with numbered refs API ✓
 - [ ] **Phase 6: Extended Introspection** - QML items and Model/View data access
-- [ ] **Phase 7: Python Integration** - MCP server and client library
+- [x] **Phase 7: Python Integration** - MCP server and client library ✓
 
 ## Phase Details
 
@@ -152,9 +152,9 @@ Plans:
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 07-01-PLAN.md — Package skeleton, ProbeConnection, server factory, CLI (Wave 1)
-- [ ] 07-02-PLAN.md — All tool definitions: Native (~33), CU (13), Chrome (8) (Wave 2)
-- [ ] 07-03-PLAN.md — README with config snippets + unit tests (Wave 3)
+- [x] 07-01-PLAN.md — Package skeleton, ProbeConnection, server factory, CLI (Wave 1) ✓
+- [x] 07-02-PLAN.md — All tool definitions: Native (32), CU (13), Chrome (8) (Wave 2) ✓
+- [x] 07-03-PLAN.md — README with config snippets + unit tests (Wave 3) ✓
 
 ## Progress
 
@@ -171,7 +171,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 | 4. Computer Use Mode | 5/5 | Complete | 2026-01-31 |
 | 5. Chrome Mode | 4/4 | Complete | 2026-02-01 |
 | 6. Extended Introspection | 4/4 | Complete | 2026-02-01 |
-| 7. Python Integration | 0/TBD | Not started | - |
+| 7. Python Integration | 3/3 | Complete | 2026-02-01 |
 
 ---
 *Roadmap created: 2025-01-29*
