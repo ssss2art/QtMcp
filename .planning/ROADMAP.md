@@ -129,12 +129,15 @@ Plans:
   2. QML properties, context properties, and binding information accessible via standard introspection
   3. User can list all QAbstractItemModel instances in the application
   4. User can navigate model hierarchy and get data at any index with specified roles
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
 
-**Research Flag**: QML introspection may require private Qt APIs for deep features (context/bindings). Need to validate which features are achievable with public APIs only.
+**Research Flag**: QML introspection may require private Qt APIs for deep features (context/bindings). Research completed - public API sufficient for all requirements except context properties and binding expressions (declared out of scope in CONTEXT.md).
 
 Plans:
-- [ ] 06-01: TBD (planning not yet started)
+- [ ] 06-01-PLAN.md — QML Inspector infrastructure + QML-aware Object ID generation (Wave 1)
+- [ ] 06-02-PLAN.md — ModelNavigator utility class for model discovery and data access (Wave 1)
+- [ ] 06-03-PLAN.md — NativeModeApi extensions: qt.qml.* and qt.models.* methods (Wave 2)
+- [ ] 06-04-PLAN.md — Integration tests for Model/View and QML API (Wave 3)
 
 ### Phase 7: Python Integration
 **Goal**: Claude can control Qt applications through MCP server with all three API modes
