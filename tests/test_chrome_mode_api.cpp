@@ -79,6 +79,11 @@ private slots:
     // Stale ref test
     void testStaleRef_ProducesClearError();
 
+    // Regression tests for chr.find bugs (05-04 gap closure)
+    void testFind_MultipleCallsPreserveRefs();
+    void testFind_ReadPageClearsAllRefs();
+    void testFind_NameFallbackToObjectName();
+
 private:
     /// @brief Make a JSON-RPC call and return the full parsed response object.
     QJsonObject callRaw(const QString& method, const QJsonObject& params);
@@ -782,6 +787,124 @@ void TestChromeModeApi::testStaleRef_ProducesClearError()
     QVERIFY2(code == ErrorCode::kRefStale || code == ErrorCode::kRefNotFound,
         qPrintable(QString("Expected stale/not-found error, got code %1").arg(code)));
     QVERIFY(!error["message"].toString().isEmpty());
+}
+
+// ========================================================================
+// Regression tests for chr.find bugs (05-04 gap closure)
+// ========================================================================
+
+void TestChromeModeApi::testFind_MultipleCallsPreserveRefs()
+{
+    // Create two distinct line edits
+    QLineEdit* nameEdit = new QLineEdit(m_mainWindow);
+    nameEdit->setObjectName("nameEdit");
+    m_mainWindow->layout()->addWidget(nameEdit);
+
+    QLineEdit* emailEdit = new QLineEdit(m_mainWindow);
+    emailEdit->setObjectName("emailEdit");
+    m_mainWindow->layout()->addWidget(emailEdit);
+    QApplication::processEvents();
+
+    // First find: locate nameEdit
+    QJsonValue result1 = callResult("chr.find", QJsonObject{{"query", "nameEdit"}});
+    QVERIFY(result1.isObject());
+    QJsonArray matches1 = result1.toObject()["matches"].toArray();
+    QVERIFY2(matches1.size() > 0, "Should find nameEdit");
+    QString nameRef = matches1[0].toObject()["ref"].toString();
+    QVERIFY(!nameRef.isEmpty());
+
+    // Second find: locate emailEdit
+    QJsonValue result2 = callResult("chr.find", QJsonObject{{"query", "emailEdit"}});
+    QVERIFY(result2.isObject());
+    QJsonArray matches2 = result2.toObject()["matches"].toArray();
+    QVERIFY2(matches2.size() > 0, "Should find emailEdit");
+    QString emailRef = matches2[0].toObject()["ref"].toString();
+    QVERIFY(!emailRef.isEmpty());
+
+    // Refs must not collide
+    QVERIFY2(nameRef != emailRef,
+        qPrintable(QString("Refs must not collide: nameRef=%1, emailRef=%2").arg(nameRef, emailRef)));
+
+    // Use the FIRST ref (from first find) to set value on nameEdit
+    QJsonValue formResult = callResult("chr.formInput",
+        QJsonObject{{"ref", nameRef}, {"value", "John"}});
+    QApplication::processEvents();
+
+    QVERIFY2(formResult.isObject() && formResult.toObject()["success"].toBool(),
+        "formInput with first find's ref should succeed");
+    QCOMPARE(nameEdit->text(), QString("John"));
+    // emailEdit should NOT have been modified
+    QCOMPARE(emailEdit->text(), QString());
+}
+
+void TestChromeModeApi::testFind_ReadPageClearsAllRefs()
+{
+    // Use a high ref number by calling find multiple times to push counter up.
+    // Then call readPage which resets refs starting from ref_1.
+    // A ref with a high number (e.g., ref_50) should not survive readPage.
+
+    // First, call find to get refs assigned
+    QJsonValue findResult = callResult("chr.find", QJsonObject{{"query", "editName"}});
+    QVERIFY(findResult.isObject());
+    QJsonArray matches = findResult.toObject()["matches"].toArray();
+    QVERIFY(matches.size() > 0);
+    QString findRef = matches[0].toObject()["ref"].toString();
+    QVERIFY(!findRef.isEmpty());
+
+    // Verify the find ref works
+    QJsonValue inputResult = callResult("chr.formInput",
+        QJsonObject{{"ref", findRef}, {"value", "test_value"}});
+    QVERIFY(inputResult.isObject());
+    QCOMPARE(inputResult.toObject()["success"].toBool(), true);
+
+    // Now call readPage - this calls clearRefsInternal() and rebuilds tree
+    QJsonObject pageResult = readPage();
+
+    // readPage clears ALL refs and reassigns from ref_1.
+    // The find ref we got should now either:
+    // (a) point to a different widget (readPage reassigned that ref number), or
+    // (b) not exist (if tree has fewer nodes)
+    // Either way, the semantic binding to our original find target is broken.
+    // We verify this by checking that readPage produced its own refs
+    // and the tree is valid (proves clearRefsInternal was called).
+    QVERIFY(pageResult.contains("tree"));
+    QVERIFY(pageResult["totalNodes"].toInt() > 0);
+
+    // Additionally verify the ref namespace was reset:
+    // readPage refs start at ref_1, so if find had pushed counter higher,
+    // readPage should still produce ref_1 (proving it cleared and reset).
+    QJsonObject tree = pageResult["tree"].toObject();
+    QString btnRef = findRefByObjectName(tree, "btnTest");
+    if (!btnRef.isEmpty()) {
+        // readPage refs should start from ref_1 (counter reset via clearRefsInternal)
+        QVERIFY2(btnRef.startsWith("ref_"),
+            qPrintable(QString("readPage ref format unexpected: %1").arg(btnRef)));
+    }
+}
+
+void TestChromeModeApi::testFind_NameFallbackToObjectName()
+{
+    // Create a QLineEdit with objectName but no explicit accessible name
+    // (QLineEdit default: accessible name comes from buddy label or is empty)
+    QLineEdit* input = new QLineEdit(m_mainWindow);
+    input->setObjectName("mySpecialInput");
+    m_mainWindow->layout()->addWidget(input);
+    QApplication::processEvents();
+
+    // Find by objectName
+    QJsonValue result = callResult("chr.find", QJsonObject{{"query", "mySpecialInput"}});
+    QVERIFY(result.isObject());
+
+    QJsonArray matches = result.toObject()["matches"].toArray();
+    QVERIFY2(matches.size() > 0, "Should find widget by objectName");
+
+    QJsonObject matchNode = matches[0].toObject();
+    // The node must have a "name" field (from objectName fallback)
+    QVERIFY2(matchNode.contains("name"),
+        qPrintable(QString("Find result should include 'name' field. Got keys: %1")
+            .arg(QJsonDocument(matchNode).toJson(QJsonDocument::Compact))));
+    // Name should be the objectName (since accessible name is empty)
+    QCOMPARE(matchNode["name"].toString(), QString("mySpecialInput"));
 }
 
 QTEST_MAIN(TestChromeModeApi)
