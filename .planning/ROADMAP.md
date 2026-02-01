@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - DLL/LD_PRELOAD injection and WebSocket transport layer ✓
 - [x] **Phase 2: Core Introspection** - Object registry, signal monitoring, and UI interaction primitives ✓
 - [x] **Phase 3: Native Mode** - Full Qt introspection API exposed via JSON-RPC ✓
-- [x] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API ✓
+- [ ] **Phase 4: Computer Use Mode** - Screenshot + coordinate-based automation API (gap closure in progress)
 - [ ] **Phase 5: Chrome Mode** - Accessibility tree with numbered refs API (RESEARCH FLAG)
 - [ ] **Phase 6: Extended Introspection** - QML items and Model/View data access
 - [ ] **Phase 7: Python Integration** - MCP server and client library
@@ -91,12 +91,14 @@ Plans:
   3. User can type text and send key combinations at current focus
   4. User can scroll in any direction at specified coordinates
   5. User can query current cursor position
-**Plans**: 3 plans in 3 waves
+**Plans**: 5 plans (3 original + 2 gap closure)
 
 Plans:
 - [x] 04-01-PLAN.md — KeyNameMapper, InputSimulator extensions, Screenshot extensions (Wave 1) ✓
 - [x] 04-02-PLAN.md — ComputerUseModeApi with 13 cu.* methods + Probe wiring (Wave 2) ✓
 - [x] 04-03-PLAN.md — Integration tests for complete Computer Use API (Wave 3) ✓
+- [ ] 04-04-PLAN.md — Harden API init + legacy param backward compat (Gap closure)
+- [ ] 04-05-PLAN.md — Virtual cursor position tracking for cu.cursorPosition (Gap closure)
 
 ### Phase 5: Chrome Mode
 **Goal**: AI agents can control Qt applications using accessibility tree and numbered refs (RESEARCH FLAG)
@@ -158,7 +160,7 @@ Note: Phases 3, 4, 5 can potentially execute in parallel after Phase 2 completes
 | 1. Foundation | 6/6 | Complete | 2026-01-30 |
 | 2. Core Introspection | 7/7 | Complete | 2026-01-30 |
 | 3. Native Mode | 4/4 | Complete | 2026-01-31 |
-| 4. Computer Use Mode | 3/3 | Complete | 2026-01-31 |
+| 4. Computer Use Mode | 3/5 | Gap closure | - |
 | 5. Chrome Mode | 0/TBD | Not started | - |
 | 6. Extended Introspection | 0/TBD | Not started | - |
 | 7. Python Integration | 0/TBD | Not started | - |
