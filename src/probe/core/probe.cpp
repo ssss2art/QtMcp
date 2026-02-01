@@ -18,6 +18,7 @@
 #define LOG_ERROR(msg) qCritical() << msg
 #endif
 
+#include "api/computer_use_mode_api.h"
 #include "api/native_mode_api.h"
 #include "api/symbolic_name_map.h"
 #include "core/object_registry.h"
@@ -156,6 +157,10 @@ bool Probe::initialize() {
     // Register Native Mode API (qt.* namespaced methods)
     auto* nativeApi = new NativeModeApi(m_server->rpcHandler(), this);
     Q_UNUSED(nativeApi);
+
+    // Register Computer Use Mode API (cu.* namespaced methods)
+    auto* cuApi = new ComputerUseModeApi(m_server->rpcHandler(), this);
+    Q_UNUSED(cuApi);
 
     // Auto-load symbolic name map from env var or default file
     QString nameMapPath = qEnvironmentVariable("QTMCP_NAME_MAP");

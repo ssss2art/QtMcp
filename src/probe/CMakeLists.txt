@@ -15,6 +15,8 @@ set(PROBE_SOURCES
     api/response_envelope.cpp
     api/symbolic_name_map.cpp
     api/native_mode_api.cpp
+    api/computer_use_mode_api.cpp
+    interaction/key_name_mapper.cpp
     core/object_resolver.cpp
 )
 
@@ -36,6 +38,8 @@ set(PROBE_HEADERS
     api/response_envelope.h
     api/symbolic_name_map.h
     api/native_mode_api.h
+    api/computer_use_mode_api.h
+    interaction/key_name_mapper.h
 )
 
 # Platform-specific initialization entry points
