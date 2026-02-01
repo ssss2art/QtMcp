@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 6 - Extended Introspection (QML + Model/View)
+**Current focus:** Phase 6 - Extended Introspection (QML + Model/View) - COMPLETE
 
 ## Current Position
 
 Phase: 6 of 7 (Extended Introspection)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-02-01 - Completed 06-03-PLAN.md (QML + Model API Wiring)
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-02-01 - Completed 06-04-PLAN.md (Extended Introspection Testing)
 
-Progress: [############################.] ~93% (28/30 plans)
+Progress: [#############################.] ~97% (29/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28
-- Average duration: 9.6 min
-- Total execution time: 4.50 hours
+- Total plans completed: 29
+- Average duration: 9.5 min
+- Total execution time: 4.58 hours
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: [############################.] ~93% (28/30 plans)
 | 03-native-mode | 4 | 24 min | 6.0 min |
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
 | 05-chrome-mode | 4 | 32 min | 8.0 min |
-| 06-extended-introspection | 3 | 17 min | 5.7 min |
+| 06-extended-introspection | 4 | 22 min | 5.5 min |
 
 **Recent Trend:**
-- Last 6 plans: 05-02 (8 min), 05-03 (10 min), 05-04 (10 min), 06-01 (7 min), 06-02 (6 min), 06-03 (4 min)
+- Last 6 plans: 05-03 (10 min), 05-04 (10 min), 06-01 (7 min), 06-02 (6 min), 06-03 (4 min), 06-04 (5 min)
 - Trend: Stable execution times
 
 *Updated after each plan completion*
@@ -202,7 +202,7 @@ None - all known bugs resolved.
 | 06-01 | QML Inspector Infrastructure | COMPLETE |
 | 06-02 | Model/View Navigation (ModelNavigator) | COMPLETE |
 | 06-03 | QML + Model API Wiring | COMPLETE |
-| 06-04 | Extended Introspection Testing | PENDING |
+| 06-04 | Extended Introspection Testing | COMPLETE |
 
 **From Plan 06-01:**
 - QmlItemInfo struct + inspectQmlItem()/stripQmlPrefix()/isQmlItem() in qml_inspector.h/.cpp
@@ -228,6 +228,15 @@ None - all known bugs resolved.
 - qt.models.data supports string and int role params with kModelRoleNotFound on invalid
 - All methods follow existing NativeModeApi patterns (resolveObjectParam, ResponseEnvelope::wrap)
 - All 11 existing test suites pass with zero regressions
+
+**From Plan 06-04:**
+- 18 integration tests for qt.models.list/info/data and qt.qml.inspect
+- Smart pagination verified: small model (3 rows) returns all, large model (150 rows) caps at 100
+- View-to-model auto-resolution tested via QTableView objectId
+- Role filtering by name ("display") and integer ID (0) both tested
+- QML inspect handles both compiled (isQmlItem=false) and non-compiled (kQmlNotAvailable) paths
+- All 12 test suites pass with zero regressions
+- Phase 6 complete - all Extended Introspection success criteria verified
 
 ## Phase 5 Progress
 
@@ -332,8 +341,8 @@ None - all known bugs resolved.
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 06-03-PLAN.md (QML + Model API Wiring)
+Stopped at: Completed 06-04-PLAN.md (Extended Introspection Testing) - Phase 6 complete
 Resume file: None
 
 ---
-*State updated: 2026-02-01 (completed 06-03 - QML + Model API Wiring into NativeModeApi)*
+*State updated: 2026-02-01 (completed 06-04 - Extended Introspection Testing, Phase 6 complete)*
