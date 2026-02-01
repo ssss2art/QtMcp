@@ -149,10 +149,12 @@ Plans:
   3. User can switch modes via configuration or command
   4. Python client library provides async API for all probe methods
   5. Example automation scripts demonstrate common operations
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 07-01: TBD (planning not yet started)
+- [ ] 07-01-PLAN.md — Package skeleton, ProbeConnection, server factory, CLI (Wave 1)
+- [ ] 07-02-PLAN.md — All tool definitions: Native (~33), CU (13), Chrome (8) (Wave 2)
+- [ ] 07-03-PLAN.md — README with config snippets + unit tests (Wave 3)
 
 ## Progress
 
