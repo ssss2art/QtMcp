@@ -315,7 +315,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // OBJ-04: getObjectInfo
   RegisterMethod("qtmcp.getObjectInfo", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -333,7 +335,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // OBJ-05: listProperties
   RegisterMethod("qtmcp.listProperties", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -347,7 +351,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // OBJ-06: getProperty
   RegisterMethod("qtmcp.getProperty", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
     QString name = doc.object()["name"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
@@ -362,7 +368,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // OBJ-07: setProperty
   RegisterMethod("qtmcp.setProperty", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
     QString name = doc.object()["name"].toString();
     QJsonValue value = doc.object()["value"];
 
@@ -382,7 +390,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // OBJ-08: listMethods
   RegisterMethod("qtmcp.listMethods", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -396,7 +406,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // OBJ-09: invokeMethod
   RegisterMethod("qtmcp.invokeMethod", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
     QString method = doc.object()["method"].toString();
     QJsonArray args = doc.object()["args"].toArray();
 
@@ -412,7 +424,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // OBJ-10: listSignals
   RegisterMethod("qtmcp.listSignals", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -462,7 +476,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // UI-01: click
   RegisterMethod("qtmcp.click", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
     QString button = doc.object()["button"].toString("left");
     QJsonObject pos = doc.object()["position"].toObject();
 
@@ -492,7 +508,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // UI-02: sendKeys
   RegisterMethod("qtmcp.sendKeys", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
     QString text = doc.object()["text"].toString();
     QString sequence = doc.object()["sequence"].toString();
 
@@ -519,7 +537,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // UI-03: screenshot
   RegisterMethod("qtmcp.screenshot", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
     bool fullWindow = doc.object()["fullWindow"].toBool(false);
     QJsonObject region = doc.object()["region"].toObject();
 
@@ -550,7 +570,9 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
   // UI-04: getGeometry
   RegisterMethod("qtmcp.getGeometry", [](const QString& params) -> QString {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
-    QString id = doc.object()["id"].toString();
+    QJsonObject params_obj = doc.object();
+    QString id = params_obj["id"].toString();
+    if (id.isEmpty()) id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
