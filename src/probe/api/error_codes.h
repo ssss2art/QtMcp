@@ -35,5 +35,11 @@ constexpr int kNameNotFound = -32050;
 constexpr int kNameAlreadyExists = -32051;
 constexpr int kNameMapLoadError = -32052;
 
+// Computer Use errors (-32060 to -32069)
+constexpr int kNoActiveWindow = -32060;
+constexpr int kCoordinateOutOfBounds = -32061;
+constexpr int kNoFocusedWidget = -32062;
+constexpr int kKeyParseError = -32063;
+
 }  // namespace ErrorCode
 }  // namespace qtmcp
