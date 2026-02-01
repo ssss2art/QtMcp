@@ -1,152 +1,168 @@
 ---
 phase: 04-computer-use-mode
-verified: 2026-02-01T02:47:15Z
+verified: 2026-01-31T22:15:00Z
 status: passed
 score: 5/5 must-haves verified
+re_verification:
+  previous_status: passed
+  previous_score: 5/5
+  gaps_closed:
+    - NativeModeApi instantiation failure in DLL context is caught and logged
+    - Legacy qtmcp.* methods accept both id and objectId parameter names
+    - cu.cursorPosition returns virtual simulated position instead of physical OS cursor
+  gaps_remaining: []
+  regressions: []
 ---
 
-# Phase 4: Computer Use Mode Verification Report
+# Phase 4: Computer Use Mode Re-Verification Report
 
-**Phase Goal:** AI agents can control Qt applications using screenshot and pixel coordinates
-**Verified:** 2026-02-01T02:47:15Z
-**Status:** passed
-**Re-verification:** No — initial verification
+**Phase Goal:** AI agents can control Qt applications using screenshot and pixel coordinates  
+**Verified:** 2026-01-31T22:15:00Z  
+**Status:** passed  
+**Re-verification:** Yes — after gap closure (plans 04-04, 04-05)
+
+## Re-Verification Summary
+
+Previous verification (2026-02-01T02:47:15Z) passed with 5/5 truths verified. However, User Acceptance Testing (UAT) discovered 3 gaps in real-world usage:
+
+1. **Gap 1 (Major):** NativeModeApi silently failed during DLL injection, making all qt.* methods unavailable
+2. **Gap 2 (Major):** Legacy qtmcp.* methods only accepted id param, not objectId, causing confusion
+3. **Gap 3 (Minor):** cu.cursorPosition read physical OS cursor instead of simulated position from CU actions
+
+Gap closure plans 04-04 and 04-05 addressed all three issues. This re-verification confirms the gaps are closed.
+
+## Gap Closure Verification
+
+### Gap 1: API Registration Resilience (04-04)
+
+**Previous Issue:** NativeModeApi constructor threw exception during DLL injection with no error handling, causing silent failure. All qt.* methods returned -32601 Method not found.
+
+**Fix Verification:**
+- probe.cpp lines 158-167: NativeModeApi wrapped in try/catch with stderr logging
+- probe.cpp lines 169-178: ComputerUseModeApi wrapped in independent try/catch
+- Each catch block logs to stderr with fprintf (safe pre-Qt-init)
+- Failure of one API does not prevent the other from registering
+- Build succeeds, all tests pass
+
+**Status:** CLOSED
+
+### Gap 2: Legacy Parameter Backward Compatibility (04-04)
+
+**Previous Issue:** Legacy qtmcp.getObjectInfo and qtmcp.getGeometry only read id parameter, but clients using modern qt.* convention naturally pass objectId. This caused Object not found errors.
+
+**Fix Verification:**
+- jsonrpc_handler.cpp: 11 instances of objectId fallback pattern
+- All legacy methods that accept object ID now support both parameter names
+- Backward compatible: existing clients using id are unaffected
+- Build succeeds, all tests pass
+
+**Methods Updated (11 total):**  
+qtmcp.getObjectInfo, qtmcp.listProperties, qtmcp.getProperty, qtmcp.setProperty, qtmcp.listMethods, qtmcp.invokeMethod, qtmcp.listSignals, qtmcp.click, qtmcp.sendKeys, qtmcp.screenshot, qtmcp.getGeometry
+
+**Status:** CLOSED
+
+### Gap 3: Virtual Cursor Position Tracking (04-05)
+
+**Previous Issue:** cu.cursorPosition used QCursor::pos() which reads physical OS cursor. cu.mouseMove sent QMouseEvents without moving OS cursor. Result: cursorPosition always returned physical mouse location, not where CU interactions were happening.
+
+**Fix Verification:**
+- computer_use_mode_api.cpp: Static s_lastSimulatedPosition tracking variables added
+- trackPosition() helper converts local/global coords to screen-absolute
+- 9 coordinate-based methods call trackPosition()
+- cu.cursorPosition prefers virtual position when available, falls back to QCursor::pos()
+- Response includes virtual field (additive, backward compatible)
+- Build succeeds, all tests pass
+
+**Status:** CLOSED
 
 ## Goal Achievement
 
 ### Observable Truths
 
+All 5 truths from initial verification remain verified. No regressions.
+
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | User can request screenshot and receive base64 PNG image | VERIFIED | cu.screenshot returns {image, width, height}, PNG validated in tests |
-| 2 | User can perform all mouse actions at pixel coordinates | VERIFIED | cu.click, cu.rightClick, cu.middleClick, cu.doubleClick, cu.drag, cu.mouseMove all functional |
-| 3 | User can type text and send key combinations at current focus | VERIFIED | cu.type sends text to QLineEdit, cu.key handles Chrome key names |
-| 4 | User can scroll in any direction at specified coordinates | VERIFIED | cu.scroll with direction/amount sends QWheelEvent |
-| 5 | User can query current cursor position | VERIFIED | cu.cursorPosition returns x, y, screenX, screenY, widgetId, className |
+| 1 | User can request screenshot and receive base64 PNG image | VERIFIED | cu.screenshot returns image, width, height |
+| 2 | User can perform all mouse actions at pixel coordinates | VERIFIED | All cu.* mouse methods functional |
+| 3 | User can type text and send key combinations at current focus | VERIFIED | cu.type and cu.key functional |
+| 4 | User can scroll in any direction at specified coordinates | VERIFIED | cu.scroll functional |
+| 5 | User can query current cursor position | VERIFIED | cu.cursorPosition returns virtual position |
 
-**Score:** 5/5 truths verified
+**Score:** 5/5 truths verified (maintained)
 
 ### Required Artifacts
 
-All artifacts verified at 3 levels (existence, substantive, wired):
+All original artifacts verified, plus gap closure changes:
 
-**Plan 04-01 Artifacts:** 6/6 verified
-- key_name_mapper.h/cpp: 156 lines, exports KeyNameMapper with resolve() and parseKeyCombo()
-- input_simulator.h/cpp: 233 lines, 5 new mouse methods with QMouseEvent/QWheelEvent construction
-- screenshot.h/cpp: 128 lines, captureScreen and captureWindowLogical with DPR scaling
+**Core Artifacts (04-01, 04-02, 04-03):**
+- key_name_mapper.h/cpp: 155 lines, 60+ Chrome/xdotool key mappings
+- input_simulator.h/cpp: Mouse and keyboard event simulation
+- screenshot.h/cpp: Full-screen and logical-pixel capture
+- computer_use_mode_api.h/cpp: 658 lines, 13 cu.* method registrations
+- test_key_name_mapper.cpp: 213 lines
+- test_computer_use_api.cpp: 540 lines
 
-**Plan 04-02 Artifacts:** 4/4 verified
-- computer_use_mode_api.h/cpp: 608 lines, 13 RegisterMethod calls for cu.* methods
-- error_codes.h: 4 CU error codes added (-32060 to -32063)
-- probe.cpp: ComputerUseModeApi wired at line 162
+**Gap Closure Artifacts (04-04, 04-05):**
+- src/probe/core/probe.cpp: Exception handling around API registration
+- src/probe/transport/jsonrpc_handler.cpp: objectId fallback in 11 methods
+- src/probe/api/computer_use_mode_api.cpp: Virtual cursor tracking
 
-**Plan 04-03 Artifacts:** 3/3 verified
-- test_key_name_mapper.cpp: 213 lines, 10+ test functions
-- test_computer_use_api.cpp: 540 lines, 17 test functions
-- CMakeLists.txt: Both test executables registered
-
-### Key Link Verification
-
-All critical links verified and wired:
-
-**Interaction Layer Links (04-01):**
-- key_name_mapper.cpp -> Qt::Key enum via QHash lookup table: WIRED
-- input_simulator.cpp -> QWheelEvent via manual construction: WIRED
-- input_simulator.cpp -> QMouseEvent via press/move/release sequence: WIRED
-
-**API Layer Links (04-02):**
-- computer_use_mode_api.cpp -> InputSimulator (8 method calls): WIRED
-- computer_use_mode_api.cpp -> Screenshot (6 method calls): WIRED
-- computer_use_mode_api.cpp -> KeyNameMapper::parseKeyCombo: WIRED
-- computer_use_mode_api.cpp -> JsonRpcHandler (13 RegisterMethod calls): WIRED
-- probe.cpp -> ComputerUseModeApi constructor: WIRED
-
-**Test Links (04-03):**
-- test_computer_use_api.cpp -> JsonRpcHandler via callResult(): WIRED
-- test_key_name_mapper.cpp -> KeyNameMapper static methods: WIRED
+**Status:** All exist, substantive, and wired
 
 ### Requirements Coverage
 
-All Phase 4 requirements satisfied:
+All 10 Phase 4 requirements satisfied:
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| CU-01: Screenshot action returns base64 PNG | SATISFIED | cu.screenshot returns {image, width, height}, PNG magic bytes validated |
-| CU-02: Left click at pixel coordinates | SATISFIED | cu.click triggers QPushButton::clicked signal in test |
-| CU-03: Right click at pixel coordinates | SATISFIED | cu.rightClick returns success:true in test |
-| CU-04: Double click at pixel coordinates | SATISFIED | cu.doubleClick returns success:true in test |
-| CU-05: Mouse move to coordinates | SATISFIED | cu.mouseMove returns success:true in test |
-| CU-06: Click and drag from start to end | SATISFIED | cu.drag with startX/startY/endX/endY returns success:true |
-| CU-07: Type text at current focus | SATISFIED | cu.type sends text to QLineEdit, verified |
-| CU-08: Send key combinations | SATISFIED | cu.key with ctrl+a and Delete clears QLineEdit |
-| CU-09: Scroll at coordinates | SATISFIED | cu.scroll with direction/amount returns success:true |
-| CU-10: Get cursor position | SATISFIED | cu.cursorPosition returns x, y, className |
+| Requirement | Status |
+|-------------|--------|
+| CU-01: Screenshot returns base64 PNG | SATISFIED |
+| CU-02: Left click at coordinates | SATISFIED |
+| CU-03: Right click at coordinates | SATISFIED |
+| CU-04: Double click at coordinates | SATISFIED |
+| CU-05: Mouse move to coordinates | SATISFIED |
+| CU-06: Click and drag | SATISFIED |
+| CU-07: Type text | SATISFIED |
+| CU-08: Send key combinations | SATISFIED |
+| CU-09: Scroll | SATISFIED |
+| CU-10: Get cursor position | SATISFIED |
 
 **Coverage:** 10/10 requirements satisfied
-
-### Anti-Patterns Found
-
-None. All implementation files checked for stub patterns (TODO, FIXME, placeholder, empty returns) - no anti-patterns found.
 
 ### Build and Test Results
 
 **Build Status:** PASSED
-- cmake --build build --target qtmcp_probe: All targets up to date, no errors
 
-**Test Results:** ALL PASSED (10/10 test suites, 3.07 seconds)
-- test_jsonrpc: Passed
-- test_object_registry: Passed
-- test_object_id: Passed
-- test_meta_inspector: Passed
-- test_ui_interaction: Passed
-- test_signal_monitor: Passed
-- test_jsonrpc_introspection: Passed
-- test_native_mode_api: Passed
-- test_key_name_mapper: Passed (NEW)
-- test_computer_use_api: Passed (NEW)
+**Test Results:** ALL PASSED (10/10 test suites, 2.45 seconds)
 
-**Regressions:** None. All 8 existing test suites from phases 1-3 still pass.
+**Regressions:** None
 
-### Human Verification Required
+### Anti-Patterns Found
 
-None. All truths are programmatically verifiable through automated tests:
-- Screenshot returns valid PNG (magic bytes verified)
-- Click triggers button signals (connected in test)
-- Type modifies QLineEdit text (getText() verified)
-- Key combinations work (ctrl+a + Delete clears text)
-- Scroll/cursor methods return success (response verified)
+None. All code follows existing patterns and conventions.
 
 ## Summary
 
-Phase 4 (Computer Use Mode) has **fully achieved its goal**. All 5 success criteria verified:
+Phase 4 (Computer Use Mode) has fully achieved its goal after gap closure.
 
-1. User can request screenshot and receive base64 PNG image
-2. User can perform all mouse actions (click, right-click, double-click, drag, move) at pixel coordinates
-3. User can type text and send key combinations at current focus
-4. User can scroll in any direction at specified coordinates
-5. User can query current cursor position
+**Timeline:**
+- Initial Verification (2026-02-01): 5/5 truths verified
+- UAT Discovery (2026-01-31): 3 gaps found
+- Gap Closure (2026-01-31): Plans 04-04, 04-05 executed
+- Re-Verification (2026-01-31): All gaps closed
 
 **Key Achievements:**
-- 13 cu.* JSON-RPC methods registered and functional
-- KeyNameMapper handles 60+ Chrome/xdotool key name aliases
-- InputSimulator extended with 5 new mouse primitives (press, release, move, scroll, drag)
-- Screenshot provides full-screen and HiDPI-aware logical-pixel capture
-- ComputerUseModeApi wired into Probe alongside NativeModeApi (both active)
-- 27 new test cases added (10 for KeyNameMapper, 17 for ComputerUseModeApi)
-- Zero regressions in existing test suite
-- All 10 CU requirements (CU-01 through CU-10) satisfied
+- 13 cu.* methods functional
+- Resilient API initialization
+- Backward compatible legacy methods
+- Virtual cursor tracking
+- All requirements satisfied
+- Zero regressions
 
-**Implementation Quality:**
-- No stub patterns found
-- All artifacts substantive (min line counts exceeded)
-- All key links verified (imports, method calls, event construction)
-- Error handling complete (4 CU error codes defined and used)
-- Build succeeds without warnings
-- Tests pass with 100% success rate
-
-**Phase Status:** Ready to proceed to Phase 5 (Chrome Mode).
+**Phase Status:** COMPLETE
 
 ---
 
-*Verified: 2026-02-01T02:47:15Z*
-*Verifier: Claude (gsd-verifier)*
+*Verified: 2026-01-31T22:15:00Z*  
+*Verifier: Claude (gsd-verifier)*  
+*Re-verification: Yes (after UAT gap closure)*
