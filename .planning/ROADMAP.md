@@ -110,12 +110,14 @@ Plans:
   3. User can get all visible text content from the application
   4. User can find elements using natural language queries
   5. User can navigate tabs/menus and read console messages (qDebug, etc.)
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
-**Research Flag**: QAccessible tree mapping to Chrome accessibility format is novel. No existing examples. Requires research during planning to determine: role/state/property mappings, ref stability, which Qt accessibility features map to Chrome format.
+**Research Flag**: QAccessible tree mapping to Chrome accessibility format is novel. Research completed - role/state/property mappings defined, ephemeral refs chosen, accessibility sub-interfaces for form input.
 
 Plans:
-- [ ] 05-01: TBD (planning not yet started)
+- [ ] 05-01-PLAN.md — RoleMapper, ConsoleMessageCapture, AccessibilityTreeWalker infrastructure (Wave 1)
+- [ ] 05-02-PLAN.md — ChromeModeApi with all 8 chr.* methods + CMake + Probe wiring (Wave 2)
+- [ ] 05-03-PLAN.md — Integration tests for Chrome Mode API (Wave 3)
 
 ### Phase 6: Extended Introspection
 **Goal**: Probe can inspect QML items and navigate QAbstractItemModel hierarchies
