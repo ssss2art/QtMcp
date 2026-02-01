@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 4 - Computer Use Mode (VERIFIED COMPLETE - all gaps closed)
+**Current focus:** Phase 5 - Chrome Mode (in progress)
 
 ## Current Position
 
-Phase: 4 of 7 (Computer Use Mode)
-Plan: 5 of 5 in current phase (all gap closure plans complete)
-Status: Phase verified complete (all gaps closed)
-Last activity: 2026-01-31 - Phase 4 gap closure verified (5/5 must-haves, all 3 UAT gaps closed)
+Phase: 5 of 7 (Chrome Mode)
+Plan: 1 of N in current phase
+Status: In progress
+Last activity: 2026-01-31 - Completed 05-01-PLAN.md (Chrome Mode infrastructure classes)
 
-Progress: [####################] 100%
+Progress: [######################..] ~90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
-- Average duration: 10.7 min
-- Total execution time: 3.68 hours
+- Total plans completed: 22
+- Average duration: 10.4 min
+- Total execution time: 3.75 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [####################] 100%
 | 02-core-introspection | 6 | 104 min | 17.3 min |
 | 03-native-mode | 4 | 24 min | 6.0 min |
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
+| 05-chrome-mode | 1 | 4 min | 4.0 min |
 
 **Recent Trend:**
-- Last 6 plans: 03-02 (10 min), 03-03 (7 min), 03-04 (2 min), 04-01 (3 min), 04-02 (7 min), 04-03 (8 min)
-- Trend: Phase 4 complete in 18 min total - 3 plans for full CU mode
+- Last 6 plans: 03-04 (2 min), 04-01 (3 min), 04-02 (7 min), 04-03 (8 min), 04-04 (2 min), 05-01 (4 min)
+- Trend: Infrastructure plans averaging ~4 min
 
 *Updated after each plan completion*
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 | delay_ms param on click methods | Allows UI settle time before action | 04-02 |
 | Allow empty screenshot on minimal platform | captureWindowLogical uses grabWindow() which returns empty on minimal; test verifies structure always | 04-03 |
 | File-scope static for virtual cursor tracking | All cu.* lambdas stateless (no this capture); avoids changing lambda semantics | 04-05 |
+| RoleMapper as purely static class | Stateless lookup table needs no instance management | 05-01 |
+| Q_GLOBAL_STATIC for ConsoleMessageCapture | Consistent with ObjectRegistry, SignalMonitor singleton patterns | 05-01 |
+| "generic" fallback for unknown roles | Chrome/ARIA convention for unmapped roles | 05-01 |
 
 ### Pending Todos
 
@@ -100,7 +104,7 @@ None yet.
 **From Research:**
 - Windows DLL pitfalls (CRT mismatch, TLS, DllMain) must be addressed in Phase 1 [ADDRESSED in 01-02]
 - Object Registry needs mutex protection from day one (qtHookData not thread-safe) [IMPLEMENTED in 02-01]
-- Chrome Mode (Phase 5) needs research - QAccessible to Chrome tree mapping is novel
+- Chrome Mode (Phase 5) research complete - infrastructure classes built in 05-01
 - QML introspection (Phase 6) may require private Qt APIs - feasibility TBD
 
 **From Plan 01-01:**
@@ -174,6 +178,19 @@ None yet.
 - Numeric IDs cleared on client disconnect
 - Name map auto-loaded during Probe::initialize()
 
+## Phase 5 Progress
+
+| Plan | Name | Status |
+|------|------|--------|
+| 05-01 | Chrome Mode Infrastructure Classes | COMPLETE |
+
+**From Plan 05-01:**
+- RoleMapper maps ~55 QAccessible::Role to Chrome/ARIA names, isInteractive() covers 18 roles
+- ConsoleMessageCapture: Q_GLOBAL_STATIC singleton, ring buffer (1000), chains to previous handler
+- AccessibilityTreeWalker: recursive walk with ref_N assignment, supports "interactive"/"all" filter
+- Chrome Mode error codes -32070 to -32076 added to error_codes.h
+- New files in src/probe/accessibility/ - CMakeLists.txt update needed in Plan 05-02
+
 ## Phase 4 Progress
 
 | Plan | Name | Status |
@@ -239,8 +256,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Phase 4 verified complete - all gap closure plans executed and verified
+Stopped at: Completed 05-01-PLAN.md (Chrome Mode infrastructure classes)
 Resume file: None
 
 ---
-*State updated: 2026-01-31 (post gap closure verification - Phase 4 fully complete)*
+*State updated: 2026-01-31 (completed 05-01 - Chrome Mode infrastructure)*
