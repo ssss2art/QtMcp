@@ -175,11 +175,19 @@ QJsonObject buildFindMatchNode(QAccessibleInterface* iface, const QString& ref) 
     node[QStringLiteral("ref")] = ref;
     node[QStringLiteral("role")] = RoleMapper::toChromeName(iface->role());
 
+    QObject* obj = iface->object();
+
+    // 3-step name fallback (matches AccessibilityTreeWalker::walkNode):
+    // accessible name -> objectName -> className
     QString name = iface->text(QAccessible::Name);
+    if (name.isEmpty() && obj) {
+        name = obj->objectName();
+        if (name.isEmpty())
+            name = QString::fromUtf8(obj->metaObject()->className());
+    }
     if (!name.isEmpty())
         node[QStringLiteral("name")] = name;
 
-    QObject* obj = iface->object();
     if (obj) {
         QString objName = obj->objectName();
         if (!objName.isEmpty())
@@ -598,11 +606,9 @@ void ChromeModeApi::registerFindMethod() {
                 return envelopeToString(ResponseEnvelope::wrap(result));
             }
 
-            // Clear refs for find (assigns fresh refs to matches)
-            clearRefsInternal();
-
+            // Append to existing ref map (preserves refs from prior find/readPage calls)
             QJsonArray matches;
-            int refCounter = 0;
+            int refCounter = s_refToAccessible.size();
             QString queryLower = query.toLower();
 
             findMatchingNodes(rootIface, queryLower, refCounter, matches, 0, 30);
