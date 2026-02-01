@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2025-01-29)
 ## Current Position
 
 Phase: 7 of 7 (Python Integration)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-01 - Completed 07-01-PLAN.md (Package Skeleton)
+Last activity: 2026-02-01 - Completed 07-02-PLAN.md (Tool Definitions)
 
-Progress: [##############################] ~100% (30/30 plans)
+Progress: [##############################.] ~97% (31/32 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30
-- Average duration: 9.4 min
-- Total execution time: 4.71 hours
+- Total plans completed: 31
+- Average duration: 9.2 min
+- Total execution time: 4.78 hours
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: [##############################] ~100% (30/30 plans)
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
 | 05-chrome-mode | 4 | 32 min | 8.0 min |
 | 06-extended-introspection | 4 | 22 min | 5.5 min |
-| 07-python-integration | 1 | 8 min | 8.0 min |
+| 07-python-integration | 2 | 12 min | 6.0 min |
 
 **Recent Trend:**
-- Last 6 plans: 05-04 (10 min), 06-01 (7 min), 06-02 (6 min), 06-03 (4 min), 06-04 (5 min), 07-01 (8 min)
+- Last 6 plans: 06-01 (7 min), 06-02 (6 min), 06-03 (4 min), 06-04 (5 min), 07-01 (8 min), 07-02 (4 min)
 - Trend: Stable execution times
 
 *Updated after each plan completion*
@@ -115,6 +115,7 @@ Recent decisions affecting current work:
 | Module-level probe reference | FastMCP v2 stores lifespan result on server, not directly on Context | 07-01 |
 | asynccontextmanager lifespan with try/finally | Ensures cleanup of both WebSocket and subprocess | 07-01 |
 | Stub tool files created immediately | Server factory imports work end-to-end before Plans 02/03 | 07-01 |
+| Deferred import of get_probe() inside tools | Avoids circular imports since server.py imports tool modules | 07-02 |
 
 ### Pending Todos
 
@@ -204,7 +205,7 @@ None - all known bugs resolved.
 | Plan | Name | Status |
 |------|------|--------|
 | 07-01 | Package Skeleton + Core Infrastructure | COMPLETE |
-| 07-02 | Native + CU Tool Definitions | PENDING |
+| 07-02 | Tool Definitions (54 tools) | COMPLETE |
 | 07-03 | Chrome Tool Definitions + Documentation | PENDING |
 
 **From Plan 07-01:**
@@ -215,6 +216,13 @@ None - all known bugs resolved.
 - Stub tool registration files for native, cu, chrome modes
 - FastMCP 2.14.4 with websockets 16.0 as dependencies
 - `python -m qtmcp --help` works with all CLI arguments
+
+**From Plan 07-02:**
+- 53 MCP tools implemented: 32 native (qt_*), 13 computer use (cu_*), 8 chrome (chr_*)
+- Each tool is thin async bridge: get_probe().call("method", params)
+- Optional params excluded from JSON-RPC when None
+- Deferred import pattern avoids circular imports
+- Minimal docstrings (1 sentence + example per tool)
 
 ## Phase 6 Progress
 
@@ -362,8 +370,8 @@ None - all known bugs resolved.
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 07-01-PLAN.md (Package Skeleton)
+Stopped at: Completed 07-02-PLAN.md (Tool Definitions)
 Resume file: None
 
 ---
-*State updated: 2026-02-01 (completed 07-01 - Package Skeleton + Core Infrastructure)*
+*State updated: 2026-02-01 (completed 07-02 - Tool Definitions)*
