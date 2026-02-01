@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-01-29)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** Phase 5 - Chrome Mode (VERIFIED COMPLETE + gap closure)
+**Current focus:** Phase 6 - Extended Introspection (QML + Model/View)
 
 ## Current Position
 
-Phase: 5 of 7 (Chrome Mode)
-Plan: 4 of 4 in current phase (05-04 is gap closure)
-Status: Phase complete with gap closure (14/14 must-haves + 2 bugs fixed)
-Last activity: 2026-02-01 - Completed 05-04-PLAN.md (chr.find gap closure)
+Phase: 6 of 7 (Extended Introspection)
+Plan: 2 of 4 in current phase
+Status: In progress
+Last activity: 2026-02-01 - Completed 06-02-PLAN.md (ModelNavigator)
 
-Progress: [####################] 100%
+Progress: [##########################..] ~90% (27/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25
-- Average duration: 10.0 min
-- Total execution time: 4.22 hours
+- Total plans completed: 27
+- Average duration: 9.8 min
+- Total execution time: 4.43 hours
 
 **By Phase:**
 
@@ -32,10 +32,11 @@ Progress: [####################] 100%
 | 03-native-mode | 4 | 24 min | 6.0 min |
 | 04-computer-use-mode | 5 | 22 min | 4.4 min |
 | 05-chrome-mode | 4 | 32 min | 8.0 min |
+| 06-extended-introspection | 2 | 13 min | 6.5 min |
 
 **Recent Trend:**
-- Last 6 plans: 04-02 (7 min), 04-03 (8 min), 04-04 (2 min), 05-01 (4 min), 05-02 (8 min), 05-03 (10 min)
-- Trend: Test plans slightly longer due to build/debug cycles
+- Last 6 plans: 05-01 (4 min), 05-02 (8 min), 05-03 (10 min), 05-04 (10 min), 06-01 (7 min), 06-02 (6 min)
+- Trend: Stable execution times
 
 *Updated after each plan completion*
 
@@ -102,6 +103,12 @@ Recent decisions affecting current work:
 | chr.find appends to ref map | Enables multi-find workflows without destroying previous refs | 05-04 |
 | readPage remains authoritative (clears find refs) | readPage rebuilds full tree, clearing all refs including find refs | 05-04 |
 | Same name fallback in find as walkNode | Consistency between chr.readPage and chr.find output | 05-04 |
+| Qt Quick as optional dependency | QTMCP_HAS_QML compile guard; inline stubs when not available | 06-01 |
+| QML id highest priority in ID generation | Human-authored QML ids are ideal stable identifiers for paths | 06-01 |
+| Short type names for anonymous QML items | QQuick prefix is internal detail, not meaningful to users | 06-01 |
+| Static utility class for ModelNavigator | Same pattern as RoleMapper - stateless, no QObject inheritance | 06-02 |
+| Smart pagination: all if <=100, else 100 | Small models complete; large models paginated to avoid response bloat | 06-02 |
+| Three-step resolveModel | Direct cast, QAbstractItemView, property("model") QML fallback | 06-02 |
 
 ### Pending Todos
 
@@ -185,6 +192,32 @@ None - all known bugs resolved.
 - JsonRpcException caught before std::exception in HandleMessage
 - Numeric IDs cleared on client disconnect
 - Name map auto-loaded during Probe::initialize()
+
+## Phase 6 Progress
+
+| Plan | Name | Status |
+|------|------|--------|
+| 06-01 | QML Inspector Infrastructure | COMPLETE |
+| 06-02 | Model/View Navigation (ModelNavigator) | COMPLETE |
+| 06-03 | QML + Model API Wiring | PENDING |
+| 06-04 | Extended Introspection Testing | PENDING |
+
+**From Plan 06-01:**
+- QmlItemInfo struct + inspectQmlItem()/stripQmlPrefix()/isQmlItem() in qml_inspector.h/.cpp
+- Qt Quick is optional dependency: QTMCP_HAS_QML compile guard with inline stub fallbacks
+- QML id takes highest priority in generateIdSegment() for QQuickItems
+- Anonymous QML items use short type name (Rectangle not QQuickRectangle)
+- serializeObjectInfo() and tree serialization include isQmlItem, qmlId, qmlFile, qmlTypeName
+- QML error codes (-32080 to -32082) and Model error codes (-32090 to -32093) added
+- All 11 existing test suites pass with zero regressions
+
+**From Plan 06-02:**
+- ModelNavigator: static utility class with 6 methods (listModels, getModelInfo, getModelData, resolveModel, resolveRoleName, getRoleNames)
+- Smart pagination: all rows if <=100, first 100 otherwise; explicit offset/limit supported
+- resolveModel: direct QAbstractItemModel* cast, QAbstractItemView::model(), property("model") QML fallback
+- resolveRoleName: checks model->roleNames() first, then 12 standard Qt roles
+- Internal Qt models filtered (className starts with "Q" and contains "Internal")
+- All 11 existing test suites pass with zero regressions
 
 ## Phase 5 Progress
 
