@@ -3,9 +3,9 @@
 
 #pragma once
 
+#include <QJsonObject>
 #include <QObject>
 #include <QString>
-#include <QJsonObject>
 
 namespace qtmcp {
 

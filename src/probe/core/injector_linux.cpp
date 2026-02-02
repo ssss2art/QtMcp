@@ -5,14 +5,13 @@
 
 #ifdef QTMCP_PLATFORM_LINUX
 
-#include <QCoreApplication>
-#include <QTimer>
-
-#include <spdlog/spdlog.h>
+#include "core/probe.h"
 
 #include <cstdlib>
+#include <spdlog/spdlog.h>
 
-#include "core/probe.h"
+#include <QCoreApplication>
+#include <QTimer>
 
 namespace qtmcp {
 

@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <QObject>
-
 #include "transport/jsonrpc_handler.h"  // For QTMCP_EXPORT, JsonRpcHandler
+
+#include <QObject>
 
 namespace qtmcp {
 
@@ -27,28 +27,28 @@ namespace qtmcp {
 /// All methods use ephemeral ref identifiers (rebuilt on each readPage call).
 /// All responses wrapped with ResponseEnvelope::wrap().
 class QTMCP_EXPORT ChromeModeApi : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 
-public:
-    /// @brief Construct and register all chr.* methods on the given handler.
-    /// @param handler The JSON-RPC handler to register methods on.
-    /// @param parent Parent QObject.
-    explicit ChromeModeApi(JsonRpcHandler* handler, QObject* parent = nullptr);
+ public:
+  /// @brief Construct and register all chr.* methods on the given handler.
+  /// @param handler The JSON-RPC handler to register methods on.
+  /// @param parent Parent QObject.
+  explicit ChromeModeApi(JsonRpcHandler* handler, QObject* parent = nullptr);
 
-    /// @brief Clear all ephemeral ref mappings (called on client disconnect).
-    static void clearRefs();
+  /// @brief Clear all ephemeral ref mappings (called on client disconnect).
+  static void clearRefs();
 
-private:
-    void registerReadPageMethod();
-    void registerClickMethod();
-    void registerFormInputMethod();
-    void registerGetPageTextMethod();
-    void registerFindMethod();
-    void registerNavigateMethod();
-    void registerTabsContextMethod();
-    void registerReadConsoleMessagesMethod();
+ private:
+  void registerReadPageMethod();
+  void registerClickMethod();
+  void registerFormInputMethod();
+  void registerGetPageTextMethod();
+  void registerFindMethod();
+  void registerNavigateMethod();
+  void registerTabsContextMethod();
+  void registerReadConsoleMessagesMethod();
 
-    JsonRpcHandler* m_handler;
+  JsonRpcHandler* m_handler;
 };
 
 }  // namespace qtmcp

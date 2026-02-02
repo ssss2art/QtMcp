@@ -3,19 +3,19 @@
 
 #include "transport/jsonrpc_handler.h"
 
+#include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QDebug>
 
 // Introspection components
 #include "core/object_registry.h"
+#include "interaction/hit_test.h"
+#include "interaction/input_simulator.h"
+#include "interaction/screenshot.h"
 #include "introspection/meta_inspector.h"
 #include "introspection/object_id.h"
 #include "introspection/signal_monitor.h"
-#include "interaction/input_simulator.h"
-#include "interaction/screenshot.h"
-#include "interaction/hit_test.h"
 
 #include <QWidget>
 
@@ -40,7 +40,9 @@ namespace qtmcp {
 using json = nlohmann::json;
 #endif
 
-JsonRpcHandler::JsonRpcHandler(QObject* parent) : QObject(parent) { RegisterBuiltinMethods(); }
+JsonRpcHandler::JsonRpcHandler(QObject* parent) : QObject(parent) {
+  RegisterBuiltinMethods();
+}
 
 QString JsonRpcHandler::HandleMessage(const QString& message) {
 #ifdef QTMCP_HAS_NLOHMANN_JSON
@@ -126,9 +128,11 @@ QString JsonRpcHandler::HandleMessage(const QString& message) {
   if (request.contains("params")) {
     QJsonValue paramsValue = request["params"];
     if (paramsValue.isObject()) {
-      params_str = QString::fromUtf8(QJsonDocument(paramsValue.toObject()).toJson(QJsonDocument::Compact));
+      params_str =
+          QString::fromUtf8(QJsonDocument(paramsValue.toObject()).toJson(QJsonDocument::Compact));
     } else if (paramsValue.isArray()) {
-      params_str = QString::fromUtf8(QJsonDocument(paramsValue.toArray()).toJson(QJsonDocument::Compact));
+      params_str =
+          QString::fromUtf8(QJsonDocument(paramsValue.toArray()).toJson(QJsonDocument::Compact));
     }
   }
 #endif
@@ -200,9 +204,8 @@ QString JsonRpcHandler::CreateErrorResponse(const QString& id, int code, const Q
       .arg(escaped_message);
 }
 
-QString JsonRpcHandler::CreateErrorResponse(const QString& id, int code,
-                                              const QString& message,
-                                              const QJsonObject& data) {
+QString JsonRpcHandler::CreateErrorResponse(const QString& id, int code, const QString& message,
+                                            const QJsonObject& data) {
   QJsonObject errorObj;
   errorObj["code"] = code;
   errorObj["message"] = message;
@@ -269,8 +272,7 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QString name = doc.object()["name"].toString();
     QString root = doc.object()["root"].toString();
 
-    QObject* rootObj = root.isEmpty() ? nullptr
-        : ObjectRegistry::instance()->findById(root);
+    QObject* rootObj = root.isEmpty() ? nullptr : ObjectRegistry::instance()->findById(root);
     QObject* found = ObjectRegistry::instance()->findByObjectName(name, rootObj);
 
     if (!found) {
@@ -287,8 +289,7 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QString className = doc.object()["className"].toString();
     QString root = doc.object()["root"].toString();
 
-    QObject* rootObj = root.isEmpty() ? nullptr
-        : ObjectRegistry::instance()->findById(root);
+    QObject* rootObj = root.isEmpty() ? nullptr : ObjectRegistry::instance()->findById(root);
     QList<QObject*> found = ObjectRegistry::instance()->findAllByClassName(className, rootObj);
 
     QJsonArray ids;
@@ -296,7 +297,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
       ids.append(ObjectRegistry::instance()->objectId(obj));
     }
 
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"ids", ids}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"ids", ids}}).toJson(QJsonDocument::Compact));
   });
 
   // OBJ-03: getObjectTree
@@ -305,8 +307,7 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QString root = doc.object()["root"].toString();
     int maxDepth = doc.object()["maxDepth"].toInt(-1);
 
-    QObject* rootObj = root.isEmpty() ? nullptr
-        : ObjectRegistry::instance()->findById(root);
+    QObject* rootObj = root.isEmpty() ? nullptr : ObjectRegistry::instance()->findById(root);
 
     QJsonObject tree = serializeObjectTree(rootObj, maxDepth);
     return QString::fromUtf8(QJsonDocument(tree).toJson(QJsonDocument::Compact));
@@ -317,7 +318,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -337,7 +339,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -353,7 +356,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
     QString name = doc.object()["name"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
@@ -362,7 +366,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     }
 
     QJsonValue value = MetaInspector::getProperty(obj, name);
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"value", value}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"value", value}}).toJson(QJsonDocument::Compact));
   });
 
   // OBJ-07: setProperty
@@ -370,7 +375,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
     QString name = doc.object()["name"].toString();
     QJsonValue value = doc.object()["value"];
 
@@ -380,7 +386,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     }
 
     bool ok = MetaInspector::setProperty(obj, name, value);
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"success", ok}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"success", ok}}).toJson(QJsonDocument::Compact));
   });
 
   // ========================================================================
@@ -392,7 +399,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -408,7 +416,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
     QString method = doc.object()["method"].toString();
     QJsonArray args = doc.object()["args"].toArray();
 
@@ -418,7 +427,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     }
 
     QJsonValue result = MetaInspector::invokeMethod(obj, method, args);
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"result", result}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"result", result}}).toJson(QJsonDocument::Compact));
   });
 
   // OBJ-10: listSignals
@@ -426,7 +436,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -448,7 +459,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QString signalName = doc.object()["signal"].toString();
 
     QString subId = SignalMonitor::instance()->subscribe(objectId, signalName);
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"subscriptionId", subId}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"subscriptionId", subId}}).toJson(QJsonDocument::Compact));
   });
 
   // SIG-02: unsubscribeSignal
@@ -457,7 +469,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QString subId = doc.object()["subscriptionId"].toString();
 
     SignalMonitor::instance()->unsubscribe(subId);
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"success", true}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"success", true}}).toJson(QJsonDocument::Compact));
   });
 
   // Lifecycle notifications toggle
@@ -466,7 +479,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     bool enabled = doc.object()["enabled"].toBool();
 
     SignalMonitor::instance()->setLifecycleNotificationsEnabled(enabled);
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"enabled", enabled}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"enabled", enabled}}).toJson(QJsonDocument::Compact));
   });
 
   // ========================================================================
@@ -478,7 +492,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
     QString button = doc.object()["button"].toString("left");
     QJsonObject pos = doc.object()["position"].toObject();
 
@@ -493,8 +508,10 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     }
 
     InputSimulator::MouseButton btn = InputSimulator::MouseButton::Left;
-    if (button == "right") btn = InputSimulator::MouseButton::Right;
-    else if (button == "middle") btn = InputSimulator::MouseButton::Middle;
+    if (button == "right")
+      btn = InputSimulator::MouseButton::Right;
+    else if (button == "middle")
+      btn = InputSimulator::MouseButton::Middle;
 
     QPoint clickPos;
     if (!pos.isEmpty()) {
@@ -502,7 +519,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     }
 
     InputSimulator::mouseClick(widget, btn, clickPos);
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"success", true}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"success", true}}).toJson(QJsonDocument::Compact));
   });
 
   // UI-02: sendKeys
@@ -510,7 +528,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
     QString text = doc.object()["text"].toString();
     QString sequence = doc.object()["sequence"].toString();
 
@@ -531,7 +550,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
       InputSimulator::sendKeySequence(widget, sequence);
     }
 
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"success", true}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"success", true}}).toJson(QJsonDocument::Compact));
   });
 
   // UI-03: screenshot
@@ -539,7 +559,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
     bool fullWindow = doc.object()["fullWindow"].toBool(false);
     QJsonObject region = doc.object()["region"].toObject();
 
@@ -557,14 +578,15 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     if (fullWindow) {
       base64 = Screenshot::captureWindow(widget);
     } else if (!region.isEmpty()) {
-      QRect rect(region["x"].toInt(), region["y"].toInt(),
-                 region["width"].toInt(), region["height"].toInt());
+      QRect rect(region["x"].toInt(), region["y"].toInt(), region["width"].toInt(),
+                 region["height"].toInt());
       base64 = Screenshot::captureRegion(widget, rect);
     } else {
       base64 = Screenshot::captureWidget(widget);
     }
 
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"image", QString::fromLatin1(base64)}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(QJsonDocument(QJsonObject{{"image", QString::fromLatin1(base64)}})
+                                 .toJson(QJsonDocument::Compact));
   });
 
   // UI-04: getGeometry
@@ -572,7 +594,8 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     QJsonDocument doc = QJsonDocument::fromJson(params.toUtf8());
     QJsonObject params_obj = doc.object();
     QString id = params_obj["id"].toString();
-    if (id.isEmpty()) id = params_obj["objectId"].toString();
+    if (id.isEmpty())
+      id = params_obj["objectId"].toString();
 
     QObject* obj = ObjectRegistry::instance()->findById(id);
     if (!obj) {
@@ -616,10 +639,12 @@ void JsonRpcHandler::RegisterBuiltinMethods() {
     }
 
     if (foundId.isEmpty()) {
-      return QString::fromUtf8(QJsonDocument(QJsonObject{{"id", QJsonValue::Null}}).toJson(QJsonDocument::Compact));
+      return QString::fromUtf8(
+          QJsonDocument(QJsonObject{{"id", QJsonValue::Null}}).toJson(QJsonDocument::Compact));
     }
 
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"id", foundId}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(
+        QJsonDocument(QJsonObject{{"id", foundId}}).toJson(QJsonDocument::Compact));
   });
 }
 

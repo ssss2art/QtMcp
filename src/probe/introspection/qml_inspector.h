@@ -10,10 +10,10 @@ namespace qtmcp {
 
 /// @brief Metadata extracted from a QML item.
 struct QmlItemInfo {
-    bool isQmlItem = false;
-    QString qmlId;
-    QString qmlFile;
-    QString shortTypeName;
+  bool isQmlItem = false;
+  QString qmlId;
+  QString qmlFile;
+  QString shortTypeName;
 };
 
 #ifdef QTMCP_HAS_QML
@@ -47,13 +47,19 @@ bool isQmlItem(QObject* obj);
 #else
 
 /// @brief Stub: always returns default QmlItemInfo (isQmlItem=false).
-inline QmlItemInfo inspectQmlItem(QObject* /*obj*/) { return QmlItemInfo{}; }
+inline QmlItemInfo inspectQmlItem(QObject* /*obj*/) {
+  return QmlItemInfo{};
+}
 
 /// @brief Stub: returns className unchanged.
-inline QString stripQmlPrefix(const QString& className) { return className; }
+inline QString stripQmlPrefix(const QString& className) {
+  return className;
+}
 
 /// @brief Stub: always returns false.
-inline bool isQmlItem(QObject* /*obj*/) { return false; }
+inline bool isQmlItem(QObject* /*obj*/) {
+  return false;
+}
 
 #endif  // QTMCP_HAS_QML
 

@@ -87,6 +87,8 @@ runs:
 
         cd "$SRC_DIR"
         git init
+        git config user.name "CI"
+        git config user.email "ci@localhost"
         git add -A
         git commit -m "Qt ${{ inputs.qt-version }} base" --quiet
 

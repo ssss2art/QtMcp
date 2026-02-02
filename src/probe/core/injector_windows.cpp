@@ -6,8 +6,8 @@
 #ifdef QTMCP_PLATFORM_WINDOWS
 
 #include <QCoreApplication>
-#include <QTimer>
 #include <QDebug>
+#include <QTimer>
 
 #ifdef QTMCP_HAS_SPDLOG
 #include <spdlog/spdlog.h>
@@ -16,9 +16,9 @@
 #define LOG_INFO(msg) qInfo() << msg
 #endif
 
-#include <windows.h>
-
 #include "core/probe.h"
+
+#include <windows.h>
 
 namespace qtmcp {
 

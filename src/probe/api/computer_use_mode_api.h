@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <QObject>
-
 #include "transport/jsonrpc_handler.h"  // For QTMCP_EXPORT, JsonRpcHandler
+
+#include <QObject>
 
 namespace qtmcp {
 
@@ -26,22 +26,23 @@ namespace qtmcp {
 /// Coordinates are window-relative by default, or screen-absolute with screenAbsolute=true.
 /// All responses wrapped with ResponseEnvelope::wrap().
 class QTMCP_EXPORT ComputerUseModeApi : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 
-public:
-    /// @brief Construct and register all cu.* methods on the given handler.
-    /// @param handler The JSON-RPC handler to register methods on.
-    /// @param parent Parent QObject.
-    explicit ComputerUseModeApi(JsonRpcHandler* handler, QObject* parent = nullptr);
+ public:
+  /// @brief Construct and register all cu.* methods on the given handler.
+  /// @param handler The JSON-RPC handler to register methods on.
+  /// @param parent Parent QObject.
+  explicit ComputerUseModeApi(JsonRpcHandler* handler, QObject* parent = nullptr);
 
-private:
-    void registerScreenshotMethods();   ///< cu.screenshot
-    void registerMouseMethods();        ///< cu.click, cu.rightClick, cu.middleClick, cu.doubleClick, cu.mouseMove, cu.drag, cu.mouseDown, cu.mouseUp
-    void registerKeyboardMethods();     ///< cu.type, cu.key
-    void registerScrollMethod();        ///< cu.scroll
-    void registerQueryMethods();        ///< cu.cursorPosition
+ private:
+  void registerScreenshotMethods();  ///< cu.screenshot
+  void registerMouseMethods();       ///< cu.click, cu.rightClick, cu.middleClick, cu.doubleClick,
+                                     ///< cu.mouseMove, cu.drag, cu.mouseDown, cu.mouseUp
+  void registerKeyboardMethods();    ///< cu.type, cu.key
+  void registerScrollMethod();       ///< cu.scroll
+  void registerQueryMethods();       ///< cu.cursorPosition
 
-    JsonRpcHandler* m_handler;
+  JsonRpcHandler* m_handler;
 };
 
 }  // namespace qtmcp

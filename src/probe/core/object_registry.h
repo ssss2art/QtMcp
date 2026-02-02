@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include <QObject>
-#include <QHash>
-#include <QPointer>
-#include <QSet>
-#include <QRecursiveMutex>
-
 #include "probe.h"  // For QTMCP_EXPORT
+
+#include <QHash>
+#include <QObject>
+#include <QPointer>
+#include <QRecursiveMutex>
+#include <QSet>
 
 // Forward declarations for hook callbacks (global functions)
 void qtmcpAddObjectHook(QObject*);
@@ -33,108 +33,108 @@ namespace qtmcp {
 /// registration time. IDs follow the format "parent/child/grandchild" where
 /// segments prefer objectName, then text property, then ClassName#N.
 class QTMCP_EXPORT ObjectRegistry : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 
-public:
-    /// @brief Get the singleton instance.
-    /// @return Pointer to the global ObjectRegistry instance.
-    static ObjectRegistry* instance();
+ public:
+  /// @brief Get the singleton instance.
+  /// @return Pointer to the global ObjectRegistry instance.
+  static ObjectRegistry* instance();
 
-    /// @brief Find object by objectName.
-    /// @param name The objectName to search for.
-    /// @param root Optional root object to search within (nullptr = all objects).
-    /// @return The first matching object, or nullptr if not found.
-    QObject* findByObjectName(const QString& name, QObject* root = nullptr);
+  /// @brief Find object by objectName.
+  /// @param name The objectName to search for.
+  /// @param root Optional root object to search within (nullptr = all objects).
+  /// @return The first matching object, or nullptr if not found.
+  QObject* findByObjectName(const QString& name, QObject* root = nullptr);
 
-    /// @brief Find all objects of a given class name.
-    /// @param className The class name to search for (e.g., "QPushButton").
-    /// @param root Optional root object to search within (nullptr = all objects).
-    /// @return List of all matching objects.
-    QList<QObject*> findAllByClassName(const QString& className, QObject* root = nullptr);
+  /// @brief Find all objects of a given class name.
+  /// @param className The class name to search for (e.g., "QPushButton").
+  /// @param root Optional root object to search within (nullptr = all objects).
+  /// @return List of all matching objects.
+  QList<QObject*> findAllByClassName(const QString& className, QObject* root = nullptr);
 
-    /// @brief Get all tracked objects.
-    /// @return List of all objects currently in the registry.
-    QList<QObject*> allObjects();
+  /// @brief Get all tracked objects.
+  /// @return List of all objects currently in the registry.
+  QList<QObject*> allObjects();
 
-    /// @brief Get the number of tracked objects.
-    /// @return Object count.
-    int objectCount() const;
+  /// @brief Get the number of tracked objects.
+  /// @return Object count.
+  int objectCount() const;
 
-    /// @brief Check if an object is tracked.
-    /// @param obj The object to check.
-    /// @return true if the object is in the registry.
-    bool contains(QObject* obj) const;
+  /// @brief Check if an object is tracked.
+  /// @param obj The object to check.
+  /// @return true if the object is in the registry.
+  bool contains(QObject* obj) const;
 
-    /// @brief Get the cached hierarchical ID for an object.
-    ///
-    /// Returns the ID that was computed when the object was registered.
-    /// If the object isn't tracked (shouldn't happen), generates ID on-the-fly.
-    ///
-    /// @param obj The object to get the ID for.
-    /// @return The hierarchical ID string, or empty string if obj is null.
-    QString objectId(QObject* obj);
+  /// @brief Get the cached hierarchical ID for an object.
+  ///
+  /// Returns the ID that was computed when the object was registered.
+  /// If the object isn't tracked (shouldn't happen), generates ID on-the-fly.
+  ///
+  /// @param obj The object to get the ID for.
+  /// @return The hierarchical ID string, or empty string if obj is null.
+  QString objectId(QObject* obj);
 
-    /// @brief Find an object by its hierarchical ID.
-    ///
-    /// Looks up the object in the cached ID-to-object map. This is O(1) for
-    /// direct hits but will search the object tree if not found in cache.
-    ///
-    /// @param id The hierarchical ID (e.g., "mainWindow/central/submitBtn").
-    /// @return The object, or nullptr if not found or object was deleted.
-    QObject* findById(const QString& id);
+  /// @brief Find an object by its hierarchical ID.
+  ///
+  /// Looks up the object in the cached ID-to-object map. This is O(1) for
+  /// direct hits but will search the object tree if not found in cache.
+  ///
+  /// @param id The hierarchical ID (e.g., "mainWindow/central/submitBtn").
+  /// @return The object, or nullptr if not found or object was deleted.
+  QObject* findById(const QString& id);
 
-    /// @brief Scan and register all existing objects in a tree.
-    ///
-    /// Used to capture objects created before hook installation.
-    /// Call this after installObjectHooks() on each top-level object.
-    /// @param root The root object to scan recursively.
-    void scanExistingObjects(QObject* root);
+  /// @brief Scan and register all existing objects in a tree.
+  ///
+  /// Used to capture objects created before hook installation.
+  /// Call this after installObjectHooks() on each top-level object.
+  /// @param root The root object to scan recursively.
+  void scanExistingObjects(QObject* root);
 
-signals:
-    /// @brief Emitted when a new object is registered.
-    /// @param obj The newly tracked object.
-    /// @note Emitted on the main thread via QueuedConnection.
-    void objectAdded(QObject* obj);
+ signals:
+  /// @brief Emitted when a new object is registered.
+  /// @param obj The newly tracked object.
+  /// @note Emitted on the main thread via QueuedConnection.
+  void objectAdded(QObject* obj);
 
-    /// @brief Emitted when an object is unregistered (about to be destroyed).
-    /// @param obj The object being removed.
-    /// @note Emitted on the main thread via QueuedConnection.
-    void objectRemoved(QObject* obj);
+  /// @brief Emitted when an object is unregistered (about to be destroyed).
+  /// @param obj The object being removed.
+  /// @note Emitted on the main thread via QueuedConnection.
+  void objectRemoved(QObject* obj);
 
-private:
-    // Hook callback friends - these are called from Qt's internal hooks
-    // Note: These are global functions (not in namespace) for Qt hook compatibility
-    friend void ::qtmcpAddObjectHook(QObject*);
-    friend void ::qtmcpRemoveObjectHook(QObject*);
+ private:
+  // Hook callback friends - these are called from Qt's internal hooks
+  // Note: These are global functions (not in namespace) for Qt hook compatibility
+  friend void ::qtmcpAddObjectHook(QObject*);
+  friend void ::qtmcpRemoveObjectHook(QObject*);
 
-    /// @brief Register an object (called from hook).
-    /// @param obj The object to register.
-    void registerObject(QObject* obj);
+  /// @brief Register an object (called from hook).
+  /// @param obj The object to register.
+  void registerObject(QObject* obj);
 
-    /// @brief Unregister an object (called from hook).
-    /// @param obj The object to unregister.
-    void unregisterObject(QObject* obj);
+  /// @brief Unregister an object (called from hook).
+  /// @param obj The object to unregister.
+  void unregisterObject(QObject* obj);
 
-    /// @brief Set of tracked objects.
-    QSet<QObject*> m_objects;
+  /// @brief Set of tracked objects.
+  QSet<QObject*> m_objects;
 
-    /// @brief Map from object pointer to its hierarchical ID.
-    /// IDs are computed once at registration time.
-    QHash<QObject*, QString> m_objectToId;
+  /// @brief Map from object pointer to its hierarchical ID.
+  /// IDs are computed once at registration time.
+  QHash<QObject*, QString> m_objectToId;
 
-    /// @brief Map from hierarchical ID to object pointer.
-    /// Uses QPointer to safely detect deleted objects.
-    QHash<QString, QPointer<QObject>> m_idToObject;
+  /// @brief Map from hierarchical ID to object pointer.
+  /// Uses QPointer to safely detect deleted objects.
+  QHash<QString, QPointer<QObject>> m_idToObject;
 
-    /// @brief Mutex for thread-safe access.
-    /// Must be recursive because hook callbacks may nest.
-    mutable QRecursiveMutex m_mutex;
+  /// @brief Mutex for thread-safe access.
+  /// Must be recursive because hook callbacks may nest.
+  mutable QRecursiveMutex m_mutex;
 
-public:
-    // Constructor/destructor are public for Q_GLOBAL_STATIC compatibility
-    // Use instance() to get the singleton - do not construct directly
-    ObjectRegistry();
-    ~ObjectRegistry() override;
+ public:
+  // Constructor/destructor are public for Q_GLOBAL_STATIC compatibility
+  // Use instance() to get the singleton - do not construct directly
+  ObjectRegistry();
+  ~ObjectRegistry() override;
 };
 
 /// @brief Install Qt object lifecycle hooks.

@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <QObject>
-
 #include "transport/jsonrpc_handler.h"  // For QTMCP_EXPORT, JsonRpcHandler
+
+#include <QObject>
 
 namespace qtmcp {
 
@@ -29,26 +29,26 @@ namespace qtmcp {
 /// Old qtmcp.* methods remain registered in JsonRpcHandler for backward
 /// compatibility.
 class QTMCP_EXPORT NativeModeApi : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 
-public:
-    /// @brief Construct and register all qt.* methods on the given handler.
-    /// @param handler The JSON-RPC handler to register methods on.
-    /// @param parent Parent QObject.
-    explicit NativeModeApi(JsonRpcHandler* handler, QObject* parent = nullptr);
+ public:
+  /// @brief Construct and register all qt.* methods on the given handler.
+  /// @param handler The JSON-RPC handler to register methods on.
+  /// @param parent Parent QObject.
+  explicit NativeModeApi(JsonRpcHandler* handler, QObject* parent = nullptr);
 
-private:
-    void registerObjectMethods();    ///< qt.objects.*
-    void registerPropertyMethods();  ///< qt.properties.*
-    void registerMethodMethods();    ///< qt.methods.*
-    void registerSignalMethods();    ///< qt.signals.*
-    void registerUiMethods();        ///< qt.ui.*
-    void registerNameMapMethods();   ///< qt.names.*
-    void registerSystemMethods();    ///< qt.ping, qt.version, qt.modes
-    void registerQmlMethods();       ///< qt.qml.*
-    void registerModelMethods();     ///< qt.models.*
+ private:
+  void registerObjectMethods();    ///< qt.objects.*
+  void registerPropertyMethods();  ///< qt.properties.*
+  void registerMethodMethods();    ///< qt.methods.*
+  void registerSignalMethods();    ///< qt.signals.*
+  void registerUiMethods();        ///< qt.ui.*
+  void registerNameMapMethods();   ///< qt.names.*
+  void registerSystemMethods();    ///< qt.ping, qt.version, qt.modes
+  void registerQmlMethods();       ///< qt.qml.*
+  void registerModelMethods();     ///< qt.models.*
 
-    JsonRpcHandler* m_handler;
+  JsonRpcHandler* m_handler;
 };
 
 }  // namespace qtmcp

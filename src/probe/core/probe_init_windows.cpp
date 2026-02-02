@@ -11,10 +11,10 @@
 
 #ifdef _WIN32
 
+#include "probe.h"
+
 #include <Windows.h>
 #include <synchapi.h>
-
-#include "probe.h"
 
 namespace {
 
@@ -29,9 +29,9 @@ bool g_dllLoaded = false;
 // InitOnce callback - this is called at most once, after DLL load completes.
 // SAFE to call Qt functions here.
 BOOL CALLBACK InitOnceCallback(PINIT_ONCE /*initOnce*/, PVOID /*param*/, PVOID* /*context*/) {
-    // Now safe to use Qt
-    qtmcp::Probe::instance()->initialize();
-    return TRUE;
+  // Now safe to use Qt
+  qtmcp::Probe::instance()->initialize();
+  return TRUE;
 }
 
 }  // namespace
@@ -44,10 +44,10 @@ namespace qtmcp {
 /// This function is safe to call from any thread after DLL load completes.
 /// The first call will trigger initialization; subsequent calls are no-ops.
 void ensureInitialized() {
-    if (!g_dllLoaded) {
-        return;
-    }
-    InitOnceExecuteOnce(&g_initOnce, InitOnceCallback, nullptr, nullptr);
+  if (!g_dllLoaded) {
+    return;
+  }
+  InitOnceExecuteOnce(&g_initOnce, InitOnceCallback, nullptr, nullptr);
 }
 
 }  // namespace qtmcp
@@ -58,14 +58,14 @@ void ensureInitialized() {
 #include <QCoreApplication>
 
 static void qtmcpAutoInit() {
-    // Check if probe is disabled via environment
-    QByteArray enabled = qgetenv("QTMCP_ENABLED");
-    if (enabled == "0") {
-        return;  // Probe disabled
-    }
+  // Check if probe is disabled via environment
+  QByteArray enabled = qgetenv("QTMCP_ENABLED");
+  if (enabled == "0") {
+    return;  // Probe disabled
+  }
 
-    // QCoreApplication now exists, safe to initialize the probe
-    qtmcp::ensureInitialized();
+  // QCoreApplication now exists, safe to initialize the probe
+  qtmcp::ensureInitialized();
 }
 
 // Register the startup function with Qt
@@ -85,32 +85,32 @@ Q_COREAPP_STARTUP_FUNCTION(qtmcpAutoInit)
 // - Set simple flags (bool, int)
 // - Return immediately
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved) {
-    switch (reason) {
+  switch (reason) {
     case DLL_PROCESS_ATTACH:
-        // Optimization: we don't need thread attach/detach notifications
-        DisableThreadLibraryCalls(hModule);
-        // Mark that DLL is loaded - this is the ONLY work we do here
-        g_dllLoaded = true;
-        // DO NOT call InitializeProbe() or any Qt functions here!
-        break;
+      // Optimization: we don't need thread attach/detach notifications
+      DisableThreadLibraryCalls(hModule);
+      // Mark that DLL is loaded - this is the ONLY work we do here
+      g_dllLoaded = true;
+      // DO NOT call InitializeProbe() or any Qt functions here!
+      break;
 
     case DLL_PROCESS_DETACH:
-        // Only cleanup if process is not terminating (reserved == nullptr).
-        // If reserved != nullptr, process is being terminated and we should
-        // not access any global data or call cleanup code.
-        if (reserved == nullptr) {
-            // Normal DLL unload - safe to cleanup
-            qtmcp::Probe::instance()->shutdown();
-        }
-        break;
+      // Only cleanup if process is not terminating (reserved == nullptr).
+      // If reserved != nullptr, process is being terminated and we should
+      // not access any global data or call cleanup code.
+      if (reserved == nullptr) {
+        // Normal DLL unload - safe to cleanup
+        qtmcp::Probe::instance()->shutdown();
+      }
+      break;
 
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
-        // Disabled via DisableThreadLibraryCalls
-        break;
-    }
+      // Disabled via DisableThreadLibraryCalls
+      break;
+  }
 
-    return TRUE;
+  return TRUE;
 }
 
 #endif  // _WIN32

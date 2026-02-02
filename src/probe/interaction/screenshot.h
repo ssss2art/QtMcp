@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <QWidget>
 #include <QByteArray>
 #include <QRect>
+#include <QWidget>
 
 namespace qtmcp {
 
@@ -27,48 +27,48 @@ namespace qtmcp {
 ///   QByteArray png = Screenshot::captureRegion(widget, QRect(0, 0, 100, 100));
 /// @endcode
 class Screenshot {
-public:
-    /// @brief Capture a widget and its children.
-    /// @param widget Widget to capture
-    /// @return Base64-encoded PNG image
-    /// @throws std::invalid_argument if widget is null
-    static QByteArray captureWidget(QWidget* widget);
+ public:
+  /// @brief Capture a widget and its children.
+  /// @param widget Widget to capture
+  /// @return Base64-encoded PNG image
+  /// @throws std::invalid_argument if widget is null
+  static QByteArray captureWidget(QWidget* widget);
 
-    /// @brief Capture an entire window including frame/decorations.
-    /// @param window Window to capture (should be top-level)
-    /// @return Base64-encoded PNG image
-    /// @throws std::invalid_argument if window is null
-    /// @throws std::runtime_error if screen cannot be determined
-    static QByteArray captureWindow(QWidget* window);
+  /// @brief Capture an entire window including frame/decorations.
+  /// @param window Window to capture (should be top-level)
+  /// @return Base64-encoded PNG image
+  /// @throws std::invalid_argument if window is null
+  /// @throws std::runtime_error if screen cannot be determined
+  static QByteArray captureWindow(QWidget* window);
 
-    /// @brief Capture a rectangular region of a widget.
-    /// @param widget Widget to capture from
-    /// @param region Rectangle in widget coordinates
-    /// @return Base64-encoded PNG image
-    /// @throws std::invalid_argument if widget is null
-    static QByteArray captureRegion(QWidget* widget, const QRect& region);
+  /// @brief Capture a rectangular region of a widget.
+  /// @param widget Widget to capture from
+  /// @param region Rectangle in widget coordinates
+  /// @return Base64-encoded PNG image
+  /// @throws std::invalid_argument if widget is null
+  static QByteArray captureRegion(QWidget* widget, const QRect& region);
 
-    // --- Extended capture methods for Computer Use Mode ---
+  // --- Extended capture methods for Computer Use Mode ---
 
-    /// @brief Capture the entire screen containing the given widget.
-    /// @param windowOnTargetScreen Any widget on the target screen
-    /// @return Base64-encoded PNG image of the full screen
-    /// @throws std::invalid_argument if widget is null
-    /// @throws std::runtime_error if screen cannot be determined
-    static QByteArray captureScreen(QWidget* windowOnTargetScreen);
+  /// @brief Capture the entire screen containing the given widget.
+  /// @param windowOnTargetScreen Any widget on the target screen
+  /// @return Base64-encoded PNG image of the full screen
+  /// @throws std::invalid_argument if widget is null
+  /// @throws std::runtime_error if screen cannot be determined
+  static QByteArray captureScreen(QWidget* windowOnTargetScreen);
 
-    /// @brief Capture a window scaled to logical pixel dimensions.
-    ///
-    /// On HiDPI displays (devicePixelRatio > 1.0), the captured image is
-    /// scaled down so that pixel coordinates in the image match logical
-    /// widget coordinates 1:1. This ensures click coordinates derived from
-    /// the screenshot are accurate without DPI conversion.
-    ///
-    /// @param window Window to capture (should be top-level)
-    /// @return Base64-encoded PNG image at logical pixel resolution
-    /// @throws std::invalid_argument if window is null
-    /// @throws std::runtime_error if screen cannot be determined
-    static QByteArray captureWindowLogical(QWidget* window);
+  /// @brief Capture a window scaled to logical pixel dimensions.
+  ///
+  /// On HiDPI displays (devicePixelRatio > 1.0), the captured image is
+  /// scaled down so that pixel coordinates in the image match logical
+  /// widget coordinates 1:1. This ensures click coordinates derived from
+  /// the screenshot are accurate without DPI conversion.
+  ///
+  /// @param window Window to capture (should be top-level)
+  /// @return Base64-encoded PNG image at logical pixel resolution
+  /// @throws std::invalid_argument if window is null
+  /// @throws std::runtime_error if screen cannot be determined
+  static QByteArray captureWindowLogical(QWidget* window);
 };
 
 }  // namespace qtmcp

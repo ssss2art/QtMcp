@@ -3,15 +3,14 @@
 
 #pragma once
 
-#include <QJsonValue>
-#include <QObject>
-#include <QString>
-
-#include <QJsonObject>
-
 #include <functional>
 #include <stdexcept>
 #include <unordered_map>
+
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QObject>
+#include <QString>
 
 // Export macro for Windows DLL
 #if defined(QTMCP_PROBE_LIBRARY)
@@ -119,22 +118,18 @@ constexpr int kServerError = -32000;
 /// structured error responses with specific error codes and data fields.
 /// JsonRpcHandler::HandleMessage catches this before std::exception.
 class JsonRpcException : public std::runtime_error {
-public:
-    JsonRpcException(int code, const QString& message,
-                     const QJsonObject& data = QJsonObject())
-        : std::runtime_error(message.toStdString())
-        , m_code(code)
-        , m_message(message)
-        , m_data(data) {}
+ public:
+  JsonRpcException(int code, const QString& message, const QJsonObject& data = QJsonObject())
+      : std::runtime_error(message.toStdString()), m_code(code), m_message(message), m_data(data) {}
 
-    int code() const { return m_code; }
-    QString errorMessage() const { return m_message; }
-    QJsonObject data() const { return m_data; }
+  int code() const { return m_code; }
+  QString errorMessage() const { return m_message; }
+  QJsonObject data() const { return m_data; }
 
-private:
-    int m_code;
-    QString m_message;
-    QJsonObject m_data;
+ private:
+  int m_code;
+  QString m_message;
+  QJsonObject m_data;
 };
 
 }  // namespace qtmcp
