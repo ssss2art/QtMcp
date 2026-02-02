@@ -23,6 +23,9 @@ option(QTMCP_BUILD_TESTS "Build unit tests" ON)
 option(QTMCP_BUILD_TEST_APP "Build the test Qt application" ON)
 option(QTMCP_ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 
+# Qt path hint - takes precedence over CMAKE_PREFIX_PATH
+set(QTMCP_QT_DIR "" CACHE PATH "Explicit path to Qt installation (takes precedence over CMAKE_PREFIX_PATH)")
+
 # Set default build type if not specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
@@ -39,6 +42,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # This allows building with either Qt version using the same CMakeLists.txt
 set(QT_MIN_VERSION_5 "5.15")
 set(QT_MIN_VERSION_6 "6.0")
+
+# Apply Qt path hint if provided
+if(QTMCP_QT_DIR)
+    list(PREPEND CMAKE_PREFIX_PATH "${QTMCP_QT_DIR}")
+    message(STATUS "Using Qt hint: ${QTMCP_QT_DIR}")
+endif()
 
 find_package(Qt6 ${QT_MIN_VERSION_6} QUIET COMPONENTS
     Core
@@ -86,6 +95,20 @@ else()
         message(STATUS "Qt5 Qml/Quick not found - QML introspection disabled")
     endif()
 endif()
+
+# Verify Qt was found
+if(NOT Qt6_FOUND AND NOT Qt5_FOUND)
+    message(FATAL_ERROR "No Qt installation found. Set CMAKE_PREFIX_PATH or -DQTMCP_QT_DIR=<path>")
+endif()
+
+# Extract Qt major.minor version tag for artifact naming
+string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _qt_major_minor "${QT_VERSION}")
+set(QTMCP_QT_VERSION_TAG "qt${_qt_major_minor}" CACHE INTERNAL "Qt version tag for artifact naming")
+message(STATUS "Qt version tag: ${QTMCP_QT_VERSION_TAG}")
+
+# Compute versioned install subdirectories
+set(QTMCP_INSTALL_LIBDIR "lib/qtmcp/${QTMCP_QT_VERSION_TAG}" CACHE INTERNAL "Versioned library install directory")
+set(QTMCP_INSTALL_BINDIR "bin/qtmcp/${QTMCP_QT_VERSION_TAG}" CACHE INTERNAL "Versioned runtime install directory")
 
 # Create Qt version-independent target aliases for use throughout the project
 # This allows code to link against Qt::Core, Qt::Network, etc. regardless of Qt version
@@ -233,9 +256,9 @@ include(GNUInstallDirs)
 
 install(TARGETS qtmcp_probe
     EXPORT QtMCPTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${QTMCP_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${QTMCP_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${QTMCP_INSTALL_BINDIR}
 )
 
 install(DIRECTORY src/probe/
@@ -255,19 +278,19 @@ write_basic_package_version_file(
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/QtMCPConfig.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/QtMCPConfig.cmake"
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/QtMCP
+    INSTALL_DESTINATION share/cmake/QtMCP
 )
 
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/QtMCPConfig.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/QtMCPConfigVersion.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/QtMCP
+    DESTINATION share/cmake/QtMCP
 )
 
 install(EXPORT QtMCPTargets
     FILE QtMCPTargets.cmake
     NAMESPACE QtMCP::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/QtMCP
+    DESTINATION share/cmake/QtMCP
 )
 
 # Print configuration summary
@@ -276,7 +299,9 @@ message(STATUS "QtMCP Configuration Summary:")
 message(STATUS "  Version:        ${PROJECT_VERSION}")
 message(STATUS "  Build type:     ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Qt version:     ${QT_VERSION} (Qt${QT_VERSION_MAJOR})")
+message(STATUS "  Qt version tag: ${QTMCP_QT_VERSION_TAG}")
 message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "  Lib install:    ${QTMCP_INSTALL_LIBDIR}")
 message(STATUS "  Build tests:    ${QTMCP_BUILD_TESTS}")
 message(STATUS "  Build test app: ${QTMCP_BUILD_TEST_APP}")
 message(STATUS "  Clang-tidy:     ${QTMCP_ENABLE_CLANG_TIDY}")
