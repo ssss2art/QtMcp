@@ -103,9 +103,10 @@ Plans:
   2. No runtime regressions on either Qt version
   3. CI matrix (Phase 9) passes for all Qt versions after changes
   4. Compatibility approach is maintainable (not littered with `#if QT_VERSION` blocks)
-**Plans:** 0 plans
+**Plans:** 2 plans
 Plans:
-- [ ] TBD (run /gsd:plan-phase 11.1 to break down)
+- [ ] 11.1-01-PLAN.md — Compat headers and source file fixes for Qt5/Qt6 API divergence
+- [ ] 11.1-02-PLAN.md — CMake minimum version enforcement and CI matrix update (6.2 → 6.5)
 
 ### Phase 12: vcpkg Port
 **Goal**: Users can install QtMCP via vcpkg overlay port using either their own Qt5 or Qt6
@@ -146,7 +147,7 @@ Plans:
 | 9. CI Matrix Build | v1.1 | 1/1 | Complete | 2026-02-02 |
 | 10. Patched Qt 5.15.1 CI | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 11. Release Automation | v1.1 | 2/2 | Complete | 2026-02-02 |
-| 11.1 Qt5/Qt6 Compat | v1.1 | 0/TBD | Not started | - |
+| 11.1 Qt5/Qt6 Compat | v1.1 | 0/2 | Planned | - |
 | 12. vcpkg Port | v1.1 | 0/TBD | Not started | - |
 | 13. PyPI Publication | v1.1 | 0/TBD | Not started | - |
 
