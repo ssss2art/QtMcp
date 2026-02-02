@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** v1.1 Distribution & Compatibility — Phase 10: Patched Qt 5.15.1 CI
+**Current focus:** v1.1 Distribution & Compatibility — Phase 10 complete, ready for Phase 11
 
 ## Current Position
 
-Phase: 10 of 13 (Patched Qt 5.15.1 CI)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-02 — Completed 10-01-PLAN.md (Build-Qt Composite Action)
+Phase: 10 of 13 (Patched Qt 5.15.1 CI) -- COMPLETE
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-02 — Completed 10-02-PLAN.md (Patched Qt CI Workflow)
 
-Progress: [############.........] 60% (38/~62 plans)
+Progress: [#############........] 63% (39/~62 plans)
 
 ## Performance Metrics
 
@@ -25,8 +25,8 @@ Progress: [############.........] 60% (38/~62 plans)
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
 **v1.1 Velocity:**
-- Plans completed: 4
-- Commits: 8
+- Plans completed: 5
+- Commits: 9
 
 ## Accumulated Context
 
@@ -45,6 +45,8 @@ See PROJECT.md Key Decisions table for full log.
 | Include-style matrix | 09-01 | Runner OS varies per Qt version; include entries not combinatorial |
 | No restore-keys for Qt cache | 10-01 | Partial match would restore unpatched Qt; exact key only |
 | git apply for patches | 10-01 | Cross-platform consistency; works on both Linux and Windows |
+| Push-only trigger for patched CI | 10-02 | Cold Qt builds take 30-60 min; no PR trigger saves CI minutes |
+| windows-2022 pinned for patched CI | 10-02 | MSVC v142 toolset guaranteed for Qt 5.15.1 compatibility |
 
 ### Pending Todos
 
@@ -58,8 +60,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 10-01-PLAN.md
+Stopped at: Completed 10-02-PLAN.md (Phase 10 complete)
 Resume file: None
 
 ---
-*State updated: 2026-02-02 (10-01 complete, composite action + patch scaffold)*
+*State updated: 2026-02-02 (Phase 10 complete -- composite action + patched Qt CI workflow)*
