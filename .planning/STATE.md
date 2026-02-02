@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** v1.1 Distribution & Compatibility — Phase 11.1 in progress
+**Current focus:** v1.1 Distribution & Compatibility — Phase 11.1 complete
 
 ## Current Position
 
 Phase: 11.1 of 13 (Qt5/Qt6 Source Compatibility)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-02 — Completed 11.1-01-PLAN.md (Compat Headers)
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-02 — Completed 11.1-02-PLAN.md (CMake Version Enforcement & CI Matrix)
 
-Progress: [###############......] 68% (42/~62 plans)
+Progress: [################.....] 70% (43/~62 plans)
 
 ## Performance Metrics
 
@@ -25,8 +25,8 @@ Progress: [###############......] 68% (42/~62 plans)
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
 **v1.1 Velocity:**
-- Plans completed: 8
-- Commits: 14
+- Plans completed: 9
+- Commits: 16
 
 ## Accumulated Context
 
@@ -48,6 +48,8 @@ See PROJECT.md Key Decisions table for full log.
 | Push-only trigger for patched CI | 10-02 | Cold Qt builds take 30-60 min; no PR trigger saves CI minutes |
 | windows-2022 pinned for patched CI | 10-02 | MSVC v142 toolset guaranteed for Qt 5.15.1 compatibility |
 | fail_on_unmatched_files in release | 11-02 | Prevents incomplete releases if any probe binary missing |
+| Qt min versions: 5.15.1 / 6.5 | 11.1-02 | CMake FATAL_ERROR enforces minimum; QT_DISABLE_DEPRECATED_BEFORE=0x050F00 |
+| CI matrix: Qt 6.2 -> 6.5 | 11.1-02 | 6.2 is below new minimum; replaced with 6.5.3 LTS |
 
 ### Pending Todos
 
@@ -65,8 +67,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 11.1-01-PLAN.md (Compat Headers)
+Stopped at: Completed 11.1-02-PLAN.md (CMake Version Enforcement & CI Matrix) — Phase 11.1 complete
 Resume file: None
 
 ---
-*State updated: 2026-02-02 (Phase 11.1 plan 01 complete -- compat headers created)*
+*State updated: 2026-02-02 (Phase 11.1 complete — both plans executed)*
