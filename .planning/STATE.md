@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 10 of 13 (Patched Qt 5.15.1 CI)
-Plan: Ready to plan
-Status: Phase 9 verified, ready for Phase 10 planning
-Last activity: 2026-02-02 — Phase 9 complete and verified (4/4 must-haves passed)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-02 — Completed 10-01-PLAN.md (Build-Qt Composite Action)
 
-Progress: [############.........] 58% (37/~62 plans)
+Progress: [############.........] 60% (38/~62 plans)
 
 ## Performance Metrics
 
@@ -25,8 +25,8 @@ Progress: [############.........] 58% (37/~62 plans)
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
 **v1.1 Velocity:**
-- Plans completed: 3
-- Commits: 6
+- Plans completed: 4
+- Commits: 8
 
 ## Accumulated Context
 
@@ -43,6 +43,8 @@ See PROJECT.md Key Decisions table for full log.
 | DLL in lib/ not bin/ | 08-02 | Single search location for DLL and import lib in config file |
 | vcpkg Qt feature-gate | 09-01 | Qt deps moved to opt-in vcpkg feature to avoid 30+ min CI builds |
 | Include-style matrix | 09-01 | Runner OS varies per Qt version; include entries not combinatorial |
+| No restore-keys for Qt cache | 10-01 | Partial match would restore unpatched Qt; exact key only |
+| git apply for patches | 10-01 | Cross-platform consistency; works on both Linux and Windows |
 
 ### Pending Todos
 
@@ -50,16 +52,14 @@ None.
 
 ### Blockers/Concerns
 
-- Custom-patched Qt 5.15.1 build recipe needs research before Phase 10
 - macOS deferred to separate milestone (v1.2?)
 - Attach to running process deferred
-- Phase 10 flagged for research (patched Qt build from source + caching)
 
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Phase 9 complete and verified, ready to plan Phase 10
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
 
 ---
-*State updated: 2026-02-02 (Phase 9 complete, verified 4/4 must-haves)*
+*State updated: 2026-02-02 (10-01 complete, composite action + patch scaffold)*
