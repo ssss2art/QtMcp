@@ -13,10 +13,10 @@
 
 ### CI/CD
 
-- [ ] **CICD-01**: GitHub Actions matrix builds probe for Qt 5.15 on Windows (MSVC) and Linux (GCC)
-- [ ] **CICD-02**: GitHub Actions matrix builds probe for Qt 6.2 on Windows (MSVC) and Linux (GCC)
-- [ ] **CICD-03**: GitHub Actions matrix builds probe for Qt 6.8 on Windows (MSVC) and Linux (GCC)
-- [ ] **CICD-04**: GitHub Actions matrix builds probe for Qt 6.9 on Windows (MSVC) and Linux (GCC)
+- [x] **CICD-01**: GitHub Actions matrix builds probe for Qt 5.15 on Windows (MSVC) and Linux (GCC)
+- [x] **CICD-02**: GitHub Actions matrix builds probe for Qt 6.2 on Windows (MSVC) and Linux (GCC)
+- [x] **CICD-03**: GitHub Actions matrix builds probe for Qt 6.8 on Windows (MSVC) and Linux (GCC)
+- [x] **CICD-04**: GitHub Actions matrix builds probe for Qt 6.9 on Windows (MSVC) and Linux (GCC)
 - [ ] **CICD-05**: CI builds custom-patched Qt 5.15.1 from source with aggressive caching
 - [ ] **CICD-06**: CI builds probe against patched Qt 5.15.1 on Windows (MSVC) and Linux (GCC)
 - [ ] **CICD-07**: Tag-triggered release workflow collects all 10 probe binaries into GitHub Release
@@ -69,10 +69,10 @@
 | BUILD-01 | Phase 8 | Complete |
 | BUILD-02 | Phase 8 | Complete |
 | BUILD-03 | Phase 8 | Complete |
-| CICD-01 | Phase 9 | Pending |
-| CICD-02 | Phase 9 | Pending |
-| CICD-03 | Phase 9 | Pending |
-| CICD-04 | Phase 9 | Pending |
+| CICD-01 | Phase 9 | Complete |
+| CICD-02 | Phase 9 | Complete |
+| CICD-03 | Phase 9 | Complete |
+| CICD-04 | Phase 9 | Complete |
 | CICD-05 | Phase 10 | Pending |
 | CICD-06 | Phase 10 | Pending |
 | CICD-07 | Phase 11 | Pending |

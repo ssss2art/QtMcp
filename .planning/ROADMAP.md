@@ -25,7 +25,7 @@
 **Milestone Goal:** Anyone can install QtMCP from their preferred package manager and CI produces tested binaries for every supported Qt version.
 
 - [x] **Phase 8: CMake Multi-Qt Foundation** - Build system produces correctly named, relocatable, multi-Qt artifacts — completed 2026-02-02
-- [ ] **Phase 9: CI Matrix Build** - GitHub Actions builds probe for 4 Qt versions on 2 platforms
+- [x] **Phase 9: CI Matrix Build** - GitHub Actions builds probe for 4 Qt versions on 2 platforms — completed 2026-02-02
 - [ ] **Phase 10: Patched Qt 5.15.1 CI** - CI builds and caches custom-patched Qt 5.15.1, then builds probe against it
 - [ ] **Phase 11: Release Automation** - Tag push produces a GitHub Release with all 10 binaries and checksums
 - [ ] **Phase 12: vcpkg Port** - Users can install QtMCP probe via vcpkg overlay port
@@ -60,7 +60,7 @@ Plans:
   4. Qt is installed via `jurplel/install-qt-action@v4` with version-appropriate runners (Ubuntu 22.04 for Qt 5.15, 24.04 for Qt 6.x)
 **Plans:** 1 plan
 Plans:
-- [ ] 09-01-PLAN.md — Matrix CI workflow with 8 cells (4 Qt versions x 2 platforms)
+- [x] 09-01-PLAN.md — Matrix CI workflow with 8 cells (4 Qt versions x 2 platforms)
 
 ### Phase 10: Patched Qt 5.15.1 CI
 **Goal**: CI can build and cache a custom-patched Qt 5.15.1 and produce probe binaries against it
@@ -122,7 +122,7 @@ Plans:
 | 6. Extended Introspection | v1.0 | 4/4 | Complete | 2026-02-01 |
 | 7. Python Integration | v1.0 | 3/3 | Complete | 2026-02-01 |
 | 8. CMake Multi-Qt Foundation | v1.1 | 2/2 | Complete | 2026-02-02 |
-| 9. CI Matrix Build | v1.1 | 0/1 | Planned | - |
+| 9. CI Matrix Build | v1.1 | 1/1 | Complete | 2026-02-02 |
 | 10. Patched Qt 5.15.1 CI | v1.1 | 0/TBD | Not started | - |
 | 11. Release Automation | v1.1 | 0/TBD | Not started | - |
 | 12. vcpkg Port | v1.1 | 0/TBD | Not started | - |
