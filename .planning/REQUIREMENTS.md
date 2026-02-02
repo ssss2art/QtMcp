@@ -19,8 +19,8 @@
 - [x] **CICD-04**: GitHub Actions matrix builds probe for Qt 6.9 on Windows (MSVC) and Linux (GCC)
 - [x] **CICD-05**: CI builds custom-patched Qt 5.15.1 from source with aggressive caching
 - [x] **CICD-06**: CI builds probe against patched Qt 5.15.1 on Windows (MSVC) and Linux (GCC)
-- [ ] **CICD-07**: Tag-triggered release workflow collects all 10 probe binaries into GitHub Release
-- [ ] **CICD-08**: Release includes SHA256 checksums for all artifacts
+- [x] **CICD-07**: Tag-triggered release workflow collects all 10 probe binaries into GitHub Release
+- [x] **CICD-08**: Release includes SHA256 checksums for all artifacts
 
 ### Packaging — vcpkg
 
@@ -75,8 +75,8 @@
 | CICD-04 | Phase 9 | Complete |
 | CICD-05 | Phase 10 | Complete |
 | CICD-06 | Phase 10 | Complete |
-| CICD-07 | Phase 11 | Pending |
-| CICD-08 | Phase 11 | Pending |
+| CICD-07 | Phase 11 | Complete |
+| CICD-08 | Phase 11 | Complete |
 | VCPKG-01 | Phase 12 | Pending |
 | VCPKG-02 | Phase 12 | Pending |
 | VCPKG-03 | Phase 12 | Pending |
