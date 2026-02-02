@@ -107,8 +107,9 @@ Qt::MouseButton InputSimulator::toQtButton(MouseButton button) {
       return Qt::RightButton;
     case MouseButton::Middle:
       return Qt::MiddleButton;
+    default:
+      return Qt::LeftButton;
   }
-  return Qt::LeftButton;  // Default fallback
 }
 
 // --- Extended mouse primitives for Computer Use Mode ---

@@ -260,8 +260,9 @@ QVariant jsonToVariant(const QJsonValue& value, int targetTypeId) {
         }
         return map;
       }
+      default:
+        return QVariant();
     }
-    return QVariant();
   }
 
   // Target type specified - convert accordingly

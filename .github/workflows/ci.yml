@@ -57,14 +57,14 @@ jobs:
             platform: linux-gcc
             preset: ci-linux
             artifact_tag: qt5.15
-            qt_modules: "qtwebsockets"
+            qt_modules: ""
           - qt_version: "5.15.2"
             qt_major: 5
             os: windows-latest
             platform: windows-msvc
             preset: ci-windows
             artifact_tag: qt5.15
-            qt_modules: "qtwebsockets"
+            qt_modules: ""
           # ---- Qt 6.2 ----
           - qt_version: "6.2.4"
             qt_major: 6

@@ -51,7 +51,6 @@ endif()
 
 find_package(Qt6 ${QT_MIN_VERSION_6} QUIET COMPONENTS
     Core
-    CorePrivate
     Network
     WebSockets
     Widgets
@@ -62,6 +61,23 @@ if(Qt6_FOUND)
     set(QT_VERSION_MAJOR 6)
     set(QT_VERSION ${Qt6_VERSION})
     message(STATUS "Found Qt6: ${Qt6_VERSION}")
+
+    # CorePrivate is needed for the probe but may live in a separate package
+    find_package(Qt6 COMPONENTS CorePrivate QUIET)
+    if(NOT Qt6CorePrivate_FOUND)
+        message(STATUS "Qt6::CorePrivate not found via component - trying header detection")
+        # Some aqt/installer layouts expose private headers without a cmake config
+        find_path(_qt6_private_include "private/qhooks_p.h"
+            PATHS "${QT_ROOT_DIR}" "${Qt6Core_DIR}/../../.."
+            PATH_SUFFIXES "include/QtCore/${Qt6_VERSION}/QtCore"
+        )
+        if(_qt6_private_include)
+            message(STATUS "Found Qt6 private headers at: ${_qt6_private_include}")
+        else()
+            message(FATAL_ERROR "Qt6::CorePrivate not found. Private headers are required for the probe. "
+                "Ensure your Qt installation includes private development headers.")
+        endif()
+    endif()
 
     # Optional: Qt Quick/QML support for QML introspection
     find_package(Qt6 COMPONENTS Qml Quick QUIET)
@@ -75,7 +91,6 @@ if(Qt6_FOUND)
 else()
     find_package(Qt5 ${QT_MIN_VERSION_5} REQUIRED COMPONENTS
         Core
-        CorePrivate
         Network
         WebSockets
         Widgets
@@ -84,6 +99,21 @@ else()
     set(QT_VERSION_MAJOR 5)
     set(QT_VERSION ${Qt5_VERSION})
     message(STATUS "Found Qt5: ${Qt5_VERSION}")
+
+    # CorePrivate for Qt5
+    find_package(Qt5 COMPONENTS CorePrivate QUIET)
+    if(NOT Qt5CorePrivate_FOUND)
+        message(STATUS "Qt5::CorePrivate not found via component - trying header detection")
+        find_path(_qt5_private_include "private/qhooks_p.h"
+            PATHS "${Qt5Core_DIR}/../../.."
+            PATH_SUFFIXES "include/QtCore/${Qt5_VERSION}/QtCore"
+        )
+        if(_qt5_private_include)
+            message(STATUS "Found Qt5 private headers at: ${_qt5_private_include}")
+        else()
+            message(FATAL_ERROR "Qt5::CorePrivate not found. Private headers are required for the probe.")
+        endif()
+    endif()
 
     # Optional: Qt Quick/QML support for QML introspection
     find_package(Qt5 COMPONENTS Qml Quick QUIET)
