@@ -7,9 +7,9 @@
 
 ### Build System
 
-- [ ] **BUILD-01**: Probe output encodes Qt version in filename (e.g. `qtmcp-probe-qt5.15.dll`, `qtmcp-probe-qt6.8.so`)
-- [ ] **BUILD-02**: QtMCPConfig.cmake.in works for both Qt5 and Qt6 consumers (templated with QT_VERSION_MAJOR)
-- [ ] **BUILD-03**: CMake install targets produce versioned, relocatable artifacts with proper install components
+- [x] **BUILD-01**: Probe output encodes Qt version in filename (e.g. `qtmcp-probe-qt5.15.dll`, `qtmcp-probe-qt6.8.so`)
+- [x] **BUILD-02**: QtMCPConfig.cmake.in works for both Qt5 and Qt6 consumers (templated with QT_VERSION_MAJOR)
+- [x] **BUILD-03**: CMake install targets produce versioned, relocatable artifacts with proper install components
 
 ### CI/CD
 
@@ -66,9 +66,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUILD-01 | Phase 8 | Pending |
-| BUILD-02 | Phase 8 | Pending |
-| BUILD-03 | Phase 8 | Pending |
+| BUILD-01 | Phase 8 | Complete |
+| BUILD-02 | Phase 8 | Complete |
+| BUILD-03 | Phase 8 | Complete |
 | CICD-01 | Phase 9 | Pending |
 | CICD-02 | Phase 9 | Pending |
 | CICD-03 | Phase 9 | Pending |

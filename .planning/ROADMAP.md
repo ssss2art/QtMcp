@@ -24,7 +24,7 @@
 
 **Milestone Goal:** Anyone can install QtMCP from their preferred package manager and CI produces tested binaries for every supported Qt version.
 
-- [ ] **Phase 8: CMake Multi-Qt Foundation** - Build system produces correctly named, relocatable, multi-Qt artifacts
+- [x] **Phase 8: CMake Multi-Qt Foundation** - Build system produces correctly named, relocatable, multi-Qt artifacts — completed 2026-02-02
 - [ ] **Phase 9: CI Matrix Build** - GitHub Actions builds probe for 4 Qt versions on 2 platforms
 - [ ] **Phase 10: Patched Qt 5.15.1 CI** - CI builds and caches custom-patched Qt 5.15.1, then builds probe against it
 - [ ] **Phase 11: Release Automation** - Tag push produces a GitHub Release with all 10 binaries and checksums
@@ -45,8 +45,8 @@
   4. `cmake --install` produces artifacts in standard layout with versioned paths that are relocatable
 **Plans:** 2 plans
 Plans:
-- [ ] 08-01-PLAN.md — Versioned artifact naming and install layout
-- [ ] 08-02-PLAN.md — find_package config and qtmcp_inject_probe helper
+- [x] 08-01-PLAN.md — Versioned artifact naming and install layout
+- [x] 08-02-PLAN.md — find_package config and qtmcp_inject_probe helper
 
 ### Phase 9: CI Matrix Build
 **Goal**: Every push validates the probe builds cleanly on 4 Qt versions across Windows and Linux
@@ -119,7 +119,7 @@ Plans:
 | 5. Chrome Mode | v1.0 | 4/4 | Complete | 2026-02-01 |
 | 6. Extended Introspection | v1.0 | 4/4 | Complete | 2026-02-01 |
 | 7. Python Integration | v1.0 | 3/3 | Complete | 2026-02-01 |
-| 8. CMake Multi-Qt Foundation | v1.1 | 0/2 | Planning complete | - |
+| 8. CMake Multi-Qt Foundation | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 9. CI Matrix Build | v1.1 | 0/TBD | Not started | - |
 | 10. Patched Qt 5.15.1 CI | v1.1 | 0/TBD | Not started | - |
 | 11. Release Automation | v1.1 | 0/TBD | Not started | - |

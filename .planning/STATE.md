@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** v1.1 Distribution & Compatibility — Phase 8: CMake Multi-Qt Foundation
+**Current focus:** v1.1 Distribution & Compatibility — Phase 9: CI Matrix Build
 
 ## Current Position
 
-Phase: 8 of 13 (CMake Multi-Qt Foundation)
-Plan: 2 of 2
-Status: Phase complete
-Last activity: 2026-02-02 — Completed 08-02-PLAN.md (dual Qt version package config)
+Phase: 9 of 13 (CI Matrix Build)
+Plan: Ready to plan
+Status: Phase 8 verified, ready for Phase 9 planning
+Last activity: 2026-02-02 — Phase 8 complete and verified (5/5 must-haves passed)
 
 Progress: [###########..........] 56% (35/~62 plans)
 
@@ -56,8 +56,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 08-02-PLAN.md (Phase 8 complete)
+Stopped at: Phase 8 complete and verified, ready to plan Phase 9
 Resume file: None
 
 ---
-*State updated: 2026-02-02 (08-02 dual Qt version package config complete)*
+*State updated: 2026-02-02 (Phase 8 complete, verified 5/5 must-haves)*
