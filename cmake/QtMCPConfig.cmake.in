@@ -2,12 +2,186 @@
 
 include(CMakeFindDependencyMacro)
 
-# Try Qt6 first, fall back to Qt5
-find_dependency(Qt6 QUIET COMPONENTS Core Widgets WebSockets)
-if(NOT Qt6_FOUND)
-    find_dependency(Qt5 5.15 COMPONENTS Core Widgets WebSockets)
+# ---------------------------------------------------------------------------
+# QtMCP Package Configuration
+# Auto-detects the consumer's Qt version (Qt5 or Qt6) and resolves to
+# the correct versioned probe binary under lib/qtmcp/qt{M}.{m}/.
+# ---------------------------------------------------------------------------
+
+# Detect which Qt version the consumer is using.
+# The consumer should have already called find_package(Qt6 ...) or find_package(Qt5 ...)
+if(TARGET Qt6::Core)
+    set(_qtmcp_qt_major 6)
+    get_target_property(_qt_version Qt6::Core VERSION)
+    if(NOT _qt_version)
+        set(_qt_version "${Qt6Core_VERSION}")
+    endif()
+elseif(TARGET Qt5::Core)
+    set(_qtmcp_qt_major 5)
+    get_target_property(_qt_version Qt5::Core VERSION)
+    if(NOT _qt_version)
+        set(_qt_version "${Qt5Core_VERSION}")
+    endif()
+else()
+    # Try finding Qt ourselves
+    find_package(Qt6 QUIET COMPONENTS Core)
+    if(Qt6_FOUND)
+        set(_qtmcp_qt_major 6)
+        set(_qt_version "${Qt6_VERSION}")
+    else()
+        find_package(Qt5 5.15 QUIET COMPONENTS Core)
+        if(Qt5_FOUND)
+            set(_qtmcp_qt_major 5)
+            set(_qt_version "${Qt5_VERSION}")
+        else()
+            set(QtMCP_FOUND FALSE)
+            set(QtMCP_NOT_FOUND_MESSAGE
+                "QtMCP requires Qt5 (5.15+) or Qt6. No Qt found. "
+                "Call find_package(Qt6) or find_package(Qt5) before find_package(QtMCP).")
+            return()
+        endif()
+    endif()
 endif()
 
-include("${CMAKE_CURRENT_LIST_DIR}/QtMCPTargets.cmake")
+# Extract major.minor for versioned path lookup (e.g. "qt6.9")
+string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _qtmcp_qt_version_match "${_qt_version}")
+set(_qtmcp_qt_version_tag "qt${_qtmcp_qt_version_match}")
+
+# Find Qt dependencies that QtMCP needs (consumer must have these)
+if(_qtmcp_qt_major EQUAL 6)
+    find_dependency(Qt6 COMPONENTS Core Network WebSockets Widgets)
+else()
+    find_dependency(Qt5 5.15 COMPONENTS Core Network WebSockets Widgets)
+endif()
+
+# Compute paths relative to this config file location.
+# Config is installed at: <prefix>/share/cmake/QtMCP/QtMCPConfig.cmake
+# Libraries are at:       <prefix>/lib/qtmcp/<qt-version-tag>/
+set_and_check(QTMCP_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
+get_filename_component(QTMCP_PREFIX "${QTMCP_CMAKE_DIR}/../../.." ABSOLUTE)
+
+set(QTMCP_LIB_DIR "${QTMCP_PREFIX}/lib/qtmcp/${_qtmcp_qt_version_tag}")
+set(QTMCP_INCLUDE_DIR "${QTMCP_PREFIX}/include/qtmcp")
+
+# Verify the versioned library directory exists
+if(NOT EXISTS "${QTMCP_LIB_DIR}")
+    set(QtMCP_FOUND FALSE)
+    set(QtMCP_NOT_FOUND_MESSAGE
+        "QtMCP was not built for ${_qtmcp_qt_version_tag}. "
+        "Available builds: check ${QTMCP_PREFIX}/lib/qtmcp/")
+    return()
+endif()
+
+# ---------------------------------------------------------------------------
+# Create imported target: QtMCP::Probe
+# ---------------------------------------------------------------------------
+if(NOT TARGET QtMCP::Probe)
+    add_library(QtMCP::Probe SHARED IMPORTED)
+
+    # Set include directories
+    set_target_properties(QtMCP::Probe PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${QTMCP_INCLUDE_DIR}"
+    )
+
+    # Library base name matches the build output: qtmcp-probe-qt{M}.{m}
+    set(_probe_base_name "qtmcp-probe-${_qtmcp_qt_version_tag}")
+
+    if(WIN32)
+        # Windows: DLL and import lib in the versioned lib dir
+        find_file(_probe_dll
+            NAMES "${_probe_base_name}.dll"
+            PATHS "${QTMCP_LIB_DIR}"
+            NO_DEFAULT_PATH
+        )
+        find_file(_probe_implib
+            NAMES "${_probe_base_name}.lib" "${_probe_base_name}.dll.a"
+            PATHS "${QTMCP_LIB_DIR}"
+            NO_DEFAULT_PATH
+        )
+        if(_probe_dll)
+            set_target_properties(QtMCP::Probe PROPERTIES
+                IMPORTED_LOCATION "${_probe_dll}"
+            )
+            if(_probe_implib)
+                set_target_properties(QtMCP::Probe PROPERTIES
+                    IMPORTED_IMPLIB "${_probe_implib}"
+                )
+            endif()
+        endif()
+
+        # Debug variant
+        find_file(_probe_dll_d
+            NAMES "${_probe_base_name}d.dll"
+            PATHS "${QTMCP_LIB_DIR}"
+            NO_DEFAULT_PATH
+        )
+        find_file(_probe_implib_d
+            NAMES "${_probe_base_name}d.lib" "${_probe_base_name}d.dll.a"
+            PATHS "${QTMCP_LIB_DIR}"
+            NO_DEFAULT_PATH
+        )
+        if(_probe_dll_d)
+            set_target_properties(QtMCP::Probe PROPERTIES
+                IMPORTED_LOCATION_DEBUG "${_probe_dll_d}"
+            )
+            if(_probe_implib_d)
+                set_target_properties(QtMCP::Probe PROPERTIES
+                    IMPORTED_IMPLIB_DEBUG "${_probe_implib_d}"
+                )
+            endif()
+        endif()
+    else()
+        # Linux/Unix: shared object in the versioned lib dir
+        find_file(_probe_so
+            NAMES "lib${_probe_base_name}.so"
+            PATHS "${QTMCP_LIB_DIR}"
+            NO_DEFAULT_PATH
+        )
+        if(_probe_so)
+            set_target_properties(QtMCP::Probe PROPERTIES
+                IMPORTED_LOCATION "${_probe_so}"
+            )
+        endif()
+
+        # Debug variant
+        find_file(_probe_so_d
+            NAMES "lib${_probe_base_name}d.so"
+            PATHS "${QTMCP_LIB_DIR}"
+            NO_DEFAULT_PATH
+        )
+        if(_probe_so_d)
+            set_target_properties(QtMCP::Probe PROPERTIES
+                IMPORTED_LOCATION_DEBUG "${_probe_so_d}"
+            )
+        endif()
+    endif()
+
+    # Link Qt dependencies on the imported target
+    if(_qtmcp_qt_major EQUAL 6)
+        set_target_properties(QtMCP::Probe PROPERTIES
+            INTERFACE_LINK_LIBRARIES "Qt6::Core;Qt6::Network;Qt6::WebSockets;Qt6::Widgets"
+        )
+    else()
+        set_target_properties(QtMCP::Probe PROPERTIES
+            INTERFACE_LINK_LIBRARIES "Qt5::Core;Qt5::Network;Qt5::WebSockets;Qt5::Widgets"
+        )
+    endif()
+endif()
+
+# Include helper functions
+include("${CMAKE_CURRENT_LIST_DIR}/qtmcp_inject_probe.cmake")
+
+# Clean up temporary variables
+unset(_qtmcp_qt_major)
+unset(_qt_version)
+unset(_qtmcp_qt_version_match)
+unset(_qtmcp_qt_version_tag)
+unset(_probe_base_name)
+unset(_probe_dll CACHE)
+unset(_probe_implib CACHE)
+unset(_probe_dll_d CACHE)
+unset(_probe_implib_d CACHE)
+unset(_probe_so CACHE)
+unset(_probe_so_d CACHE)
 
 check_required_components(QtMCP)
