@@ -58,7 +58,9 @@ Plans:
   2. All 8 matrix cells produce probe binaries as uploadable artifacts
   3. A failing cell blocks the overall check (matrix is not allow-failure)
   4. Qt is installed via `jurplel/install-qt-action@v4` with version-appropriate runners (Ubuntu 22.04 for Qt 5.15, 24.04 for Qt 6.x)
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 09-01-PLAN.md — Matrix CI workflow with 8 cells (4 Qt versions x 2 platforms)
 
 ### Phase 10: Patched Qt 5.15.1 CI
 **Goal**: CI can build and cache a custom-patched Qt 5.15.1 and produce probe binaries against it
@@ -120,7 +122,7 @@ Plans:
 | 6. Extended Introspection | v1.0 | 4/4 | Complete | 2026-02-01 |
 | 7. Python Integration | v1.0 | 3/3 | Complete | 2026-02-01 |
 | 8. CMake Multi-Qt Foundation | v1.1 | 2/2 | Complete | 2026-02-02 |
-| 9. CI Matrix Build | v1.1 | 0/TBD | Not started | - |
+| 9. CI Matrix Build | v1.1 | 0/1 | Planned | - |
 | 10. Patched Qt 5.15.1 CI | v1.1 | 0/TBD | Not started | - |
 | 11. Release Automation | v1.1 | 0/TBD | Not started | - |
 | 12. vcpkg Port | v1.1 | 0/TBD | Not started | - |
