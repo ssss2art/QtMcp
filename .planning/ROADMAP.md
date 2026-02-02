@@ -28,6 +28,7 @@
 - [x] **Phase 9: CI Matrix Build** - GitHub Actions builds probe for 4 Qt versions on 2 platforms — completed 2026-02-02
 - [x] **Phase 10: Patched Qt 5.15.1 CI** - CI builds and caches custom-patched Qt 5.15.1, then builds probe against it — completed 2026-02-02
 - [x] **Phase 11: Release Automation** - Tag push produces a GitHub Release with all 10 binaries and checksums — completed 2026-02-02
+- [ ] **Phase 11.1: Qt 5.15 / Qt 6 Source Compatibility** - Make source code compatible with both Qt 5.15 and Qt 6 (INSERTED)
 - [ ] **Phase 12: vcpkg Port** - Users can install QtMCP probe via vcpkg overlay port
 - [ ] **Phase 13: PyPI Publication** - pip install qtmcp provides working MCP server with probe downloader
 
@@ -92,6 +93,20 @@ Plans:
 - [x] 11-01-PLAN.md — Add workflow_call triggers to both CI workflows
 - [x] 11-02-PLAN.md — Release workflow with artifact collection and GitHub Release
 
+### Phase 11.1: Qt 5.15 / Qt 6 Source Compatibility (INSERTED)
+**Goal**: Source code compiles cleanly against both Qt 5.15 and Qt 6 without conditional compilation hacks or deprecated API warnings
+**Depends on**: Phase 11
+**Requirements**: COMPAT-01
+**Research**: NEEDED (audit source for Qt6-only APIs, identify Qt5/Qt6 divergence points)
+**Success Criteria** (what must be TRUE):
+  1. Source compiles without warnings against Qt 5.15 and Qt 6.x
+  2. No runtime regressions on either Qt version
+  3. CI matrix (Phase 9) passes for all Qt versions after changes
+  4. Compatibility approach is maintainable (not littered with `#if QT_VERSION` blocks)
+**Plans:** 0 plans
+Plans:
+- [ ] TBD (run /gsd:plan-phase 11.1 to break down)
+
 ### Phase 12: vcpkg Port
 **Goal**: Users can install QtMCP via vcpkg overlay port using either their own Qt5 or Qt6
 **Depends on**: Phase 11
@@ -131,6 +146,7 @@ Plans:
 | 9. CI Matrix Build | v1.1 | 1/1 | Complete | 2026-02-02 |
 | 10. Patched Qt 5.15.1 CI | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 11. Release Automation | v1.1 | 2/2 | Complete | 2026-02-02 |
+| 11.1 Qt5/Qt6 Compat | v1.1 | 0/TBD | Not started | - |
 | 12. vcpkg Port | v1.1 | 0/TBD | Not started | - |
 | 13. PyPI Publication | v1.1 | 0/TBD | Not started | - |
 

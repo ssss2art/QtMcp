@@ -53,6 +53,10 @@ See PROJECT.md Key Decisions table for full log.
 
 None.
 
+### Roadmap Evolution
+
+- Phase 11.1 inserted after Phase 11: Qt 5.15 / Qt 6 source compatibility (URGENT)
+
 ### Blockers/Concerns
 
 - macOS deferred to separate milestone (v1.2?)
