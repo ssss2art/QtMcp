@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 8 of 13 (CMake Multi-Qt Foundation)
-Plan: Ready to plan
-Status: Roadmap complete, awaiting phase planning
-Last activity: 2026-02-01 — v1.1 roadmap created (6 phases, 18 requirements)
+Plan: 1 of 2
+Status: In progress
+Last activity: 2026-02-02 — Completed 08-01-PLAN.md (versioned artifact naming)
 
-Progress: [##########..........] 54% (33/~TBD plans — v1.0 complete, v1.1 not yet planned)
+Progress: [##########|.........] 55% (34/~62 plans)
 
 ## Performance Metrics
 
@@ -24,11 +24,21 @@ Progress: [##########..........] 54% (33/~TBD plans — v1.0 complete, v1.1 not 
 - Commits: 157
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
+**v1.1 Velocity:**
+- Plans completed: 1
+- Commits: 2
+
 ## Accumulated Context
 
 ### Decisions
 
 See PROJECT.md Key Decisions table for full log.
+
+| Decision | Phase | Detail |
+|----------|-------|--------|
+| Artifact naming: qt{M}.{m} tag | 08-01 | qtmcp-probe-qt6.9[d].dll format |
+| Install layout: versioned lib dirs | 08-01 | lib/qtmcp/qt{M}.{m}/ for side-by-side |
+| Export name: QtMCP::Probe | 08-01 | Capital P, follows CMake convention |
 
 ### Pending Todos
 
@@ -43,9 +53,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-01
-Stopped at: v1.1 roadmap created, ready to plan Phase 8
+Last session: 2026-02-02
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None
 
 ---
-*State updated: 2026-02-01 (v1.1 roadmap created)*
+*State updated: 2026-02-02 (08-01 versioned artifact naming complete)*
