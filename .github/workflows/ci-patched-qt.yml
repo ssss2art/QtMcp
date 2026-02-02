@@ -1,0 +1,140 @@
+name: "CI: Patched Qt 5.15.1"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - '.ci/patches/**'
+      - '.github/actions/build-qt/**'
+      - '.github/workflows/ci-patched-qt.yml'
+      - 'vcpkg.json'
+      - 'CMakePresets.json'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: "Patched Qt 5.15.1 / ${{ matrix.platform }}"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-gcc
+            preset: ci-linux
+          - os: windows-2022
+            platform: windows-msvc
+            preset: ci-windows
+
+    env:
+      VCPKG_MANIFEST_NO_DEFAULT_FEATURES: "ON"
+      VCPKG_MANIFEST_FEATURES: "extras"
+      QT_VERSION: "5.15.1"
+      PATCHES_DIR: ".ci/patches/5.15.1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: '14.29'
+
+      - name: Build patched Qt ${{ env.QT_VERSION }}
+        id: qt
+        uses: ./.github/actions/build-qt
+        with:
+          qt-version: ${{ env.QT_VERSION }}
+          patches-dir: ${{ env.PATCHES_DIR }}
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '01f602195983451bc83e72f4214af2cbc495aa94'
+
+      - name: Install X11/XTest dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev libxcb-xinerama0 libxcb-cursor0 \
+            libxkbcommon-x11-0 libxtst-dev libx11-dev
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake --preset ci-linux \
+            -DCMAKE_PREFIX_PATH="${{ steps.qt.outputs.qt-dir }}"
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --preset ci-windows `
+            -DCMAKE_PREFIX_PATH="${{ steps.qt.outputs.qt-dir }}"
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }} --parallel
+
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+      - name: Install
+        run: cmake --install build/${{ matrix.preset }} --prefix install/${{ matrix.preset }}
+
+      - name: Verify install layout (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          PROBE_DIR="install/${{ matrix.preset }}/lib/qtmcp/qt5.15"
+          echo "Checking probe directory: $PROBE_DIR"
+          ls -la "$PROBE_DIR"
+          FILE_COUNT=$(find "$PROBE_DIR" -type f | wc -l)
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "::error::No probe files found in $PROBE_DIR"
+            exit 1
+          fi
+          echo "Found $FILE_COUNT file(s) in probe directory"
+
+      - name: Verify install layout (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $probeDir = "install/${{ matrix.preset }}/lib/qtmcp/qt5.15"
+          Write-Host "Checking probe directory: $probeDir"
+          if (-not (Test-Path $probeDir)) {
+            Write-Error "Probe directory not found: $probeDir"
+            exit 1
+          }
+          Get-ChildItem -Path $probeDir -Recurse
+          $files = Get-ChildItem -Path $probeDir -File
+          if ($files.Count -eq 0) {
+            Write-Error "No probe files found in $probeDir"
+            exit 1
+          }
+          Write-Host "Found $($files.Count) file(s) in probe directory"
+
+      - name: Upload probe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qtmcp-qt5.15-patched-${{ matrix.platform }}
+          path: install/${{ matrix.preset }}/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Patched Qt 5.15.1 / ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.qt.outputs.cache-hit }}" = "true" ]; then
+            echo "Qt restored from cache" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Qt built from source (cache miss)" >> $GITHUB_STEP_SUMMARY
+          fi
