@@ -4,13 +4,17 @@
   "description": "Qt application introspection and automation library with MCP integration",
   "homepage": "https://github.com/ssss2art/QtMcp",
   "license": "MIT",
-  "dependencies": [
-    "qtbase",
-    "qtwebsockets"
-  ],
+  "dependencies": [],
   "builtin-baseline": "3bdaa9b42070c241c1bdb02b4cf01f90de579738",
   "overrides": [],
   "features": {
+    "qt": {
+      "description": "Qt dependencies (skip in CI where Qt comes from install-qt-action)",
+      "dependencies": [
+        "qtbase",
+        "qtwebsockets"
+      ]
+    },
     "extras": {
       "description": "Additional dependencies for enhanced functionality",
       "dependencies": [
