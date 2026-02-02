@@ -1,0 +1,259 @@
+name: 'Build Patched Qt from Source'
+description: |
+  Downloads, patches, configures, builds, installs, and caches Qt from source.
+  Supports both Linux (GCC) and Windows (MSVC) builds.
+
+  PREREQUISITE (Windows only): The calling workflow MUST set up the MSVC
+  development environment BEFORE invoking this action. Use:
+    - uses: ilammy/msvc-dev-cmd@v1
+      with:
+        toolset: '14.29'
+
+inputs:
+  qt-version:
+    description: 'Qt version to build (e.g., 5.15.1)'
+    required: true
+  patches-dir:
+    description: 'Path to directory containing .patch files, relative to workspace (e.g., .ci/patches/5.15.1)'
+    required: true
+  install-prefix:
+    description: 'Where to install Qt (becomes CMAKE_PREFIX_PATH)'
+    required: false
+    default: '${{ github.workspace }}/qt-patched'
+
+outputs:
+  qt-dir:
+    description: 'Path to installed Qt directory (for CMAKE_PREFIX_PATH)'
+    value: ${{ steps.paths.outputs.qt-dir }}
+  cache-hit:
+    description: 'Whether the Qt cache was hit (true/false)'
+    value: ${{ steps.qt-cache.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    # ── Step 1: Set paths ──────────────────────────────────────────────
+    - name: Set paths
+      id: paths
+      shell: bash
+      run: |
+        echo "qt-dir=${{ inputs.install-prefix }}" >> "$GITHUB_OUTPUT"
+        echo "src-dir=${{ github.workspace }}/qt-everywhere-src-${{ inputs.qt-version }}" >> "$GITHUB_OUTPUT"
+
+    # ── Step 2: Restore Qt cache ───────────────────────────────────────
+    - name: Restore Qt cache
+      id: qt-cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.install-prefix }}
+        key: patched-qt-${{ inputs.qt-version }}-${{ runner.os }}-${{ hashFiles(format('{0}/**', inputs.patches-dir)) }}-cfgv1
+
+    # ── Step 3: Download Qt source ─────────────────────────────────────
+    - name: Download Qt source
+      if: steps.qt-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        QT_VER="${{ inputs.qt-version }}"
+        QT_MAJOR_MINOR="${QT_VER%.*}"
+
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          EXT="zip"
+        else
+          EXT="tar.xz"
+        fi
+
+        URL="https://download.qt.io/archive/qt/${QT_MAJOR_MINOR}/${QT_VER}/single/qt-everywhere-src-${QT_VER}.${EXT}"
+        echo "Downloading Qt ${QT_VER} source (${EXT}): ${URL}"
+        curl -L --retry 3 --retry-delay 5 -o "qt-src.${EXT}" "$URL"
+
+        echo "::group::Extract Qt source"
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          7z x "qt-src.${EXT}" -o"${{ github.workspace }}"
+        else
+          tar -xf "qt-src.${EXT}" -C "${{ github.workspace }}"
+        fi
+        echo "::endgroup::"
+
+        rm -f "qt-src.${EXT}"
+        echo "Qt source extracted to: ${{ steps.paths.outputs.src-dir }}"
+
+    # ── Step 4: Apply patches ──────────────────────────────────────────
+    - name: Apply patches
+      if: steps.qt-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        SRC_DIR="${{ steps.paths.outputs.src-dir }}"
+        PATCHES_DIR="${{ github.workspace }}/${{ inputs.patches-dir }}"
+
+        cd "$SRC_DIR"
+        git init
+        git add -A
+        git commit -m "Qt ${{ inputs.qt-version }} base" --quiet
+
+        PATCH_COUNT=0
+        PATCH_FILES=$(find "$PATCHES_DIR" -maxdepth 1 -name '*.patch' 2>/dev/null | sort)
+
+        if [ -z "$PATCH_FILES" ]; then
+          echo "No patch files found in $PATCHES_DIR -- building unpatched Qt"
+        else
+          for patch_file in $PATCH_FILES; do
+            PATCH_NAME=$(basename "$patch_file")
+            echo "::group::Applying ${PATCH_NAME}"
+            git apply --verbose "$patch_file"
+            if [ $? -ne 0 ]; then
+              echo "::error::Patch failed: ${PATCH_NAME}"
+              exit 1
+            fi
+            PATCH_COUNT=$((PATCH_COUNT + 1))
+            echo "::endgroup::"
+          done
+          echo "Applied ${PATCH_COUNT} patch(es) successfully"
+        fi
+
+    # ── Step 5: Install Linux build dependencies ───────────────────────
+    - name: Install Linux build dependencies
+      if: steps.qt-cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        echo "::group::Install Qt build dependencies"
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential perl python3 \
+          libgl1-mesa-dev libglu1-mesa-dev \
+          libfontconfig1-dev libfreetype6-dev \
+          libx11-dev libx11-xcb-dev libxext-dev libxfixes-dev \
+          libxi-dev libxrender-dev libxcb1-dev libxcb-glx0-dev \
+          libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev \
+          libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev \
+          libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
+          libxcb-xinerama0-dev libxcb-xkb-dev libxcb-cursor0 \
+          libxkbcommon-dev libxkbcommon-x11-dev libxtst-dev
+        echo "::endgroup::"
+
+    # ── Step 6: Download jom (Windows) ─────────────────────────────────
+    - name: Download jom
+      if: steps.qt-cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      shell: bash
+      run: |
+        echo "::group::Download jom for parallel builds"
+        curl -L --retry 3 -o jom.zip https://download.qt.io/official_releases/jom/jom.zip
+        7z x jom.zip -o"${{ github.workspace }}/jom"
+        echo "${{ github.workspace }}/jom" >> "$GITHUB_PATH"
+        echo "::endgroup::"
+
+    # ── Step 7: Configure Qt (Linux) ───────────────────────────────────
+    - name: Configure Qt (Linux)
+      if: steps.qt-cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        cd "${{ steps.paths.outputs.src-dir }}"
+        echo "::group::Configure Qt ${{ inputs.qt-version }} for Linux"
+        ./configure \
+          -prefix "${{ inputs.install-prefix }}" \
+          -opensource -confirm-license \
+          -shared -release \
+          -nomake examples -nomake tests \
+          -skip qt3d -skip qtactiveqt -skip qtandroidextras \
+          -skip qtcanvas3d -skip qtcharts -skip qtconnectivity \
+          -skip qtdatavis3d -skip qtdoc -skip qtgamepad \
+          -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation \
+          -skip qtlottie -skip qtmacextras -skip qtmultimedia \
+          -skip qtnetworkauth -skip qtpurchasing -skip qtquick3d \
+          -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline \
+          -skip qtremoteobjects -skip qtscript -skip qtscxml \
+          -skip qtsensors -skip qtserialbus -skip qtserialport \
+          -skip qtspeech -skip qtsvg -skip qtvirtualkeyboard \
+          -skip qtwayland -skip qtwebchannel -skip qtwebengine \
+          -skip qtwebglplugin -skip qtwebview -skip qtx11extras \
+          -skip qtxmlpatterns \
+          -no-dbus -no-icu \
+          -qt-pcre -qt-doubleconversion -qt-harfbuzz \
+          -xcb
+        echo "::endgroup::"
+
+    # ── Step 8: Configure Qt (Windows) ─────────────────────────────────
+    - name: Configure Qt (Windows)
+      if: steps.qt-cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      shell: cmd
+      run: |
+        cd /d "${{ steps.paths.outputs.src-dir }}"
+        configure.bat ^
+          -prefix "${{ inputs.install-prefix }}" ^
+          -opensource -confirm-license ^
+          -shared -release ^
+          -nomake examples -nomake tests ^
+          -skip qt3d -skip qtactiveqt -skip qtandroidextras ^
+          -skip qtcanvas3d -skip qtcharts -skip qtconnectivity ^
+          -skip qtdatavis3d -skip qtdoc -skip qtgamepad ^
+          -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation ^
+          -skip qtlottie -skip qtmacextras -skip qtmultimedia ^
+          -skip qtnetworkauth -skip qtpurchasing -skip qtquick3d ^
+          -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline ^
+          -skip qtremoteobjects -skip qtscript -skip qtscxml ^
+          -skip qtsensors -skip qtserialbus -skip qtserialport ^
+          -skip qtspeech -skip qtsvg -skip qtvirtualkeyboard ^
+          -skip qtwayland -skip qtwebchannel -skip qtwebengine ^
+          -skip qtwebglplugin -skip qtwebview -skip qtx11extras ^
+          -skip qtxmlpatterns ^
+          -no-dbus -no-icu ^
+          -qt-pcre -qt-doubleconversion -qt-harfbuzz ^
+          -opengl desktop -platform win32-msvc -mp
+
+    # ── Step 9: Build Qt (Linux) ───────────────────────────────────────
+    - name: Build Qt (Linux)
+      if: steps.qt-cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        cd "${{ steps.paths.outputs.src-dir }}"
+        echo "Building Qt with $(nproc) parallel jobs..."
+        make -j$(nproc)
+
+    # ── Step 10: Build Qt (Windows) ────────────────────────────────────
+    - name: Build Qt (Windows)
+      if: steps.qt-cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      shell: cmd
+      run: |
+        cd /d "${{ steps.paths.outputs.src-dir }}"
+        jom -j %NUMBER_OF_PROCESSORS%
+
+    # ── Step 11: Install Qt (Linux) ────────────────────────────────────
+    - name: Install Qt (Linux)
+      if: steps.qt-cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        cd "${{ steps.paths.outputs.src-dir }}"
+        make install
+
+    # ── Step 12: Install Qt (Windows) ──────────────────────────────────
+    - name: Install Qt (Windows)
+      if: steps.qt-cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+      shell: cmd
+      run: |
+        cd /d "${{ steps.paths.outputs.src-dir }}"
+        jom install
+
+    # ── Step 13: Verify private headers ────────────────────────────────
+    - name: Verify private headers
+      if: steps.qt-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        QT_VER="${{ inputs.qt-version }}"
+        PRIVATE_HEADER="${{ inputs.install-prefix }}/include/QtCore/${QT_VER}/QtCore/private/qhooks_p.h"
+
+        if [ -f "$PRIVATE_HEADER" ]; then
+          echo "Private headers verified: $PRIVATE_HEADER"
+        else
+          echo "::error::Private header not found: $PRIVATE_HEADER"
+          echo "This is critical -- the probe requires qhooks_p.h from Qt::CorePrivate"
+          echo "Listing available private header paths:"
+          find "${{ inputs.install-prefix }}/include" -name "qhooks_p.h" 2>/dev/null || echo "  (none found)"
+          exit 1
+        fi
+
+    # ── Step 14: Set output ────────────────────────────────────────────
+    - name: Set output
+      id: output
+      shell: bash
+      run: |
+        echo "Qt installation directory: ${{ inputs.install-prefix }}"
+        echo "Cache hit: ${{ steps.qt-cache.outputs.cache-hit }}"
