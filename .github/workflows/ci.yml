@@ -65,20 +65,20 @@ jobs:
             preset: ci-windows
             artifact_tag: qt5.15
             qt_modules: ""
-          # ---- Qt 6.2 ----
-          - qt_version: "6.2.4"
+          # ---- Qt 6.5 ----
+          - qt_version: "6.5.3"
             qt_major: 6
             os: ubuntu-24.04
             platform: linux-gcc
             preset: ci-linux
-            artifact_tag: qt6.2
+            artifact_tag: qt6.5
             qt_modules: "qtwebsockets"
-          - qt_version: "6.2.4"
+          - qt_version: "6.5.3"
             qt_major: 6
             os: windows-latest
             platform: windows-msvc
             preset: ci-windows
-            artifact_tag: qt6.2
+            artifact_tag: qt6.5
             qt_modules: "qtwebsockets"
           # ---- Qt 6.8 ----
           - qt_version: "6.8.0"

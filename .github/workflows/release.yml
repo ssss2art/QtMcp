@@ -39,8 +39,8 @@ jobs:
           ARTIFACTS=(
             "qtmcp-qt5.15-linux-gcc:qt5.15:linux-gcc:so"
             "qtmcp-qt5.15-windows-msvc:qt5.15:windows-msvc:dll"
-            "qtmcp-qt6.2-linux-gcc:qt6.2:linux-gcc:so"
-            "qtmcp-qt6.2-windows-msvc:qt6.2:windows-msvc:dll"
+            "qtmcp-qt6.5-linux-gcc:qt6.5:linux-gcc:so"
+            "qtmcp-qt6.5-windows-msvc:qt6.5:windows-msvc:dll"
             "qtmcp-qt6.8-linux-gcc:qt6.8:linux-gcc:so"
             "qtmcp-qt6.8-windows-msvc:qt6.8:windows-msvc:dll"
             "qtmcp-qt6.9-linux-gcc:qt6.9:linux-gcc:so"
