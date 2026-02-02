@@ -40,8 +40,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Find Qt - prefer Qt6, fall back to Qt5 5.15+
 # This allows building with either Qt version using the same CMakeLists.txt
-set(QT_MIN_VERSION_5 "5.15")
-set(QT_MIN_VERSION_6 "6.0")
+set(QT_MIN_VERSION_5 "5.15.1")
+set(QT_MIN_VERSION_6 "6.5")
 
 # Apply Qt path hint if provided
 if(QTMCP_QT_DIR)
@@ -130,6 +130,19 @@ endif()
 if(NOT Qt6_FOUND AND NOT Qt5_FOUND)
     message(FATAL_ERROR "No Qt installation found. Set CMAKE_PREFIX_PATH or -DQTMCP_QT_DIR=<path>")
 endif()
+
+# Enforce minimum patch versions
+if(Qt5_FOUND AND QT_VERSION VERSION_LESS "5.15.1")
+    message(FATAL_ERROR "Qt ${QT_VERSION} is below minimum supported version 5.15.1. "
+        "Please upgrade your Qt 5 installation.")
+endif()
+if(Qt6_FOUND AND QT_VERSION VERSION_LESS "6.5")
+    message(FATAL_ERROR "Qt ${QT_VERSION} is below minimum supported version 6.5. "
+        "Please upgrade your Qt 6 installation.")
+endif()
+
+# Suppress APIs deprecated before Qt 5.15.0 — forces use of modern equivalents
+add_definitions(-DQT_DISABLE_DEPRECATED_BEFORE=0x050F00)
 
 # Extract Qt major.minor version tag for artifact naming
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _qt_major_minor "${QT_VERSION}")
