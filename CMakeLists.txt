@@ -254,13 +254,22 @@ endif()
 # Installation
 include(GNUInstallDirs)
 
+# Probe library: all outputs go to the versioned lib dir so that
+# QtMCPConfig.cmake can find DLLs and import libs in one location.
 install(TARGETS qtmcp_probe
-    EXPORT QtMCPTargets
     LIBRARY DESTINATION ${QTMCP_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${QTMCP_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${QTMCP_INSTALL_BINDIR}
+    RUNTIME DESTINATION ${QTMCP_INSTALL_LIBDIR}
 )
 
+# Launcher executable: goes to regular bin/ (not Qt-version-specific)
+if(TARGET qtmcp_launcher)
+    install(TARGETS qtmcp_launcher
+        RUNTIME DESTINATION bin
+    )
+endif()
+
+# Headers
 install(DIRECTORY src/probe/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/qtmcp
     FILES_MATCHING PATTERN "*.h"
@@ -287,9 +296,9 @@ install(FILES
     DESTINATION share/cmake/QtMCP
 )
 
-install(EXPORT QtMCPTargets
-    FILE QtMCPTargets.cmake
-    NAMESPACE QtMCP::
+# Install helper cmake module alongside the config
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/qtmcp_inject_probe.cmake"
     DESTINATION share/cmake/QtMCP
 )
 
