@@ -43,7 +43,10 @@
   2. Building against Qt 6.8 produces a file named `qtmcp-probe-qt6.8.dll` / `.so`
   3. A downstream project can `find_package(QtMCP)` after install regardless of whether it uses Qt5 or Qt6
   4. `cmake --install` produces artifacts in standard layout with versioned paths that are relocatable
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 08-01-PLAN.md — Versioned artifact naming and install layout
+- [ ] 08-02-PLAN.md — find_package config and qtmcp_inject_probe helper
 
 ### Phase 9: CI Matrix Build
 **Goal**: Every push validates the probe builds cleanly on 4 Qt versions across Windows and Linux
@@ -116,7 +119,7 @@
 | 5. Chrome Mode | v1.0 | 4/4 | Complete | 2026-02-01 |
 | 6. Extended Introspection | v1.0 | 4/4 | Complete | 2026-02-01 |
 | 7. Python Integration | v1.0 | 3/3 | Complete | 2026-02-01 |
-| 8. CMake Multi-Qt Foundation | v1.1 | 0/TBD | Not started | - |
+| 8. CMake Multi-Qt Foundation | v1.1 | 0/2 | Planning complete | - |
 | 9. CI Matrix Build | v1.1 | 0/TBD | Not started | - |
 | 10. Patched Qt 5.15.1 CI | v1.1 | 0/TBD | Not started | - |
 | 11. Release Automation | v1.1 | 0/TBD | Not started | - |
