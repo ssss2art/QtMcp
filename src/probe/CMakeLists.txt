@@ -96,6 +96,7 @@ target_include_directories(qtmcp_probe
         $<INSTALL_INTERFACE:include/qtmcp>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../
 )
 
 # Link Qt libraries - use Qt version-independent approach

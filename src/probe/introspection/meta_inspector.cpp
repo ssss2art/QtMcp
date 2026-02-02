@@ -3,6 +3,7 @@
 
 #include "meta_inspector.h"
 
+#include "compat/compat_variant.h"
 #include "variant_json.h"
 
 #include <QMetaMethod>
@@ -230,7 +231,7 @@ bool MetaInspector::setProperty(QObject* obj, const QString& name, const QJsonVa
   QVariant var = jsonToVariant(value, prop.userType());
 
   // Attempt type conversion if needed
-  if (var.typeId() != prop.userType() && !var.convert(QMetaType(prop.userType()))) {
+  if (var.userType() != prop.userType() && !qtmcp::compat::variantConvert(var, prop.userType())) {
     throw std::runtime_error("Cannot convert value to type: " +
                              QString::fromLatin1(prop.typeName()).toStdString());
   }
@@ -293,7 +294,7 @@ QJsonValue MetaInspector::invokeMethod(QObject* obj, const QString& methodName,
   QVariant returnValue;
   QGenericReturnArgument returnArg;
   if (foundMethod.returnType() != QMetaType::Void) {
-    returnValue = QVariant(QMetaType(foundMethod.returnType()));
+    returnValue = qtmcp::compat::emptyVariantOfType(foundMethod.returnType());
     returnArg = QGenericReturnArgument(foundMethod.typeName(), returnValue.data());
   }
 

@@ -3,6 +3,8 @@
 
 #include "input_simulator.h"
 
+#include "compat/compat_gui.h"
+
 #include <stdexcept>
 
 #include <QApplication>
@@ -77,15 +79,11 @@ void InputSimulator::sendKeySequence(QWidget* widget, const QString& sequence) {
   QApplication::processEvents();
 
   // Extract key and modifiers from first key combination
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-  int key = keySeq[0].key();
-  Qt::KeyboardModifiers mods = keySeq[0].keyboardModifiers();
-#else
-  int key = keySeq[0] & ~Qt::KeyboardModifierMask;
-  Qt::KeyboardModifiers mods = Qt::KeyboardModifiers(keySeq[0] & Qt::KeyboardModifierMask);
-#endif
+  Qt::Key extractedKey;
+  Qt::KeyboardModifiers mods;
+  qtmcp::compat::extractKeyCombination(keySeq, 0, extractedKey, mods);
 
-  QTest::keyClick(widget, static_cast<Qt::Key>(key), mods);
+  QTest::keyClick(widget, extractedKey, mods);
 }
 
 void InputSimulator::sendKey(QWidget* widget, Qt::Key key, Qt::KeyboardModifiers modifiers) {

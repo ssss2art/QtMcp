@@ -3,6 +3,9 @@
 
 #include "variant_json.h"
 
+#include "compat/compat_core.h"
+#include "compat/compat_variant.h"
+
 #include <QColor>
 #include <QDateTime>
 #include <QMetaType>
@@ -23,7 +26,7 @@ QJsonValue variantToJson(const QVariant& value) {
   }
 
   // Get the type ID for switching
-  const int typeId = value.typeId();
+  const int typeId = value.userType();
 
   // Handle basic types directly
   switch (typeId) {
@@ -201,7 +204,7 @@ QVariant jsonToVariant(const QJsonValue& value, int targetTypeId) {
         // Check for special typed object (from variantToJson fallback)
         if (obj.contains(QStringLiteral("_type")) && obj.contains(QStringLiteral("value"))) {
           QString typeName = obj[QStringLiteral("_type")].toString();
-          int metaType = QMetaType::fromName(typeName.toLatin1().constData()).id();
+          int metaType = qtmcp::compat::metaTypeIdFromName(typeName.toLatin1().constData());
           if (metaType != QMetaType::UnknownType) {
             return jsonToVariant(obj[QStringLiteral("value")], metaType);
           }
@@ -395,8 +398,8 @@ QVariant jsonToVariant(const QJsonValue& value, int targetTypeId) {
     default:
       // Try QMetaType conversion for other types
       QVariant result = jsonToVariant(value);  // Infer type first
-      if (result.canConvert(QMetaType(targetTypeId))) {
-        result.convert(QMetaType(targetTypeId));
+      if (qtmcp::compat::variantCanConvert(result, targetTypeId)) {
+        qtmcp::compat::variantConvert(result, targetTypeId);
         return result;
       }
       break;
