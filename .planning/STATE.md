@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 9 of 13 (CI Matrix Build)
-Plan: Ready to plan
-Status: Phase 8 verified, ready for Phase 9 planning
-Last activity: 2026-02-02 — Phase 8 complete and verified (5/5 must-haves passed)
+Plan: 1 of 1 (complete)
+Status: Phase 9 plan 01 complete
+Last activity: 2026-02-02 — Completed 09-01-PLAN.md (matrix CI workflow)
 
-Progress: [###########..........] 56% (35/~62 plans)
+Progress: [############.........] 58% (37/~62 plans)
 
 ## Performance Metrics
 
@@ -25,8 +25,8 @@ Progress: [###########..........] 56% (35/~62 plans)
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
 **v1.1 Velocity:**
-- Plans completed: 2
-- Commits: 4
+- Plans completed: 3
+- Commits: 6
 
 ## Accumulated Context
 
@@ -41,6 +41,8 @@ See PROJECT.md Key Decisions table for full log.
 | Export name: QtMCP::Probe | 08-01 | Capital P, follows CMake convention |
 | Manual IMPORTED target | 08-02 | Replaced CMake EXPORT with manual target in config for versioned path support |
 | DLL in lib/ not bin/ | 08-02 | Single search location for DLL and import lib in config file |
+| vcpkg Qt feature-gate | 09-01 | Qt deps moved to opt-in vcpkg feature to avoid 30+ min CI builds |
+| Include-style matrix | 09-01 | Runner OS varies per Qt version; include entries not combinatorial |
 
 ### Pending Todos
 
@@ -56,8 +58,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Phase 8 complete and verified, ready to plan Phase 9
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
 
 ---
-*State updated: 2026-02-02 (Phase 8 complete, verified 5/5 must-haves)*
+*State updated: 2026-02-02 (Phase 9 plan 01 complete, matrix CI workflow)*
