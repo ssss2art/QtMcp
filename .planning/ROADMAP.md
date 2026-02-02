@@ -87,7 +87,10 @@ Plans:
   2. Release page lists all 10 binaries with correct Qt-version-encoded filenames
   3. A SHA256SUMS file is included in the release listing checksums for every artifact
   4. Release is created via `softprops/action-gh-release@v2` using `upload-artifact@v4` merge pattern
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 11-01-PLAN.md — Add workflow_call triggers to both CI workflows
+- [ ] 11-02-PLAN.md — Release workflow with artifact collection and GitHub Release
 
 ### Phase 12: vcpkg Port
 **Goal**: Users can install QtMCP via vcpkg overlay port using either their own Qt5 or Qt6
@@ -127,7 +130,7 @@ Plans:
 | 8. CMake Multi-Qt Foundation | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 9. CI Matrix Build | v1.1 | 1/1 | Complete | 2026-02-02 |
 | 10. Patched Qt 5.15.1 CI | v1.1 | 2/2 | Complete | 2026-02-02 |
-| 11. Release Automation | v1.1 | 0/TBD | Not started | - |
+| 11. Release Automation | v1.1 | 0/2 | Not started | - |
 | 12. vcpkg Port | v1.1 | 0/TBD | Not started | - |
 | 13. PyPI Publication | v1.1 | 0/TBD | Not started | - |
 
