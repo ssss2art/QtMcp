@@ -26,7 +26,7 @@
 
 - [x] **Phase 8: CMake Multi-Qt Foundation** - Build system produces correctly named, relocatable, multi-Qt artifacts — completed 2026-02-02
 - [x] **Phase 9: CI Matrix Build** - GitHub Actions builds probe for 4 Qt versions on 2 platforms — completed 2026-02-02
-- [ ] **Phase 10: Patched Qt 5.15.1 CI** - CI builds and caches custom-patched Qt 5.15.1, then builds probe against it
+- [x] **Phase 10: Patched Qt 5.15.1 CI** - CI builds and caches custom-patched Qt 5.15.1, then builds probe against it — completed 2026-02-02
 - [ ] **Phase 11: Release Automation** - Tag push produces a GitHub Release with all 10 binaries and checksums
 - [ ] **Phase 12: vcpkg Port** - Users can install QtMCP probe via vcpkg overlay port
 - [ ] **Phase 13: PyPI Publication** - pip install qtmcp provides working MCP server with probe downloader
@@ -72,7 +72,10 @@ Plans:
   2. Built Qt is cached aggressively (cache hit skips 30-60 min build)
   3. Probe builds successfully against the patched Qt 5.15.1 on both platforms
   4. Patched Qt build is isolated (does not interfere with standard matrix cells)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [x] 10-01-PLAN.md — Build-Qt composite action and patch directory scaffold
+- [x] 10-02-PLAN.md — Patched Qt CI workflow with 2 matrix cells
 
 ### Phase 11: Release Automation
 **Goal**: Pushing a version tag automatically produces a complete GitHub Release with all binaries
@@ -123,7 +126,7 @@ Plans:
 | 7. Python Integration | v1.0 | 3/3 | Complete | 2026-02-01 |
 | 8. CMake Multi-Qt Foundation | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 9. CI Matrix Build | v1.1 | 1/1 | Complete | 2026-02-02 |
-| 10. Patched Qt 5.15.1 CI | v1.1 | 0/TBD | Not started | - |
+| 10. Patched Qt 5.15.1 CI | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 11. Release Automation | v1.1 | 0/TBD | Not started | - |
 | 12. vcpkg Port | v1.1 | 0/TBD | Not started | - |
 | 13. PyPI Publication | v1.1 | 0/TBD | Not started | - |
