@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** v1.1 Distribution & Compatibility — Phase 10 complete, ready for Phase 11
+**Current focus:** v1.1 Distribution & Compatibility — Phase 11 complete, ready for Phase 12
 
 ## Current Position
 
 Phase: 11 of 13 (Release Automation)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-02 — Completed 11-01-PLAN.md (Reusable CI Triggers)
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-02 — Completed 11-02-PLAN.md (Release Workflow)
 
-Progress: [##############.......] 65% (40/~62 plans)
+Progress: [###############......] 67% (41/~62 plans)
 
 ## Performance Metrics
 
@@ -25,8 +25,8 @@ Progress: [##############.......] 65% (40/~62 plans)
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
 **v1.1 Velocity:**
-- Plans completed: 6
-- Commits: 11
+- Plans completed: 7
+- Commits: 12
 
 ## Accumulated Context
 
@@ -47,6 +47,7 @@ See PROJECT.md Key Decisions table for full log.
 | git apply for patches | 10-01 | Cross-platform consistency; works on both Linux and Windows |
 | Push-only trigger for patched CI | 10-02 | Cold Qt builds take 30-60 min; no PR trigger saves CI minutes |
 | windows-2022 pinned for patched CI | 10-02 | MSVC v142 toolset guaranteed for Qt 5.15.1 compatibility |
+| fail_on_unmatched_files in release | 11-02 | Prevents incomplete releases if any probe binary missing |
 
 ### Pending Todos
 
@@ -60,8 +61,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 11-01-PLAN.md (Reusable CI Triggers)
+Stopped at: Completed 11-02-PLAN.md (Release Workflow)
 Resume file: None
 
 ---
-*State updated: 2026-02-02 (Phase 11 plan 01 complete -- workflow_call triggers added)*
+*State updated: 2026-02-02 (Phase 11 complete -- release workflow added)*
