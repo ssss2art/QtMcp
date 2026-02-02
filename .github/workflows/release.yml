@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  # -----------------------------------------------------------
+  # Build all 8 standard probe binaries via reusable CI workflow
+  # -----------------------------------------------------------
+  build-standard:
+    uses: ./.github/workflows/ci.yml
+
+  # -----------------------------------------------------------
+  # Build 2 patched Qt 5.15.1 probe binaries
+  # -----------------------------------------------------------
+  build-patched:
+    uses: ./.github/workflows/ci-patched-qt.yml
+
+  # -----------------------------------------------------------
+  # Collect artifacts, generate checksums, create GitHub Release
+  # -----------------------------------------------------------
+  release:
+    name: Create Release
+    needs: [build-standard, build-patched]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Extract and rename probe binaries
+        run: |
+          ARTIFACTS=(
+            "qtmcp-qt5.15-linux-gcc:qt5.15:linux-gcc:so"
+            "qtmcp-qt5.15-windows-msvc:qt5.15:windows-msvc:dll"
+            "qtmcp-qt6.2-linux-gcc:qt6.2:linux-gcc:so"
+            "qtmcp-qt6.2-windows-msvc:qt6.2:windows-msvc:dll"
+            "qtmcp-qt6.8-linux-gcc:qt6.8:linux-gcc:so"
+            "qtmcp-qt6.8-windows-msvc:qt6.8:windows-msvc:dll"
+            "qtmcp-qt6.9-linux-gcc:qt6.9:linux-gcc:so"
+            "qtmcp-qt6.9-windows-msvc:qt6.9:windows-msvc:dll"
+            "qtmcp-qt5.15-patched-linux-gcc:qt5.15-patched:linux-gcc:so"
+            "qtmcp-qt5.15-patched-windows-msvc:qt5.15-patched:windows-msvc:dll"
+          )
+
+          mkdir -p release-assets
+
+          for entry in "${ARTIFACTS[@]}"; do
+            IFS=: read -r dir tag platform ext <<< "$entry"
+
+            # Find the probe binary
+            probe=$(find "artifacts/$dir" -name "*.${ext}" -path "*/lib/qtmcp/*" | head -1)
+            if [ -n "$probe" ]; then
+              cp "$probe" "release-assets/qtmcp-probe-${tag}-${platform}.${ext}"
+              echo "Copied: $probe -> qtmcp-probe-${tag}-${platform}.${ext}"
+            else
+              echo "::error::Probe binary not found for $dir (expected *.${ext})"
+              exit 1
+            fi
+
+            # Also grab .lib import library for Windows artifacts
+            if [ "$ext" = "dll" ]; then
+              lib=$(find "artifacts/$dir" -name "*.lib" -path "*/lib/qtmcp/*" | head -1)
+              if [ -n "$lib" ]; then
+                cp "$lib" "release-assets/qtmcp-probe-${tag}-${platform}.lib"
+                echo "Copied: $lib -> qtmcp-probe-${tag}-${platform}.lib"
+              fi
+            fi
+          done
+
+      - name: Generate SHA256SUMS
+        run: cd release-assets && sha256sum * > SHA256SUMS
+
+      - name: List release assets
+        run: ls -la release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
