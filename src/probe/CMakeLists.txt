@@ -72,8 +72,9 @@ add_library(qtmcp_probe SHARED
 set_target_properties(qtmcp_probe PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
-    OUTPUT_NAME "qtmcp-probe"
-    EXPORT_NAME probe
+    OUTPUT_NAME "qtmcp-probe-${QTMCP_QT_VERSION_TAG}"
+    EXPORT_NAME Probe
+    DEBUG_POSTFIX "d"
 )
 
 # Define export macro for Windows DLL
@@ -153,7 +154,7 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # Alias for use in parent project
-add_library(QtMCP::probe ALIAS qtmcp_probe)
+add_library(QtMCP::Probe ALIAS qtmcp_probe)
 
 # Deploy Qt DLLs on Windows (for the probe DLL's dependencies)
 qtmcp_deploy_qt(qtmcp_probe)

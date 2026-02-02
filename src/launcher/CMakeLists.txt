@@ -37,7 +37,8 @@ else()
 endif()
 
 set_target_properties(qtmcp_launcher PROPERTIES
-    OUTPUT_NAME "qtmcp-launch"
+    OUTPUT_NAME "qtmcp-launch-${QTMCP_QT_VERSION_TAG}"
+    DEBUG_POSTFIX "d"
 )
 
 # Include the launcher source directory for injector.h
