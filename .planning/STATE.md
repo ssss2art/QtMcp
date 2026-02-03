@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** v1.1 Distribution & Compatibility — Phase 12 complete
+**Current focus:** v1.1 Distribution & Compatibility — Phase 13 in progress
 
 ## Current Position
 
-Phase: 12 of 13 (vcpkg Port)
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-02-03 — Completed 12-02-PLAN.md (vcpkg Binary Overlay Port)
+Phase: 13 of 13 (PyPI Publication)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-03 — Completed 13-01-PLAN.md (Probe Download CLI)
 
-Progress: [#################....] 73% (45/~62 plans)
+Progress: [##################...] 75% (46/~62 plans)
 
 ## Performance Metrics
 
@@ -25,8 +25,8 @@ Progress: [#################....] 73% (45/~62 plans)
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
 **v1.1 Velocity:**
-- Plans completed: 11
-- Commits: 19
+- Plans completed: 12
+- Commits: 22
 
 ## Accumulated Context
 
@@ -52,6 +52,8 @@ See PROJECT.md Key Decisions table for full log.
 | CI matrix: Qt 6.2 -> 6.5 | 11.1-02 | 6.2 is below new minimum; replaced with 6.5.3 LTS |
 | No Qt deps in vcpkg port | 12-01 | Port relies on user's Qt; project CMakeLists.txt handles find_package |
 | Per-artifact SHA512 | 12-02 | Binary port has per-Qt-version hash for single-file downloads |
+| CLI subcommand architecture | 13-01 | qtmcp serve / qtmcp download-probe - cleaner separation |
+| Stdlib-only download module | 13-01 | No new deps (urllib, hashlib, pathlib) for lightweight package |
 
 ### Pending Todos
 
@@ -70,8 +72,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 12-02-PLAN.md (vcpkg Binary Overlay Port) — Phase 12 complete
+Stopped at: Completed 13-01-PLAN.md (Probe Download CLI)
 Resume file: None
 
 ---
-*State updated: 2026-02-03 (Phase 12 complete — both source and binary overlay ports created)*
+*State updated: 2026-02-03 (Phase 13 plan 1 complete — download-probe CLI added)*
