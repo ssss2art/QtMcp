@@ -88,7 +88,7 @@ static const QHash<QAccessible::Role, QString> s_roleMap = {
     {QAccessible::Desktop, QStringLiteral("application")},
     {QAccessible::ColorChooser, QStringLiteral("dialog")},
     {QAccessible::Clock, QStringLiteral("timer")},
-#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     {QAccessible::BlockQuote, QStringLiteral("blockquote")},
 #endif
 };

@@ -3,6 +3,7 @@
 
 #include "meta_inspector.h"
 
+#include "compat/compat_core.h"
 #include "compat/compat_variant.h"
 #include "variant_json.h"
 
@@ -287,7 +288,7 @@ QJsonValue MetaInspector::invokeMethod(QObject* obj, const QString& methodName,
   // Build QGenericArgument array - points into variantArgs data
   QGenericArgument genericArgs[10];
   for (int i = 0; i < variantArgs.count(); ++i) {
-    genericArgs[i] = QGenericArgument(foundMethod.parameterTypeName(i), variantArgs[i].constData());
+    genericArgs[i] = QGenericArgument(compat::methodParameterTypeName(foundMethod, i), variantArgs[i].constData());
   }
 
   // Prepare return value storage
