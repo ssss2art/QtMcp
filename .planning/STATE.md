@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** v1.1 Distribution & Compatibility — Phase 11.1 complete
+**Current focus:** v1.1 Distribution & Compatibility — Phase 12 in progress
 
 ## Current Position
 
-Phase: 11.1 of 13 (Qt5/Qt6 Source Compatibility)
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-02-02 — Completed 11.1-02-PLAN.md (CMake Version Enforcement & CI Matrix)
+Phase: 12 of 13 (vcpkg Port)
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-02-03 — Completed 12-01-PLAN.md (vcpkg Source Overlay Port)
 
-Progress: [################.....] 70% (43/~62 plans)
+Progress: [################.....] 71% (44/~62 plans)
 
 ## Performance Metrics
 
@@ -25,8 +25,8 @@ Progress: [################.....] 70% (43/~62 plans)
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
 **v1.1 Velocity:**
-- Plans completed: 9
-- Commits: 16
+- Plans completed: 10
+- Commits: 17
 
 ## Accumulated Context
 
@@ -50,6 +50,7 @@ See PROJECT.md Key Decisions table for full log.
 | fail_on_unmatched_files in release | 11-02 | Prevents incomplete releases if any probe binary missing |
 | Qt min versions: 5.15.1 / 6.5 | 11.1-02 | CMake FATAL_ERROR enforces minimum; QT_DISABLE_DEPRECATED_BEFORE=0x050F00 |
 | CI matrix: Qt 6.2 -> 6.5 | 11.1-02 | 6.2 is below new minimum; replaced with 6.5.3 LTS |
+| No Qt deps in vcpkg port | 12-01 | Port relies on user's Qt; project CMakeLists.txt handles find_package |
 
 ### Pending Todos
 
@@ -66,9 +67,9 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-02
-Stopped at: Completed 11.1-02-PLAN.md (CMake Version Enforcement & CI Matrix) — Phase 11.1 complete
+Last session: 2026-02-03
+Stopped at: Completed 12-01-PLAN.md (vcpkg Source Overlay Port)
 Resume file: None
 
 ---
-*State updated: 2026-02-02 (Phase 11.1 complete — both plans executed)*
+*State updated: 2026-02-03 (Plan 12-01 complete — source overlay port created)*
