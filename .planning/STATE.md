@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 13 of 13 (PyPI Publication)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-03 — Completed 13-01-PLAN.md (Probe Download CLI)
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-03 — Completed 13-02-PLAN.md (PyPI Metadata and Publishing)
 
-Progress: [##################...] 75% (46/~62 plans)
+Progress: [####################] 100% (47/47 plans)
 
 ## Performance Metrics
 
@@ -54,6 +54,8 @@ See PROJECT.md Key Decisions table for full log.
 | Per-artifact SHA512 | 12-02 | Binary port has per-Qt-version hash for single-file downloads |
 | CLI subcommand architecture | 13-01 | qtmcp serve / qtmcp download-probe - cleaner separation |
 | Stdlib-only download module | 13-01 | No new deps (urllib, hashlib, pathlib) for lightweight package |
+| OIDC Trusted Publishers | 13-02 | Secure keyless PyPI publishing without API tokens |
+| Hatchling build backend | 13-02 | Pure-Python wheel generation for PyPI |
 
 ### Pending Todos
 
@@ -72,8 +74,8 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 13-01-PLAN.md (Probe Download CLI)
+Stopped at: Completed 13-02-PLAN.md (PyPI Metadata and Publishing)
 Resume file: None
 
 ---
-*State updated: 2026-02-03 (Phase 13 plan 1 complete — download-probe CLI added)*
+*State updated: 2026-02-03 (Phase 13 complete — PyPI publishing workflow ready)*
