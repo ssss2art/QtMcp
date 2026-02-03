@@ -30,6 +30,10 @@ void ConsoleMessageCapture::install() {
 
 void ConsoleMessageCapture::messageHandler(QtMsgType type, const QMessageLogContext& context,
                                            const QString& msg) {
+  // Guard against calls during static destruction
+  if (s_instance.isDestroyed())
+    return;
+
   // Record the message into the ring buffer
   ConsoleMessage cm;
   cm.type = type;
