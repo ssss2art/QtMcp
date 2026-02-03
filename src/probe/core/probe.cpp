@@ -33,6 +33,8 @@
 #include <QDir>
 #include <QFile>
 #include <QGuiApplication>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QWindow>
 
 namespace qtmcp {
