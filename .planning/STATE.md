@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** v1.1 Distribution & Compatibility — Phase 13 in progress
+**Current focus:** v1.1 Distribution & Compatibility — COMPLETE
 
 ## Current Position
 
@@ -70,6 +70,7 @@ None.
 - macOS deferred to separate milestone (v1.2?)
 - Attach to running process deferred
 - vcpkg ports have SHA512 placeholder values (must update for first release)
+- PyPI Trusted Publisher must be configured before first release
 
 ## Session Continuity
 

@@ -3,7 +3,7 @@
 ## Milestones
 
 - **v1.0 MVP** — Phases 1-7 (shipped 2026-02-01) — [archive](milestones/v1.0-ROADMAP.md)
-- **v1.1 Distribution & Compatibility** — Phases 8-13 (in progress)
+- **v1.1 Distribution & Compatibility** — Phases 8-13 (completed 2026-02-03)
 
 ## Phases
 
@@ -20,7 +20,7 @@
 
 </details>
 
-### v1.1 Distribution & Compatibility (In Progress)
+### v1.1 Distribution & Compatibility (Complete)
 
 **Milestone Goal:** Anyone can install QtMCP from their preferred package manager and CI produces tested binaries for every supported Qt version.
 
@@ -30,7 +30,7 @@
 - [x] **Phase 11: Release Automation** - Tag push produces a GitHub Release with all 10 binaries and checksums — completed 2026-02-02
 - [x] **Phase 11.1: Qt 5.15 / Qt 6 Source Compatibility** - Make source code compatible with both Qt 5.15 and Qt 6 (INSERTED) — completed 2026-02-02
 - [x] **Phase 12: vcpkg Port** - Users can install QtMCP probe via vcpkg overlay port — completed 2026-02-03
-- [ ] **Phase 13: PyPI Publication** - pip install qtmcp provides working MCP server with probe downloader
+- [x] **Phase 13: PyPI Publication** - pip install qtmcp provides working MCP server with probe downloader — completed 2026-02-03
 
 ## Phase Details
 
@@ -135,8 +135,8 @@ Plans:
   4. Publishing uses Trusted Publishers (OIDC) workflow — no API tokens stored in secrets
 **Plans:** 2 plans
 Plans:
-- [ ] 13-01-PLAN.md — download-probe CLI subcommand with platform detection
-- [ ] 13-02-PLAN.md — PyPI metadata and OIDC publishing workflow
+- [x] 13-01-PLAN.md — download-probe CLI subcommand with platform detection
+- [x] 13-02-PLAN.md — PyPI metadata and OIDC publishing workflow
 
 ## Progress
 
@@ -155,7 +155,7 @@ Plans:
 | 11. Release Automation | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 11.1 Qt5/Qt6 Compat | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 12. vcpkg Port | v1.1 | 2/2 | Complete | 2026-02-03 |
-| 13. PyPI Publication | v1.1 | 0/2 | Not started | - |
+| 13. PyPI Publication | v1.1 | 2/2 | Complete | 2026-02-03 |
 
 ---
 *Roadmap created: 2025-01-29*

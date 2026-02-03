@@ -30,10 +30,10 @@
 
 ### Packaging — PyPI
 
-- [ ] **PYPI-01**: Python MCP server publishable as pure-Python wheel to PyPI
-- [ ] **PYPI-02**: `pip install qtmcp` installs working MCP server with CLI entry point
-- [ ] **PYPI-03**: `qtmcp download-probe` CLI command fetches correct probe binary for user's Qt version from GitHub Releases
-- [ ] **PYPI-04**: PyPI publishing uses Trusted Publishers (OIDC), not API tokens
+- [x] **PYPI-01**: Python MCP server publishable as pure-Python wheel to PyPI
+- [x] **PYPI-02**: `pip install qtmcp` installs working MCP server with CLI entry point
+- [x] **PYPI-03**: `qtmcp download-probe` CLI command fetches correct probe binary for user's Qt version from GitHub Releases
+- [x] **PYPI-04**: PyPI publishing uses Trusted Publishers (OIDC), not API tokens
 
 ## Future Requirements
 
@@ -80,10 +80,10 @@
 | VCPKG-01 | Phase 12 | Complete |
 | VCPKG-02 | Phase 12 | Complete |
 | VCPKG-03 | Phase 12 | Complete |
-| PYPI-01 | Phase 13 | Pending |
-| PYPI-02 | Phase 13 | Pending |
-| PYPI-03 | Phase 13 | Pending |
-| PYPI-04 | Phase 13 | Pending |
+| PYPI-01 | Phase 13 | Complete |
+| PYPI-02 | Phase 13 | Complete |
+| PYPI-03 | Phase 13 | Complete |
+| PYPI-04 | Phase 13 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 18 total
@@ -92,4 +92,4 @@
 
 ---
 *Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 — traceability mapped to phases 8-13*
+*Last updated: 2026-02-03 — v1.1 requirements complete*
