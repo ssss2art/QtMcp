@@ -1,0 +1,14 @@
+{
+  "name": "qtmcp-bin",
+  "version": "0.1.0",
+  "description": "QtMCP probe prebuilt binary (downloads from GitHub Releases)",
+  "homepage": "https://github.com/ssss2art/QtMcp",
+  "license": "MIT",
+  "supports": "windows | linux",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}
