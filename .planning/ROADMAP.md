@@ -133,7 +133,10 @@ Plans:
   2. `qtmcp download-probe --qt-version 6.8` fetches the correct probe binary from GitHub Releases
   3. The installed package is a pure-Python wheel (no compiled extensions, no bundled probe)
   4. Publishing uses Trusted Publishers (OIDC) workflow — no API tokens stored in secrets
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 13-01-PLAN.md — download-probe CLI subcommand with platform detection
+- [ ] 13-02-PLAN.md — PyPI metadata and OIDC publishing workflow
 
 ## Progress
 
@@ -152,7 +155,7 @@ Plans:
 | 11. Release Automation | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 11.1 Qt5/Qt6 Compat | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 12. vcpkg Port | v1.1 | 2/2 | Complete | 2026-02-03 |
-| 13. PyPI Publication | v1.1 | 0/TBD | Not started | - |
+| 13. PyPI Publication | v1.1 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2025-01-29*
