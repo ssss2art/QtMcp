@@ -28,8 +28,8 @@
 - [x] **Phase 9: CI Matrix Build** - GitHub Actions builds probe for 4 Qt versions on 2 platforms — completed 2026-02-02
 - [x] **Phase 10: Patched Qt 5.15.1 CI** - CI builds and caches custom-patched Qt 5.15.1, then builds probe against it — completed 2026-02-02
 - [x] **Phase 11: Release Automation** - Tag push produces a GitHub Release with all 10 binaries and checksums — completed 2026-02-02
-- [ ] **Phase 11.1: Qt 5.15 / Qt 6 Source Compatibility** - Make source code compatible with both Qt 5.15 and Qt 6 (INSERTED)
-- [ ] **Phase 12: vcpkg Port** - Users can install QtMCP probe via vcpkg overlay port
+- [x] **Phase 11.1: Qt 5.15 / Qt 6 Source Compatibility** - Make source code compatible with both Qt 5.15 and Qt 6 (INSERTED) — completed 2026-02-02
+- [x] **Phase 12: vcpkg Port** - Users can install QtMCP probe via vcpkg overlay port — completed 2026-02-03
 - [ ] **Phase 13: PyPI Publication** - pip install qtmcp provides working MCP server with probe downloader
 
 ## Phase Details
@@ -105,8 +105,8 @@ Plans:
   4. Compatibility approach is maintainable (not littered with `#if QT_VERSION` blocks)
 **Plans:** 2 plans
 Plans:
-- [ ] 11.1-01-PLAN.md — Compat headers and source file fixes for Qt5/Qt6 API divergence
-- [ ] 11.1-02-PLAN.md — CMake minimum version enforcement and CI matrix update (6.2 → 6.5)
+- [x] 11.1-01-PLAN.md — Compat headers and source file fixes for Qt5/Qt6 API divergence
+- [x] 11.1-02-PLAN.md — CMake minimum version enforcement and CI matrix update (6.2 → 6.5)
 
 ### Phase 12: vcpkg Port
 **Goal**: Users can install QtMCP via vcpkg overlay port using either their own Qt5 or Qt6
@@ -120,8 +120,8 @@ Plans:
   4. `vcpkg install qtmcp --overlay-ports=./ports` succeeds on a clean environment with Qt already installed
 **Plans:** 2 plans
 Plans:
-- [ ] 12-01-PLAN.md — Source overlay port (builds probe from source against user's Qt)
-- [ ] 12-02-PLAN.md — Binary overlay port (downloads prebuilt probe from GitHub Releases)
+- [x] 12-01-PLAN.md — Source overlay port (builds probe from source against user's Qt)
+- [x] 12-02-PLAN.md — Binary overlay port (downloads prebuilt probe from GitHub Releases)
 
 ### Phase 13: PyPI Publication
 **Goal**: `pip install qtmcp` gives users a working MCP server with a CLI to fetch the correct probe
@@ -150,8 +150,8 @@ Plans:
 | 9. CI Matrix Build | v1.1 | 1/1 | Complete | 2026-02-02 |
 | 10. Patched Qt 5.15.1 CI | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 11. Release Automation | v1.1 | 2/2 | Complete | 2026-02-02 |
-| 11.1 Qt5/Qt6 Compat | v1.1 | 0/2 | Planned | - |
-| 12. vcpkg Port | v1.1 | 0/2 | Planned | - |
+| 11.1 Qt5/Qt6 Compat | v1.1 | 2/2 | Complete | 2026-02-02 |
+| 12. vcpkg Port | v1.1 | 2/2 | Complete | 2026-02-03 |
 | 13. PyPI Publication | v1.1 | 0/TBD | Not started | - |
 
 ---

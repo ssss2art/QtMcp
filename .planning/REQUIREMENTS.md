@@ -24,9 +24,9 @@
 
 ### Packaging — vcpkg
 
-- [ ] **VCPKG-01**: Source overlay port builds probe against user's Qt installation (no qtbase vcpkg dependency)
-- [ ] **VCPKG-02**: Binary overlay port downloads prebuilt probe from GitHub Releases
-- [ ] **VCPKG-03**: Port works with both Qt5 and Qt6 installations
+- [x] **VCPKG-01**: Source overlay port builds probe against user's Qt installation (no qtbase vcpkg dependency)
+- [x] **VCPKG-02**: Binary overlay port downloads prebuilt probe from GitHub Releases
+- [x] **VCPKG-03**: Port works with both Qt5 and Qt6 installations
 
 ### Packaging — PyPI
 
@@ -77,9 +77,9 @@
 | CICD-06 | Phase 10 | Complete |
 | CICD-07 | Phase 11 | Complete |
 | CICD-08 | Phase 11 | Complete |
-| VCPKG-01 | Phase 12 | Pending |
-| VCPKG-02 | Phase 12 | Pending |
-| VCPKG-03 | Phase 12 | Pending |
+| VCPKG-01 | Phase 12 | Complete |
+| VCPKG-02 | Phase 12 | Complete |
+| VCPKG-03 | Phase 12 | Complete |
 | PYPI-01 | Phase 13 | Pending |
 | PYPI-02 | Phase 13 | Pending |
 | PYPI-03 | Phase 13 | Pending |
