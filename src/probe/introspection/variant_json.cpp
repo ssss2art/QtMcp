@@ -21,7 +21,7 @@
 namespace qtmcp {
 
 QJsonValue variantToJson(const QVariant& value) {
-  if (!value.isValid() || value.isNull()) {
+  if (!value.isValid()) {
     return QJsonValue();  // null
   }
 
