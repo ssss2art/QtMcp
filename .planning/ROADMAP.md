@@ -118,7 +118,10 @@ Plans:
   2. Binary overlay port downloads the correct prebuilt probe from GitHub Releases
   3. Both port types work with Qt5 and Qt6 installations
   4. `vcpkg install qtmcp --overlay-ports=./ports` succeeds on a clean environment with Qt already installed
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 12-01-PLAN.md — Source overlay port (builds probe from source against user's Qt)
+- [ ] 12-02-PLAN.md — Binary overlay port (downloads prebuilt probe from GitHub Releases)
 
 ### Phase 13: PyPI Publication
 **Goal**: `pip install qtmcp` gives users a working MCP server with a CLI to fetch the correct probe
@@ -148,7 +151,7 @@ Plans:
 | 10. Patched Qt 5.15.1 CI | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 11. Release Automation | v1.1 | 2/2 | Complete | 2026-02-02 |
 | 11.1 Qt5/Qt6 Compat | v1.1 | 0/2 | Planned | - |
-| 12. vcpkg Port | v1.1 | 0/TBD | Not started | - |
+| 12. vcpkg Port | v1.1 | 0/2 | Planned | - |
 | 13. PyPI Publication | v1.1 | 0/TBD | Not started | - |
 
 ---
