@@ -2,11 +2,37 @@
 name = "qtmcp"
 version = "0.1.0"
 description = "MCP server for controlling Qt applications via QtMCP probe"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.11"
+authors = [
+    {name = "Scott Johnson"}
+]
+keywords = ["mcp", "qt", "automation", "testing", "claude"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "fastmcp>=2.0,<3",
     "websockets>=14.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ssss2art/QtMcp"
+Documentation = "https://github.com/ssss2art/QtMcp#readme"
+Repository = "https://github.com/ssss2art/QtMcp"
+Issues = "https://github.com/ssss2art/QtMcp/issues"
+Changelog = "https://github.com/ssss2art/QtMcp/releases"
 
 [project.scripts]
 qtmcp = "qtmcp.cli:main"
