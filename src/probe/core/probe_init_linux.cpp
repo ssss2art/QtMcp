@@ -64,6 +64,11 @@ void ensureInitialized() {
 // This function runs automatically when QCoreApplication starts.
 // It's the safe place to trigger probe initialization after Qt is ready.
 static void qtmcpAutoInit() {
+  // Check if probe is disabled via environment
+  QByteArray enabled = qgetenv("QTMCP_ENABLED");
+  if (enabled == "0") {
+    return;  // Probe disabled
+  }
   // QCoreApplication now exists, safe to initialize the probe
   g_initAttempted = true;
   qtmcp::Probe::instance()->initialize();
@@ -93,9 +98,13 @@ __attribute__((constructor)) static void onLibraryLoad() {
 
 // Library destructor - called on library unload.
 __attribute__((destructor)) static void onLibraryUnload() {
-  // Only shutdown if we actually initialized
-  if (g_initAttempted && qtmcp::Probe::instance()->isInitialized()) {
-    qtmcp::Probe::instance()->shutdown();
+  if (!g_initAttempted) {
+    return;
+  }
+  // Q_GLOBAL_STATIC returns nullptr after destruction - check before use
+  auto* probe = qtmcp::Probe::instance();
+  if (probe && probe->isInitialized()) {
+    probe->shutdown();
   }
 }
 
