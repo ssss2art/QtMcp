@@ -12,8 +12,8 @@ namespace compat {
 /// Extracts the key and modifiers from a QKeySequence at the given index.
 /// Qt6: Uses QKeyCombination::key() and QKeyCombination::keyboardModifiers().
 /// Qt5: Uses bitmask extraction on the integer key code.
-inline void extractKeyCombination(const QKeySequence& seq, int index,
-                                  Qt::Key& key, Qt::KeyboardModifiers& mods) {
+inline void extractKeyCombination(const QKeySequence& seq, int index, Qt::Key& key,
+                                  Qt::KeyboardModifiers& mods) {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
   key = seq[index].key();
   mods = seq[index].keyboardModifiers();
