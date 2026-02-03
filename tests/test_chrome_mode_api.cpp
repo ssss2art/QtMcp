@@ -902,7 +902,7 @@ void TestChromeModeApi::testFind_NameFallbackToObjectName()
     // The node must have a "name" field (from objectName fallback)
     QVERIFY2(matchNode.contains("name"),
         qPrintable(QString("Find result should include 'name' field. Got keys: %1")
-            .arg(QJsonDocument(matchNode).toJson(QJsonDocument::Compact))));
+            .arg(QString::fromUtf8(QJsonDocument(matchNode).toJson(QJsonDocument::Compact)))));
     // Name should be the objectName (since accessible name is empty)
     QCOMPARE(matchNode["name"].toString(), QString("mySpecialInput"));
 }

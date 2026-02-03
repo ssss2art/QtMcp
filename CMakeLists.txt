@@ -262,6 +262,8 @@ elseif(MSVC)
         /WX
         /permissive-
         /Zc:__cplusplus
+        /external:anglebrackets
+        /external:W0
     )
 endif()
 
