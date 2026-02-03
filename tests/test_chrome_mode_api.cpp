@@ -655,8 +655,9 @@ void TestChromeModeApi::testTabsContext_ListsWindows()
 
 void TestChromeModeApi::testReadConsoleMessages_CapturesDebug()
 {
-    // Emit a debug message
-    qDebug("chrome_test_message_12345");
+    // Use qWarning to ensure message reaches handler on all platforms
+    // (qDebug may be suppressed in Release builds on some configurations)
+    qWarning("chrome_test_message_12345");
     QApplication::processEvents();
 
     QJsonValue result = callResult("chr.readConsoleMessages", QJsonObject());
@@ -670,20 +671,20 @@ void TestChromeModeApi::testReadConsoleMessages_CapturesDebug()
     for (const QJsonValue& msg : messages) {
         if (msg.toObject()["message"].toString().contains("chrome_test_message_12345")) {
             found = true;
-            QCOMPARE(msg.toObject()["type"].toString(), QString("debug"));
+            QCOMPARE(msg.toObject()["type"].toString(), QString("warning"));
             break;
         }
     }
-    QVERIFY2(found, "Should capture qDebug message");
+    QVERIFY2(found, "Should capture qWarning message");
 }
 
 void TestChromeModeApi::testReadConsoleMessages_PatternFilter()
 {
     ConsoleMessageCapture::instance()->clear();
 
-    qDebug("alpha_message");
-    qDebug("beta_message");
-    qDebug("alpha_again");
+    qWarning("alpha_message");
+    qWarning("beta_message");
+    qWarning("alpha_again");
     QApplication::processEvents();
 
     QJsonValue result = callResult("chr.readConsoleMessages",
@@ -705,7 +706,7 @@ void TestChromeModeApi::testReadConsoleMessages_OnlyErrors()
 {
     ConsoleMessageCapture::instance()->clear();
 
-    qDebug("debug_only_msg");
+    qInfo("info_only_msg");
     qWarning("warning_only_msg");
     QApplication::processEvents();
 
@@ -716,11 +717,11 @@ void TestChromeModeApi::testReadConsoleMessages_OnlyErrors()
     QJsonObject obj = result.toObject();
     QJsonArray messages = obj["messages"].toArray();
 
-    // Should only contain warnings/errors, not debug
+    // Should only contain warnings/errors, not info
     for (const QJsonValue& msg : messages) {
         QString type = msg.toObject()["type"].toString();
-        QVERIFY2(type != "debug",
-            qPrintable(QString("onlyErrors should not include debug messages, got type: %1").arg(type)));
+        QVERIFY2(type != "info",
+            qPrintable(QString("onlyErrors should not include info messages, got type: %1").arg(type)));
     }
 
     // Should have at least the warning
@@ -736,7 +737,7 @@ void TestChromeModeApi::testReadConsoleMessages_OnlyErrors()
 
 void TestChromeModeApi::testReadConsoleMessages_Clear()
 {
-    qDebug("clearable_message");
+    qWarning("clearable_message");
     QApplication::processEvents();
 
     // Read with clear=true

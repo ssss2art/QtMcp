@@ -170,10 +170,6 @@ jobs:
         run: cmake --build --preset ${{ matrix.preset }} --parallel
 
       - name: Test
-        env:
-          QT_QPA_PLATFORM: offscreen
-          QT_FORCE_STDERR_LOGGING: '1'
-          QT_ASSUME_STDERR_HAS_CONSOLE: '1'
         run: ctest --preset ${{ matrix.preset }} --output-on-failure
 
       - name: Install

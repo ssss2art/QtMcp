@@ -4,14 +4,16 @@
 #include "console_message_capture.h"
 
 #include <QDateTime>
+#include <QGlobalStatic>
 #include <QMutexLocker>
 #include <QRegularExpression>
 
 namespace qtmcp {
 
+Q_GLOBAL_STATIC(ConsoleMessageCapture, s_instance)
+
 ConsoleMessageCapture* ConsoleMessageCapture::instance() {
-  static ConsoleMessageCapture s_instance;
-  return &s_instance;
+  return s_instance();
 }
 
 ConsoleMessageCapture::ConsoleMessageCapture() = default;
