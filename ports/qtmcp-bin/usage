@@ -1,0 +1,9 @@
+qtmcp-bin provides CMake targets:
+
+  find_package(QtMCP CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE QtMCP::Probe)
+
+The probe is loaded via injection (LD_PRELOAD on Linux, DLL injection on Windows).
+See the project README for injection instructions.
+
+Note: This is the prebuilt binary port. For building from source, use 'qtmcp' instead.
