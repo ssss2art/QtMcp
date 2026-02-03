@@ -432,7 +432,7 @@ add_test(NAME test_key_name_mapper COMMAND test_key_name_mapper
 )
 
 set_tests_properties(test_key_name_mapper PROPERTIES
-    ENVIRONMENT "QTMCP_ENABLED=0"
+    ENVIRONMENT "QTMCP_ENABLED=0;QT_QPA_PLATFORM=minimal"
 )
 
 if(WIN32)

@@ -209,5 +209,5 @@ void TestKeyNameMapper::testParseKeyCombo_ChromeStyle()
     QCOMPARE(combo2.modifiers, Qt::KeyboardModifiers(Qt::ControlModifier));
 }
 
-QTEST_MAIN(TestKeyNameMapper)
+QTEST_GUILESS_MAIN(TestKeyNameMapper)
 #include "test_key_name_mapper.moc"
