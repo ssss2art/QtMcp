@@ -264,6 +264,7 @@ elseif(MSVC)
         /Zc:__cplusplus
         /external:anglebrackets
         /external:W0
+        /wd4701  # Qt 6.5 qtestmouse.h has uninitialized variable warning
     )
 endif()
 
