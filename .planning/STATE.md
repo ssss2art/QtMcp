@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-01)
+See: .planning/PROJECT.md (updated 2026-02-03)
 
 **Core value:** Claude can control any Qt application with zero learning curve
-**Current focus:** v1.1 Distribution & Compatibility — COMPLETE
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 13 of 13 (PyPI Publication)
-Plan: 2 of 2 complete
-Status: Phase complete
-Last activity: 2026-02-03 — Completed 13-02-PLAN.md (PyPI Metadata and Publishing)
+Phase: 13 of 13 complete
+Plan: All complete
+Status: v1.1 milestone shipped
+Last activity: 2026-02-03 — v1.1 Distribution & Compatibility complete
 
-Progress: [####################] 100% (47/47 plans)
+Progress: [####################] 100% (47/47 plans across v1.0 + v1.1)
 
 ## Performance Metrics
 
@@ -25,8 +25,9 @@ Progress: [####################] 100% (47/47 plans)
 - Timeline: 7 days (2026-01-25 to 2026-02-01)
 
 **v1.1 Velocity:**
-- Plans completed: 12
-- Commits: 22
+- Plans completed: 14 (13 regular + Phase 11.1 inserted)
+- Commits: ~32
+- Timeline: 3 days (2026-02-01 to 2026-02-03)
 
 ## Accumulated Context
 
@@ -34,28 +35,7 @@ Progress: [####################] 100% (47/47 plans)
 
 See PROJECT.md Key Decisions table for full log.
 
-| Decision | Phase | Detail |
-|----------|-------|--------|
-| Artifact naming: qt{M}.{m} tag | 08-01 | qtmcp-probe-qt6.9[d].dll format |
-| Install layout: versioned lib dirs | 08-01 | lib/qtmcp/qt{M}.{m}/ for side-by-side |
-| Export name: QtMCP::Probe | 08-01 | Capital P, follows CMake convention |
-| Manual IMPORTED target | 08-02 | Replaced CMake EXPORT with manual target in config for versioned path support |
-| DLL in lib/ not bin/ | 08-02 | Single search location for DLL and import lib in config file |
-| vcpkg Qt feature-gate | 09-01 | Qt deps moved to opt-in vcpkg feature to avoid 30+ min CI builds |
-| Include-style matrix | 09-01 | Runner OS varies per Qt version; include entries not combinatorial |
-| No restore-keys for Qt cache | 10-01 | Partial match would restore unpatched Qt; exact key only |
-| git apply for patches | 10-01 | Cross-platform consistency; works on both Linux and Windows |
-| Push-only trigger for patched CI | 10-02 | Cold Qt builds take 30-60 min; no PR trigger saves CI minutes |
-| windows-2022 pinned for patched CI | 10-02 | MSVC v142 toolset guaranteed for Qt 5.15.1 compatibility |
-| fail_on_unmatched_files in release | 11-02 | Prevents incomplete releases if any probe binary missing |
-| Qt min versions: 5.15.1 / 6.5 | 11.1-02 | CMake FATAL_ERROR enforces minimum; QT_DISABLE_DEPRECATED_BEFORE=0x050F00 |
-| CI matrix: Qt 6.2 -> 6.5 | 11.1-02 | 6.2 is below new minimum; replaced with 6.5.3 LTS |
-| No Qt deps in vcpkg port | 12-01 | Port relies on user's Qt; project CMakeLists.txt handles find_package |
-| Per-artifact SHA512 | 12-02 | Binary port has per-Qt-version hash for single-file downloads |
-| CLI subcommand architecture | 13-01 | qtmcp serve / qtmcp download-probe - cleaner separation |
-| Stdlib-only download module | 13-01 | No new deps (urllib, hashlib, pathlib) for lightweight package |
-| OIDC Trusted Publishers | 13-02 | Secure keyless PyPI publishing without API tokens |
-| Hatchling build backend | 13-02 | Pure-Python wheel generation for PyPI |
+Recent v1.1 decisions archived to milestones/v1.1-ROADMAP.md.
 
 ### Pending Todos
 
@@ -63,20 +43,21 @@ None.
 
 ### Roadmap Evolution
 
-- Phase 11.1 inserted after Phase 11: Qt 5.15 / Qt 6 source compatibility (URGENT)
+- v1.0: Phases 1-7 (shipped 2026-02-01)
+- v1.1: Phases 8-13 + 11.1 inserted (shipped 2026-02-03)
 
 ### Blockers/Concerns
 
-- macOS deferred to separate milestone (v1.2?)
+- macOS support deferred to v1.2
 - Attach to running process deferred
-- vcpkg ports have SHA512 placeholder values (must update for first release)
+- vcpkg ports have SHA512 placeholder values (must update after first release tag)
 - PyPI Trusted Publisher must be configured before first release
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 13-02-PLAN.md (PyPI Metadata and Publishing)
+Stopped at: v1.1 milestone complete
 Resume file: None
 
 ---
-*State updated: 2026-02-03 (Phase 13 complete — PyPI publishing workflow ready)*
+*State updated: 2026-02-03 (v1.1 milestone complete — ready for /gsd:new-milestone)*

@@ -1,5 +1,33 @@
 # Project Milestones: QtMCP
 
+## v1.1 Distribution & Compatibility (Shipped: 2026-02-03)
+
+**Delivered:** Complete distribution infrastructure — anyone can install QtMCP from pip, vcpkg, or GitHub Releases with CI-tested binaries for Qt 5.15 through 6.9.
+
+**Phases completed:** 8-13 + 11.1 (13 plans total)
+
+**Key accomplishments:**
+
+- Multi-Qt build system with versioned artifact naming (`qtmcp-probe-qt6.8.dll`) and relocatable cmake config
+- 8-cell CI matrix testing Qt 5.15, 6.5, 6.8, 6.9 on Windows (MSVC) and Linux (GCC)
+- Patched Qt 5.15.1 CI with custom GCC 11+ patches and aggressive caching
+- Automated release workflow: tag push → 16 assets with SHA256 checksums → GitHub Release
+- Qt5/Qt6 source compatibility: single source tree compiles cleanly on Qt 5.15-6.9
+- vcpkg ports: source (build against your Qt) and binary (download prebuilt probe)
+- PyPI publication with OIDC Trusted Publishers (`pip install qtmcp`)
+
+**Stats:**
+
+- 139 files changed (+18,196 / -8,841 lines)
+- 7 phases (6 planned + 1 inserted), 13 plans, ~32 commits
+- 3 days from milestone start to ship (2026-02-01 to 2026-02-03)
+
+**Git range:** `6a0f178` (v1.0 complete) → `ef2058e` (PyPI Publication complete)
+
+**What's next:** v1.2 — macOS support with DYLD_INSERT_LIBRARIES injection
+
+---
+
 ## v1.0 MVP (Shipped: 2026-02-01)
 
 **Delivered:** Complete Qt application control library with C++ probe injection, three API modes (Native, Computer Use, Chrome), and Python MCP server for Claude integration.

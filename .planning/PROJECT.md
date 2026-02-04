@@ -25,16 +25,20 @@ Claude can control any Qt application with zero learning curve — the probe exp
 - Python MCP server with 53 tool definitions — v1.0
 - Python client library for automation scripts — v1.0
 - QML item introspection and Model/View navigation — v1.0
+- Multi-Qt version build system (5.15, 5.15.1-patched, 6.5, 6.8, 6.9) — v1.1
+- GitHub Actions CI/CD matrix build (4 Qt versions × 2 platforms) — v1.1
+- GitHub Releases with prebuilt probe binaries (16 assets) — v1.1
+- vcpkg port — source build (user builds against their Qt) — v1.1
+- vcpkg port — binary download (prebuilt from GitHub Releases) — v1.1
+- Python MCP server published to PyPI (`pip install qtmcp`) — v1.1
 
 ### Active
 
-#### v1.1 Distribution & Compatibility
-- [ ] Multi-Qt version build system (5.15, 5.15.1-patched, 6.2, 6.8, 6.9)
-- [ ] GitHub Actions CI/CD matrix build (5 Qt versions × 2 platforms)
-- [ ] GitHub Releases with prebuilt probe binaries (10 artifacts)
-- [ ] vcpkg port — source build (user builds against their Qt)
-- [ ] vcpkg port — binary download (prebuilt from GitHub Releases)
-- [ ] Python MCP server published to PyPI (`pip install qtmcp`)
+#### v1.2 macOS Support
+- [ ] DYLD_INSERT_LIBRARIES injection on macOS
+- [ ] macOS launcher
+- [ ] CI builds for macOS (Clang/AppleClang)
+- [ ] macOS probe binaries in GitHub Releases
 
 ### Out of Scope
 
@@ -49,15 +53,16 @@ Claude can control any Qt application with zero learning curve — the probe exp
 
 ## Context
 
-Shipped v1.0 with 17,292 LOC (15,912 C++ + 1,380 Python).
-Tech stack: C++17, Qt 5.15 LTS, Qt WebSockets, JSON-RPC 2.0, Python 3.8+, FastMCP 2.14.
-85 source files, 12 test suites, 34 UAT tests all passing.
-53 MCP tools across 3 modes for Claude integration.
+Shipped v1.1 with distribution infrastructure complete.
+Tech stack: C++17, Qt 5.15-6.9, Qt WebSockets, JSON-RPC 2.0, Python 3.8+, FastMCP 2.14.
+CI matrix: 8 cells (Qt 5.15, 6.5, 6.8, 6.9 × Windows/Linux) + 2 patched Qt cells.
+Distribution: GitHub Releases (16 artifacts), vcpkg overlay ports, PyPI (`pip install qtmcp`).
+Known tech debt: SHA512 placeholders in vcpkg ports (update after first release tag).
 
 ## Constraints
 
 - **Platform**: Windows and Linux only — macOS requires different injection approach
-- **Qt Version**: Qt 5.15, 5.15.1-patched, 6.2, 6.8, 6.9 — probe must build against each
+- **Qt Version**: Qt 5.15.1+, 6.5+ — probe builds against 5.15, 5.15.1-patched, 6.5, 6.8, 6.9
 - **Injection**: Launch-only — no attach to running process
 - **Security**: Localhost binding default — no authentication
 - **Dependencies**: Qt Core, Qt Network, Qt WebSockets modules required
@@ -77,6 +82,11 @@ Tech stack: C++17, Qt 5.15 LTS, Qt WebSockets, JSON-RPC 2.0, Python 3.8+, FastMC
 | Ephemeral refs for Chrome Mode | Fresh refs per readPage, avoids stale refs | Good |
 | Qt Quick as optional dependency | QTMCP_HAS_QML compile guard, graceful degradation | Good |
 | Minimal DllMain pattern | Only DisableThreadLibraryCalls + flag; defer all Qt work | Good |
+| Versioned artifact naming | `qtmcp-probe-qt{M}.{m}.dll` encodes Qt version in filename | Good |
+| Manual IMPORTED target | Replaced CMake EXPORT with manual target for versioned paths | Good |
+| Qt minimum versions 5.15.1/6.5 | CMake FATAL_ERROR enforces; QT_DISABLE_DEPRECATED_BEFORE | Good |
+| OIDC Trusted Publishers | Secure keyless PyPI publishing without API tokens | Good |
+| Per-artifact SHA512 in vcpkg | Binary port validates individual downloads | Good |
 
 ---
-*Last updated: 2026-02-01 after v1.1 milestone start*
+*Last updated: 2026-02-03 after v1.1 milestone*
