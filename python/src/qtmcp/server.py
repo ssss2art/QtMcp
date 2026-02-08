@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -11,20 +10,41 @@ from typing import AsyncIterator
 
 from fastmcp import FastMCP
 
-from qtmcp.connection import ProbeConnection
+from qtmcp.connection import ProbeConnection, ProbeError
+from qtmcp.discovery import DiscoveryListener
+from qtmcp.event_recorder import EventRecorder
 
 logger = logging.getLogger(__name__)
 
-# Module-level reference so resources/tools can access the connection
+# Module-level state so resources/tools can access the connection and discovery
 _probe: ProbeConnection | None = None
+_discovery: DiscoveryListener | None = None
+_recorder: EventRecorder = EventRecorder()
 _mode: str = "native"
 
 
-def get_probe() -> ProbeConnection:
-    """Get the current probe connection. Raises RuntimeError if not connected."""
-    if _probe is None:
-        raise RuntimeError("Probe connection not initialized")
+def get_probe() -> ProbeConnection | None:
+    """Get the current probe connection, or None if not connected."""
     return _probe
+
+
+def require_probe() -> ProbeConnection:
+    """Get the current probe connection. Raises ProbeError if not connected.
+
+    Tools should call this to get a connected probe; the error message
+    guides Claude to use qtmcp_list_probes / qtmcp_connect_probe.
+    """
+    if _probe is None or not _probe.is_connected:
+        raise ProbeError(
+            "No probe connected. Use qtmcp_list_probes to see available probes, "
+            "then qtmcp_connect_probe to connect to one."
+        )
+    return _probe
+
+
+def get_discovery() -> DiscoveryListener | None:
+    """Get the discovery listener, or None if discovery is disabled."""
+    return _discovery
 
 
 def get_mode() -> str:
@@ -32,21 +52,57 @@ def get_mode() -> str:
     return _mode
 
 
+def get_recorder() -> EventRecorder:
+    """Get the shared EventRecorder instance."""
+    return _recorder
+
+
+async def connect_to_probe(ws_url: str) -> ProbeConnection:
+    """Connect to a probe at the given WebSocket URL.
+
+    Disconnects any existing probe connection first.
+    """
+    global _probe
+
+    if _probe is not None and _probe.is_connected:
+        logger.info("Disconnecting from current probe at %s", _probe.ws_url)
+        await _probe.disconnect()
+        _probe = None
+
+    conn = ProbeConnection(ws_url)
+    await conn.connect()
+    _probe = conn
+    logger.info("Connected to probe at %s", ws_url)
+    return conn
+
+
+async def disconnect_probe() -> None:
+    """Disconnect the current probe connection if any."""
+    global _probe
+    if _probe is not None:
+        await _probe.disconnect()
+        _probe = None
+
+
 def create_server(
     mode: str,
-    ws_url: str,
+    ws_url: str | None = None,
     target: str | None = None,
     port: int = 9222,
     launcher_path: str | None = None,
+    discovery_port: int = 9221,
+    discovery_enabled: bool = True,
 ) -> FastMCP:
     """Create a FastMCP server for the given mode.
 
     Args:
         mode: API mode - "native", "cu", or "chrome".
-        ws_url: WebSocket URL of the QtMCP probe.
+        ws_url: Optional WebSocket URL to auto-connect on startup.
         target: Optional path to Qt application exe to auto-launch.
         port: Port for auto-launched probe.
         launcher_path: Optional path to qtmcp-launch executable.
+        discovery_port: UDP port for probe discovery (default: 9221).
+        discovery_enabled: Whether to start the discovery listener.
 
     Returns:
         Configured FastMCP instance ready to run.
@@ -56,12 +112,17 @@ def create_server(
 
     @asynccontextmanager
     async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
-        global _probe
+        global _probe, _discovery
         process = None
 
         try:
-            actual_ws_url = ws_url
+            # Start discovery listener
+            if discovery_enabled:
+                _discovery = DiscoveryListener(port=discovery_port)
+                await _discovery.start()
 
+            # Auto-launch target if specified
+            actual_ws_url = ws_url
             if target is not None:
                 launcher = (
                     launcher_path
@@ -79,20 +140,40 @@ def create_server(
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
-                # Wait for probe to start
                 await asyncio.sleep(1.5)
                 actual_ws_url = f"ws://localhost:{port}"
 
-            conn = ProbeConnection(actual_ws_url)
-            await conn.connect()
-            _probe = conn
+            # Auto-connect only if an explicit URL was given or target was launched
+            if actual_ws_url is not None:
+                try:
+                    await connect_to_probe(actual_ws_url)
+                except Exception as e:
+                    logger.warning(
+                        "Could not auto-connect to %s: %s. "
+                        "Use qtmcp_list_probes and qtmcp_connect_probe to connect later.",
+                        actual_ws_url,
+                        e,
+                    )
 
-            yield {"probe": conn}
+            yield {"probe": _probe, "discovery": _discovery}
 
         finally:
-            _probe = None
-            if conn is not None:
-                await conn.disconnect()
+            # Stop recording if active
+            if _recorder.is_recording and _probe is not None and _probe.is_connected:
+                try:
+                    await _recorder.stop(_probe)
+                except Exception:
+                    logger.debug("Failed to stop recording during shutdown", exc_info=True)
+
+            # Disconnect probe
+            await disconnect_probe()
+
+            # Stop discovery
+            if _discovery is not None:
+                await _discovery.stop()
+                _discovery = None
+
+            # Terminate launched process
             if process is not None:
                 process.terminate()
                 try:
@@ -102,11 +183,20 @@ def create_server(
 
     mcp = FastMCP(f"QtMCP {mode.title()}", lifespan=lifespan)
 
+    # Register discovery tools (always available regardless of mode)
+    from qtmcp.tools.discovery_tools import register_discovery_tools
+
+    register_discovery_tools(mcp)
+
     # Register mode-specific tools
     if mode == "native":
         from qtmcp.tools.native import register_native_tools
 
         register_native_tools(mcp)
+
+        from qtmcp.tools.recording_tools import register_recording_tools
+
+        register_recording_tools(mcp)
     elif mode == "cu":
         from qtmcp.tools.cu import register_cu_tools
 

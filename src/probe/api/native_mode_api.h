@@ -45,6 +45,7 @@ class QTMCP_EXPORT NativeModeApi : public QObject {
   void registerUiMethods();        ///< qt.ui.*
   void registerNameMapMethods();   ///< qt.names.*
   void registerSystemMethods();    ///< qt.ping, qt.version, qt.modes
+  void registerEventMethods();     ///< qt.events.*
   void registerQmlMethods();       ///< qt.qml.*
   void registerModelMethods();     ///< qt.models.*
 

@@ -7,6 +7,7 @@ set(PROBE_SOURCES
     introspection/variant_json.cpp
     introspection/meta_inspector.cpp
     introspection/signal_monitor.cpp
+    introspection/event_capture.cpp
     introspection/qml_inspector.cpp
     introspection/model_navigator.cpp
     interaction/input_simulator.cpp
@@ -14,6 +15,7 @@ set(PROBE_SOURCES
     interaction/hit_test.cpp
     transport/websocket_server.cpp
     transport/jsonrpc_handler.cpp
+    transport/discovery_broadcaster.cpp
     api/response_envelope.cpp
     api/symbolic_name_map.cpp
     api/native_mode_api.cpp
@@ -35,6 +37,7 @@ set(PROBE_HEADERS
     introspection/variant_json.h
     introspection/meta_inspector.h
     introspection/signal_monitor.h
+    introspection/event_capture.h
     introspection/qml_inspector.h
     introspection/model_navigator.h
     interaction/input_simulator.h
@@ -42,6 +45,7 @@ set(PROBE_HEADERS
     interaction/hit_test.h
     transport/websocket_server.h
     transport/jsonrpc_handler.h
+    transport/discovery_broadcaster.h
     api/error_codes.h
     api/response_envelope.h
     api/symbolic_name_map.h

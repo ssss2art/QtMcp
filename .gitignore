@@ -39,3 +39,32 @@
 
 # debug information files
 *.dwo
+
+# Build directories
+build/
+build_*/
+
+# Node.js
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code local config
+.claude/
+
+# Test output and artifacts
+stderr.txt
+stdout.txt
+test_*.txt
+*.png
+
+# Windows artifacts
+nul
+
+# Temporary demo/test scripts
+chrome_fill_demo*.js
+chrome_mode_demo.js
+uat_test*.js
+uat_screenshot.png

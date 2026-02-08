@@ -16,18 +16,17 @@ def register_status_resource(mcp: FastMCP) -> None:
     @mcp.resource("qtmcp://status")
     def probe_status() -> str:
         """Current probe connection status."""
-        from qtmcp.server import get_mode, get_probe
+        from qtmcp.server import get_discovery, get_mode, get_probe
 
-        try:
-            probe = get_probe()
-            return json.dumps({
-                "connected": probe.is_connected,
-                "ws_url": probe.ws_url,
-                "mode": get_mode(),
-            })
-        except RuntimeError:
-            return json.dumps({
-                "connected": False,
-                "ws_url": None,
-                "mode": get_mode(),
-            })
+        probe = get_probe()
+        discovery = get_discovery()
+
+        connected = probe is not None and probe.is_connected
+        result = {
+            "connected": connected,
+            "ws_url": probe.ws_url if connected else None,
+            "mode": get_mode(),
+            "discovery_active": discovery is not None and discovery.is_running,
+            "discovered_probes": len(discovery.probes) if discovery else 0,
+        }
+        return json.dumps(result)

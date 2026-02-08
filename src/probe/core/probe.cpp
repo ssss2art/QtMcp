@@ -27,7 +27,9 @@
 #include "api/symbolic_name_map.h"
 #include "core/object_registry.h"
 #include "core/object_resolver.h"
+#include "introspection/event_capture.h"
 #include "introspection/signal_monitor.h"
+#include "transport/discovery_broadcaster.h"
 #include "transport/websocket_server.h"
 
 #include <QDir>
@@ -154,6 +156,10 @@ bool Probe::initialize() {
 
   m_running = true;
 
+  // Start UDP discovery broadcaster
+  m_broadcaster = new DiscoveryBroadcaster(m_port, m_mode, this);
+  m_broadcaster->start();
+
   // Install console message capture (before API registration so early messages are caught)
   try {
     ConsoleMessageCapture::instance()->install();
@@ -250,6 +256,19 @@ bool Probe::initialize() {
             }
           });
 
+  // Wire event capture notifications to WebSocket client
+  connect(EventCapture::instance(), &EventCapture::eventCaptured, this,
+          [this](const QJsonObject& notification) {
+            if (m_server) {
+              QJsonObject rpcNotification;
+              rpcNotification["jsonrpc"] = "2.0";
+              rpcNotification["method"] = "qtmcp.eventCaptured";
+              rpcNotification["params"] = notification;
+              m_server->sendMessage(
+                  QString::fromUtf8(QJsonDocument(rpcNotification).toJson(QJsonDocument::Compact)));
+            }
+          });
+
   LOG_INFO("[QtMCP] Probe initialized successfully");
   fprintf(stderr, "[QtMCP] Probe initialized on port %u\n", static_cast<unsigned>(m_port));
 
@@ -270,6 +289,13 @@ void Probe::shutdown() {
 
   // Uninstall object hooks first (before any Qt objects are destroyed)
   uninstallObjectHooks();
+
+  // Stop discovery broadcaster (sends goodbye)
+  if (m_broadcaster) {
+    m_broadcaster->stop();
+    delete m_broadcaster;
+    m_broadcaster = nullptr;
+  }
 
   // Stop and delete WebSocket server
   if (m_server) {

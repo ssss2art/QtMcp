@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 
 from websockets.asyncio.client import connect
 
@@ -43,6 +44,7 @@ class ProbeConnection:
         self._pending: dict[int, asyncio.Future] = {}
         self._recv_task: asyncio.Task | None = None
         self._connected = False
+        self._notification_handler: Callable[[str, dict], None] | None = None
 
     @property
     def is_connected(self) -> bool:
@@ -53,6 +55,15 @@ class ProbeConnection:
     def ws_url(self) -> str:
         """The WebSocket URL this connection targets."""
         return self._ws_url
+
+    def on_notification(self, handler: Callable[[str, dict], None] | None) -> None:
+        """Register or unregister a callback for JSON-RPC notifications.
+
+        The handler receives (method, params) for each notification message
+        from the probe (messages with a ``method`` field but no ``id``).
+        Pass ``None`` to unregister.
+        """
+        self._notification_handler = handler
 
     async def connect(self) -> None:
         """Establish the WebSocket connection and start receiving."""
@@ -135,8 +146,15 @@ class ProbeConnection:
 
                 msg_id = msg.get("id")
                 if msg_id is None or msg_id not in self._pending:
-                    # Notification or unmatched response -- ignore
-                    logger.debug("Ignoring message with id=%s", msg_id)
+                    # JSON-RPC notification (no id, has method)
+                    method = msg.get("method")
+                    if method and self._notification_handler:
+                        try:
+                            self._notification_handler(method, msg.get("params", {}))
+                        except Exception:
+                            logger.debug("Notification handler error", exc_info=True)
+                    else:
+                        logger.debug("Ignoring message with id=%s", msg_id)
                     continue
 
                 future = self._pending.pop(msg_id)

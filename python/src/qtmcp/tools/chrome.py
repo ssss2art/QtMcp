@@ -17,68 +17,68 @@ def register_chrome_tools(mcp: FastMCP) -> None:
         """Read the accessible page structure with optional filtering.
         Example: chr_readPage(filter="buttons")
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {}
         if filter is not None:
             params["filter"] = filter
         if maxDepth is not None:
             params["maxDepth"] = maxDepth
-        return await get_probe().call("chr.readPage", params)
+        return await require_probe().call("chr.readPage", params)
 
     @mcp.tool
     async def chr_click(ref: str, ctx: Context = None) -> dict:
         """Click an element by its accessibility reference.
         Example: chr_click(ref="btn_submit")
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("chr.click", {"ref": ref})
+        return await require_probe().call("chr.click", {"ref": ref})
 
     @mcp.tool
     async def chr_formInput(ref: str, value: str | int | float | bool, ctx: Context = None) -> dict:
         """Set a form input value by accessibility reference.
         Example: chr_formInput(ref="input_name", value="Alice")
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("chr.formInput", {"ref": ref, "value": value})
+        return await require_probe().call("chr.formInput", {"ref": ref, "value": value})
 
     @mcp.tool
     async def chr_getPageText(ctx: Context) -> dict:
         """Get all visible text content from the page.
         Example: chr_getPageText()
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("chr.getPageText")
+        return await require_probe().call("chr.getPageText")
 
     @mcp.tool
     async def chr_find(query: str, ctx: Context = None) -> dict:
         """Search for elements matching a text query.
         Example: chr_find(query="Submit")
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("chr.find", {"query": query})
+        return await require_probe().call("chr.find", {"query": query})
 
     @mcp.tool
     async def chr_navigate(ref: str, ctx: Context = None) -> dict:
         """Navigate to or activate an element by reference.
         Example: chr_navigate(ref="tab_settings")
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("chr.navigate", {"ref": ref})
+        return await require_probe().call("chr.navigate", {"ref": ref})
 
     @mcp.tool
     async def chr_tabsContext(ctx: Context) -> dict:
         """Get context about all tabs/windows in the application.
         Example: chr_tabsContext()
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("chr.tabsContext")
+        return await require_probe().call("chr.tabsContext")
 
     @mcp.tool
     async def chr_readConsoleMessages(
@@ -90,7 +90,7 @@ def register_chrome_tools(mcp: FastMCP) -> None:
         """Read console/debug messages with optional filtering.
         Example: chr_readConsoleMessages(limit=10, pattern="error")
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {}
         if limit is not None:
@@ -99,4 +99,4 @@ def register_chrome_tools(mcp: FastMCP) -> None:
             params["pattern"] = pattern
         if clear is not None:
             params["clear"] = clear
-        return await get_probe().call("chr.readConsoleMessages", params)
+        return await require_probe().call("chr.readConsoleMessages", params)

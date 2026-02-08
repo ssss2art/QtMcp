@@ -13,9 +13,9 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Capture a full screenshot of the application window.
         Example: cu_screenshot()
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("cu.screenshot")
+        return await require_probe().call("cu.screenshot")
 
     @mcp.tool
     async def cu_leftClick(
@@ -27,14 +27,14 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Left-click at the given coordinates.
         Example: cu_leftClick(x=100, y=200)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"x": x, "y": y}
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
         if delay_ms is not None:
             params["delay_ms"] = delay_ms
-        return await get_probe().call("cu.leftClick", params)
+        return await require_probe().call("cu.leftClick", params)
 
     @mcp.tool
     async def cu_rightClick(
@@ -46,14 +46,14 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Right-click at the given coordinates.
         Example: cu_rightClick(x=100, y=200)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"x": x, "y": y}
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
         if delay_ms is not None:
             params["delay_ms"] = delay_ms
-        return await get_probe().call("cu.rightClick", params)
+        return await require_probe().call("cu.rightClick", params)
 
     @mcp.tool
     async def cu_middleClick(
@@ -65,14 +65,14 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Middle-click at the given coordinates.
         Example: cu_middleClick(x=100, y=200)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"x": x, "y": y}
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
         if delay_ms is not None:
             params["delay_ms"] = delay_ms
-        return await get_probe().call("cu.middleClick", params)
+        return await require_probe().call("cu.middleClick", params)
 
     @mcp.tool
     async def cu_doubleClick(
@@ -84,14 +84,14 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Double-click at the given coordinates.
         Example: cu_doubleClick(x=100, y=200)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"x": x, "y": y}
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
         if delay_ms is not None:
             params["delay_ms"] = delay_ms
-        return await get_probe().call("cu.doubleClick", params)
+        return await require_probe().call("cu.doubleClick", params)
 
     @mcp.tool
     async def cu_mouseMove(
@@ -102,12 +102,12 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Move the mouse cursor to the given coordinates.
         Example: cu_mouseMove(x=300, y=400)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"x": x, "y": y}
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
-        return await get_probe().call("cu.mouseMove", params)
+        return await require_probe().call("cu.mouseMove", params)
 
     @mcp.tool
     async def cu_mouseDrag(
@@ -118,12 +118,12 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Drag from start to end coordinates.
         Example: cu_mouseDrag(startX=10, startY=20, endX=200, endY=300)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"startX": startX, "startY": startY, "endX": endX, "endY": endY}
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
-        return await get_probe().call("cu.mouseDrag", params)
+        return await require_probe().call("cu.mouseDrag", params)
 
     @mcp.tool
     async def cu_mouseDown(
@@ -135,14 +135,14 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Press a mouse button down at the given coordinates.
         Example: cu_mouseDown(x=100, y=200)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"x": x, "y": y}
         if button is not None:
             params["button"] = button
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
-        return await get_probe().call("cu.mouseDown", params)
+        return await require_probe().call("cu.mouseDown", params)
 
     @mcp.tool
     async def cu_mouseUp(
@@ -154,32 +154,32 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Release a mouse button at the given coordinates.
         Example: cu_mouseUp(x=100, y=200)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"x": x, "y": y}
         if button is not None:
             params["button"] = button
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
-        return await get_probe().call("cu.mouseUp", params)
+        return await require_probe().call("cu.mouseUp", params)
 
     @mcp.tool
     async def cu_type(text: str, ctx: Context = None) -> dict:
         """Type text at the current cursor position.
         Example: cu_type(text="Hello world")
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("cu.type", {"text": text})
+        return await require_probe().call("cu.type", {"text": text})
 
     @mcp.tool
     async def cu_key(key: str, ctx: Context = None) -> dict:
         """Press a key or key combination.
         Example: cu_key(key="Return")
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("cu.key", {"key": key})
+        return await require_probe().call("cu.key", {"key": key})
 
     @mcp.tool
     async def cu_scroll(
@@ -191,20 +191,20 @@ def register_cu_tools(mcp: FastMCP) -> None:
         """Scroll at the given coordinates in a direction.
         Example: cu_scroll(x=100, y=200, direction="down", amount=3)
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
         params: dict = {"x": x, "y": y, "direction": direction}
         if amount is not None:
             params["amount"] = amount
         if screenAbsolute is not None:
             params["screenAbsolute"] = screenAbsolute
-        return await get_probe().call("cu.scroll", params)
+        return await require_probe().call("cu.scroll", params)
 
     @mcp.tool
     async def cu_cursorPosition(ctx: Context) -> dict:
         """Get the current cursor position.
         Example: cu_cursorPosition()
         """
-        from qtmcp.server import get_probe
+        from qtmcp.server import require_probe
 
-        return await get_probe().call("cu.cursorPosition")
+        return await require_probe().call("cu.cursorPosition")

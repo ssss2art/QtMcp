@@ -10,9 +10,12 @@ import sys
 
 def cmd_serve(args: argparse.Namespace) -> int:
     """Run the MCP server."""
-    ws_url = args.ws_url
+    # ws_url is None unless explicitly provided or a target is specified
+    ws_url = None
     if args.target:
         ws_url = f"ws://localhost:{args.port}"
+    elif args.ws_url:
+        ws_url = args.ws_url
 
     from qtmcp.server import create_server
 
@@ -22,6 +25,8 @@ def cmd_serve(args: argparse.Namespace) -> int:
         target=args.target,
         port=args.port,
         launcher_path=args.launcher_path,
+        discovery_port=args.discovery_port,
+        discovery_enabled=not args.no_discovery,
     )
     server.run()
     return 0
@@ -91,8 +96,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     serve_parser.add_argument(
         "--ws-url",
-        default=os.environ.get("QTMCP_WS_URL", "ws://localhost:9222"),
-        help="WebSocket URL of the QtMCP probe (default: ws://localhost:9222)",
+        default=os.environ.get("QTMCP_WS_URL"),
+        help="WebSocket URL of the QtMCP probe (auto-connect on startup)",
     )
     serve_parser.add_argument(
         "--target",
@@ -109,6 +114,17 @@ def create_parser() -> argparse.ArgumentParser:
         "--launcher-path",
         default=os.environ.get("QTMCP_LAUNCHER"),
         help="Path to qtmcp-launch executable",
+    )
+    serve_parser.add_argument(
+        "--discovery-port",
+        type=int,
+        default=int(os.environ.get("QTMCP_DISCOVERY_PORT", "9221")),
+        help="UDP port for probe discovery (default: 9221)",
+    )
+    serve_parser.add_argument(
+        "--no-discovery",
+        action="store_true",
+        help="Disable UDP probe discovery",
     )
     serve_parser.set_defaults(func=cmd_serve)
 

@@ -23,8 +23,9 @@
 
 namespace qtmcp {
 
-// Forward declaration - WebSocketServer will be implemented in a later plan
+// Forward declarations
 class WebSocketServer;
+class DiscoveryBroadcaster;
 
 /// @brief Main probe class that manages the QtMCP introspection system.
 ///
@@ -113,8 +114,10 @@ class QTMCP_EXPORT Probe : public QObject {
   void readConfiguration();
 
   // WebSocket server - will be created in initialize()
-  // Using raw pointer because WebSocketServer is not yet implemented
   WebSocketServer* m_server = nullptr;
+
+  // UDP discovery broadcaster - announces this probe to MCP servers
+  DiscoveryBroadcaster* m_broadcaster = nullptr;
 
   // Configuration
   quint16 m_port = 9222;

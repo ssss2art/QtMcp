@@ -49,6 +49,10 @@ class MockWebSocket:
         except asyncio.TimeoutError:
             raise StopAsyncIteration
 
+    async def inject_notification(self, notification: dict) -> None:
+        """Simulate a probe push notification (no id, has method)."""
+        await self._pending_responses.put(json.dumps(notification))
+
     async def close(self) -> None:
         self._closed = True
 

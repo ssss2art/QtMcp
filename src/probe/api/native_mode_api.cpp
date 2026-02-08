@@ -11,6 +11,7 @@
 #include "interaction/hit_test.h"
 #include "interaction/input_simulator.h"
 #include "interaction/screenshot.h"
+#include "introspection/event_capture.h"
 #include "introspection/meta_inspector.h"
 #include "introspection/model_navigator.h"
 #include "introspection/object_id.h"
@@ -93,6 +94,7 @@ NativeModeApi::NativeModeApi(JsonRpcHandler* handler, QObject* parent)
   registerPropertyMethods();
   registerMethodMethods();
   registerSignalMethods();
+  registerEventMethods();
   registerUiMethods();
   registerNameMapMethods();
   registerQmlMethods();
@@ -525,6 +527,30 @@ void NativeModeApi::registerSignalMethods() {
                               SignalMonitor::instance()->setLifecycleNotificationsEnabled(enabled);
                               QJsonObject result;
                               result[QStringLiteral("enabled")] = enabled;
+                              return envelopeToString(ResponseEnvelope::wrap(result));
+                            });
+}
+
+// ============================================================================
+// Event capture: qt.events.*
+// ============================================================================
+
+void NativeModeApi::registerEventMethods() {
+  // qt.events.startCapture - start global event capture
+  m_handler->RegisterMethod(QStringLiteral("qt.events.startCapture"),
+                            [](const QString& /*params*/) -> QString {
+                              EventCapture::instance()->startCapture();
+                              QJsonObject result;
+                              result[QStringLiteral("capturing")] = true;
+                              return envelopeToString(ResponseEnvelope::wrap(result));
+                            });
+
+  // qt.events.stopCapture - stop global event capture
+  m_handler->RegisterMethod(QStringLiteral("qt.events.stopCapture"),
+                            [](const QString& /*params*/) -> QString {
+                              EventCapture::instance()->stopCapture();
+                              QJsonObject result;
+                              result[QStringLiteral("capturing")] = false;
                               return envelopeToString(ResponseEnvelope::wrap(result));
                             });
 }
