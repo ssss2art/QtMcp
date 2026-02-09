@@ -13,6 +13,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QMutexLocker>
+#include <QResizeEvent>
 #include <QWidget>
 
 namespace qtmcp {
@@ -32,6 +33,11 @@ EventCapture::EventCapture() : QObject(nullptr) {
   m_capturedTypes.insert(QEvent::KeyRelease);
   m_capturedTypes.insert(QEvent::FocusIn);
   m_capturedTypes.insert(QEvent::FocusOut);
+  // Window lifecycle
+  m_capturedTypes.insert(QEvent::Show);
+  m_capturedTypes.insert(QEvent::Hide);
+  m_capturedTypes.insert(QEvent::Close);
+  m_capturedTypes.insert(QEvent::Resize);
 
   qDebug() << "[QtMCP] EventCapture created";
 }
@@ -111,6 +117,18 @@ bool EventCapture::eventFilter(QObject* watched, QEvent* event) {
       break;
     case QEvent::FocusOut:
       notification = buildFocusNotification(watched, event, QStringLiteral("FocusOut"));
+      break;
+    case QEvent::Show:
+      notification = buildWindowNotification(watched, event, QStringLiteral("Show"));
+      break;
+    case QEvent::Hide:
+      notification = buildWindowNotification(watched, event, QStringLiteral("Hide"));
+      break;
+    case QEvent::Close:
+      notification = buildWindowNotification(watched, event, QStringLiteral("Close"));
+      break;
+    case QEvent::Resize:
+      notification = buildWindowNotification(watched, event, QStringLiteral("Resize"));
       break;
     default:
       return false;
@@ -225,6 +243,26 @@ QJsonObject EventCapture::buildFocusNotification(QObject* widget, QEvent* event,
   notification[QStringLiteral("className")] =
       QString::fromLatin1(widget->metaObject()->className());
   notification[QStringLiteral("reason")] = focusReasonName(fe->reason());
+
+  return notification;
+}
+
+QJsonObject EventCapture::buildWindowNotification(QObject* widget, QEvent* event,
+                                                   const QString& typeName) {
+  QJsonObject notification;
+  notification[QStringLiteral("type")] = typeName;
+  notification[QStringLiteral("objectId")] = ObjectRegistry::instance()->objectId(widget);
+  notification[QStringLiteral("objectName")] = widget->objectName();
+  notification[QStringLiteral("className")] =
+      QString::fromLatin1(widget->metaObject()->className());
+
+  if (event->type() == QEvent::Resize) {
+    auto* re = static_cast<QResizeEvent*>(event);
+    QJsonObject size;
+    size[QStringLiteral("w")] = re->size().width();
+    size[QStringLiteral("h")] = re->size().height();
+    notification[QStringLiteral("size")] = size;
+  }
 
   return notification;
 }

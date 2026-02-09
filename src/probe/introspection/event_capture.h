@@ -69,6 +69,9 @@ class QTMCP_EXPORT EventCapture : public QObject {
   /// @brief Build notification JSON for a focus event.
   QJsonObject buildFocusNotification(QObject* widget, QEvent* event, const QString& typeName);
 
+  /// @brief Build notification JSON for a window lifecycle event (Show, Hide, Close, Resize, Activate).
+  QJsonObject buildWindowNotification(QObject* widget, QEvent* event, const QString& typeName);
+
   bool m_capturing = false;
 
   /// @brief Set of QEvent::Type values we capture.

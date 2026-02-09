@@ -2,6 +2,26 @@
 
 enable_testing()
 
+# Deploy the minimal platform plugin for headless testing (QT_QPA_PLATFORM=minimal).
+# windeployqt only deploys 'qwindows' — we need 'qminimal' explicitly.
+if(WIN32)
+    get_target_property(_qt_plugins_dir Qt${QT_VERSION_MAJOR}::Core LOCATION)
+    get_filename_component(_qt_bin_dir "${_qt_plugins_dir}" DIRECTORY)
+    set(_qminimal_src "${_qt_bin_dir}/../plugins/platforms/qminimald.dll")
+    if(EXISTS "${_qminimal_src}")
+        # Copy once via the first test target (all tests share the same output dir)
+        add_custom_command(OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/platforms/qminimald.dll"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_qminimal_src}"
+                "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/platforms/qminimald.dll"
+            COMMENT "Deploying qminimald.dll for headless tests..."
+        )
+        add_custom_target(deploy_qminimal ALL
+            DEPENDS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/platforms/qminimald.dll"
+        )
+    endif()
+endif()
+
 # Test sources
 set(TEST_SOURCES
     test_jsonrpc.cpp
@@ -582,5 +602,52 @@ if(WIN32)
             "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
             "$<TARGET_FILE_DIR:test_model_navigator>"
         COMMENT "Copying Qt Test DLL for test_model_navigator..."
+    )
+endif()
+
+# EventCapture window lifecycle event tests
+add_executable(test_event_capture
+    test_event_capture.cpp
+)
+
+if(QT_VERSION_MAJOR EQUAL 6)
+    target_link_libraries(test_event_capture
+        PRIVATE
+            qtmcp_probe
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Test
+    )
+else()
+    target_link_libraries(test_event_capture
+        PRIVATE
+            qtmcp_probe
+            Qt5::Core
+            Qt5::Gui
+            Qt5::Widgets
+            Qt5::Test
+    )
+endif()
+
+target_include_directories(test_event_capture
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/probe
+)
+
+add_test(NAME test_event_capture COMMAND test_event_capture
+    WORKING_DIRECTORY "$<TARGET_FILE_DIR:test_event_capture>"
+)
+
+set_tests_properties(test_event_capture PROPERTIES
+    ENVIRONMENT "QTMCP_ENABLED=0;QT_QPA_PLATFORM=minimal"
+)
+
+if(WIN32)
+    add_custom_command(TARGET test_event_capture POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::Test>"
+            "$<TARGET_FILE_DIR:test_event_capture>"
+        COMMENT "Copying Qt Test DLL for test_event_capture..."
     )
 endif()
