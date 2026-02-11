@@ -30,14 +30,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { qt: "5.15.2", os: ubuntu-24.04, preset: release,         platform: linux }
-          - { qt: "5.15.2", os: windows-latest, preset: windows-release, platform: windows }
-          - { qt: "6.5.3",  os: ubuntu-24.04, preset: release,         platform: linux }
-          - { qt: "6.5.3",  os: windows-latest, preset: windows-release, platform: windows }
-          - { qt: "6.8.0",  os: ubuntu-24.04, preset: release,         platform: linux }
-          - { qt: "6.8.0",  os: windows-latest, preset: windows-release, platform: windows }
-          - { qt: "6.9.0",  os: ubuntu-24.04, preset: release,         platform: linux }
-          - { qt: "6.9.0",  os: windows-latest, preset: windows-release, platform: windows }
+          - { qt: "5.15.2", os: ubuntu-24.04, preset: release,         platform: linux,   modules: "" }
+          - { qt: "5.15.2", os: windows-latest, preset: windows-release, platform: windows, modules: "" }
+          - { qt: "6.5.3",  os: ubuntu-24.04, preset: release,         platform: linux,   modules: "qtwebsockets" }
+          - { qt: "6.5.3",  os: windows-latest, preset: windows-release, platform: windows, modules: "qtwebsockets" }
+          - { qt: "6.8.0",  os: ubuntu-24.04, preset: release,         platform: linux,   modules: "qtwebsockets" }
+          - { qt: "6.8.0",  os: windows-latest, preset: windows-release, platform: windows, modules: "qtwebsockets" }
+          - { qt: "6.9.0",  os: ubuntu-24.04, preset: release,         platform: linux,   modules: "qtwebsockets" }
+          - { qt: "6.9.0",  os: windows-latest, preset: windows-release, platform: windows, modules: "qtwebsockets" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +46,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ matrix.qt }}
+          modules: ${{ matrix.modules }}
           cache: true
 
       - name: Install X11 dependencies (Linux)
