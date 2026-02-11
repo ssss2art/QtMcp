@@ -18,7 +18,8 @@
 namespace {
 
 /// @brief Find the probe library adjacent to the launcher executable.
-/// @param qtVersion If non-empty, filter matches to those containing this version tag (e.g. "5.15").
+/// @param qtVersion If non-empty, filter matches to those containing
+///   this version tag (e.g. "5.15").
 /// @return Absolute path to the probe library, or empty string if not found.
 QString findProbePath(const QString& qtVersion) {
   QDir exeDir(QCoreApplication::applicationDirPath());
