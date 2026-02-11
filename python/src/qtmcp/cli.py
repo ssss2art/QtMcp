@@ -27,6 +27,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
         launcher_path=args.launcher_path,
         discovery_port=args.discovery_port,
         discovery_enabled=not args.no_discovery,
+        qt_version=args.qt_version,
     )
     server.run()
     return 0
@@ -174,6 +175,12 @@ def create_parser() -> argparse.ArgumentParser:
         type=int,
         default=int(os.environ.get("QTMCP_DISCOVERY_PORT", "9221")),
         help="UDP port for probe discovery (default: 9221)",
+    )
+    serve_parser.add_argument(
+        "--qt-version",
+        default=None,
+        metavar="VERSION",
+        help="Qt version for probe auto-detection (e.g., 5.15, 6.8)",
     )
     serve_parser.add_argument(
         "--no-discovery",

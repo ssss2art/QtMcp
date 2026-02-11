@@ -18,26 +18,56 @@
 namespace {
 
 /// @brief Find the probe library adjacent to the launcher executable.
+/// @param qtVersion If non-empty, filter matches to those containing this version tag (e.g. "5.15").
 /// @return Absolute path to the probe library, or empty string if not found.
-QString findProbePath() {
+QString findProbePath(const QString& qtVersion) {
   QDir exeDir(QCoreApplication::applicationDirPath());
 
 #ifdef Q_OS_WIN
-  // Look for qtmcp-probe.dll in same directory or parent lib directory
-  QStringList searchPaths = {exeDir.filePath("qtmcp-probe.dll"),
-                             exeDir.filePath("../lib/qtmcp-probe.dll"),
-                             exeDir.filePath("lib/qtmcp-probe.dll")};
+  const QString globPattern = QStringLiteral("qtmcp-probe*.dll");
 #else
-  // Linux: look for libqtmcp-probe.so
-  QStringList searchPaths = {exeDir.filePath("libqtmcp-probe.so"),
-                             exeDir.filePath("../lib/libqtmcp-probe.so"),
-                             exeDir.filePath("lib/libqtmcp-probe.so")};
+  const QString globPattern = QStringLiteral("libqtmcp-probe*.so");
 #endif
 
-  for (const QString& path : searchPaths) {
-    if (QFileInfo::exists(path)) {
-      return QFileInfo(path).absoluteFilePath();
+  QStringList searchDirs = {
+      exeDir.absolutePath(),
+      exeDir.absoluteFilePath(QStringLiteral("../lib")),
+      exeDir.absoluteFilePath(QStringLiteral("lib")),
+  };
+
+  // Glob for probe libraries across all search dirs
+  QStringList allMatches;
+  for (const QString& dir : searchDirs) {
+    QDir d(dir);
+    if (!d.exists())
+      continue;
+    for (const QString& entry : d.entryList({globPattern}, QDir::Files, QDir::Name)) {
+      QString fullPath = QFileInfo(d.filePath(entry)).absoluteFilePath();
+      if (!allMatches.contains(fullPath))
+        allMatches.append(fullPath);
     }
+  }
+
+  // Filter by Qt version if specified
+  if (!qtVersion.isEmpty()) {
+    QString versionTag = QStringLiteral("qt") + qtVersion;
+    QStringList filtered;
+    for (const QString& path : allMatches) {
+      if (QFileInfo(path).fileName().contains(versionTag))
+        filtered.append(path);
+    }
+    allMatches = filtered;
+  }
+
+  if (allMatches.size() == 1)
+    return allMatches.first();
+
+  if (allMatches.size() > 1) {
+    fprintf(stderr, "Error: Multiple probe libraries found:\n");
+    for (const QString& p : allMatches)
+      fprintf(stderr, "  %s\n", qPrintable(p));
+    fprintf(stderr, "Use --qt-version to select one, or --probe for an exact path\n");
+    return QString();
   }
 
   return QString();
@@ -76,6 +106,12 @@ int main(int argc, char* argv[]) {
       QStringLiteral("Path to probe library (auto-detected if not specified)"),
       QStringLiteral("path"));
   parser.addOption(probeOption);
+
+  QCommandLineOption qtVersionOption(
+      QStringLiteral("qt-version"),
+      QStringLiteral("Qt version to select probe for (e.g., 5.15, 6.8)"),
+      QStringLiteral("version"));
+  parser.addOption(qtVersionOption);
 
   // Positional arguments: target executable and its arguments
   parser.addPositionalArgument(QStringLiteral("target"),
@@ -154,7 +190,7 @@ int main(int argc, char* argv[]) {
     }
     options.probePath = QFileInfo(options.probePath).absoluteFilePath();
   } else {
-    options.probePath = findProbePath();
+    options.probePath = findProbePath(parser.value(qtVersionOption));
     if (options.probePath.isEmpty()) {
       fprintf(stderr, "Error: Could not find QtMCP probe library\n");
       fprintf(stderr, "Use --probe option to specify the path\n");

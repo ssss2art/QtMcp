@@ -7,17 +7,38 @@ enable_testing()
 if(WIN32)
     get_target_property(_qt_plugins_dir Qt${QT_VERSION_MAJOR}::Core LOCATION)
     get_filename_component(_qt_bin_dir "${_qt_plugins_dir}" DIRECTORY)
-    set(_qminimal_src "${_qt_bin_dir}/../plugins/platforms/qminimald.dll")
-    if(EXISTS "${_qminimal_src}")
-        add_custom_command(OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/platforms/qminimald.dll"
+
+    # Deploy both Debug and Release variants so tests work in either config.
+    set(_qminimal_debug_src "${_qt_bin_dir}/../plugins/platforms/qminimald.dll")
+    set(_qminimal_release_src "${_qt_bin_dir}/../plugins/platforms/qminimal.dll")
+    set(_deploy_outputs "")
+
+    if(EXISTS "${_qminimal_debug_src}")
+        set(_debug_dest "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/platforms/qminimald.dll")
+        add_custom_command(OUTPUT "${_debug_dest}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/platforms"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${_qminimal_src}"
-                "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/platforms/qminimald.dll"
-            COMMENT "Deploying qminimald.dll for headless tests..."
+                "${_qminimal_debug_src}" "${_debug_dest}"
+            COMMENT "Deploying qminimald.dll for headless tests (Debug)..."
         )
-        add_custom_target(deploy_qminimal ALL
-            DEPENDS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug/platforms/qminimald.dll"
+        list(APPEND _deploy_outputs "${_debug_dest}")
+    endif()
+
+    if(EXISTS "${_qminimal_release_src}")
+        set(_release_dest "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Release/platforms/qminimal.dll")
+        add_custom_command(OUTPUT "${_release_dest}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Release/platforms"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_qminimal_release_src}" "${_release_dest}"
+            COMMENT "Deploying qminimal.dll for headless tests (Release)..."
         )
+        list(APPEND _deploy_outputs "${_release_dest}")
+    endif()
+
+    if(_deploy_outputs)
+        add_custom_target(deploy_qminimal ALL DEPENDS ${_deploy_outputs})
     endif()
 endif()
 

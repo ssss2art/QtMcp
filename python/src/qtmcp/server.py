@@ -92,6 +92,7 @@ def create_server(
     launcher_path: str | None = None,
     discovery_port: int = 9221,
     discovery_enabled: bool = True,
+    qt_version: str | None = None,
 ) -> FastMCP:
     """Create a FastMCP server for the given mode.
 
@@ -103,6 +104,7 @@ def create_server(
         launcher_path: Optional path to qtmcp-launch executable.
         discovery_port: UDP port for probe discovery (default: 9221).
         discovery_enabled: Whether to start the discovery listener.
+        qt_version: Optional Qt version for probe auto-detection (e.g. "5.15").
 
     Returns:
         Configured FastMCP instance ready to run.
@@ -134,12 +136,17 @@ def create_server(
                 logger.debug(
                     "Launching target %s via %s on port %d", target, launcher, port
                 )
+                launch_args = [
+                    launcher,
+                    target,
+                    "--port",
+                    str(port),
+                ]
+                if qt_version:
+                    launch_args.extend(["--qt-version", qt_version])
                 try:
                     process = await asyncio.create_subprocess_exec(
-                        launcher,
-                        target,
-                        "--port",
-                        str(port),
+                        *launch_args,
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE,
                     )
