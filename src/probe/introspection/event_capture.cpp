@@ -3,6 +3,7 @@
 
 #include "introspection/event_capture.h"
 
+#include "compat/compat_gui.h"
 #include "core/object_registry.h"
 
 #include <QCoreApplication>
@@ -203,13 +204,15 @@ QJsonObject EventCapture::buildMouseNotification(QObject* widget, QEvent* event,
   notification[QStringLiteral("button")] = mouseButtonName(me->button());
 
   QJsonObject pos;
-  pos[QStringLiteral("x")] = me->pos().x();
-  pos[QStringLiteral("y")] = me->pos().y();
+  QPoint localPoint = compat::mousePos(me);
+  pos[QStringLiteral("x")] = localPoint.x();
+  pos[QStringLiteral("y")] = localPoint.y();
   notification[QStringLiteral("pos")] = pos;
 
   QJsonObject globalPos;
-  globalPos[QStringLiteral("x")] = me->globalPos().x();
-  globalPos[QStringLiteral("y")] = me->globalPos().y();
+  QPoint globalPoint = compat::mouseGlobalPos(me);
+  globalPos[QStringLiteral("x")] = globalPoint.x();
+  globalPos[QStringLiteral("y")] = globalPoint.y();
   notification[QStringLiteral("globalPos")] = globalPos;
 
   return notification;

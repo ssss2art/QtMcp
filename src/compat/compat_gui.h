@@ -4,10 +4,33 @@
 #pragma once
 
 #include <QKeySequence>
+#include <QMouseEvent>
 #include <QtGlobal>
 
 namespace qtmcp {
 namespace compat {
+
+/// Returns the local position of a mouse event as QPoint.
+/// Qt6: Uses position().toPoint() (pos() is deprecated in Qt 6.6+).
+/// Qt5: Uses pos().
+inline QPoint mousePos(const QMouseEvent* event) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  return event->position().toPoint();
+#else
+  return event->pos();
+#endif
+}
+
+/// Returns the global (screen) position of a mouse event as QPoint.
+/// Qt6: Uses globalPosition().toPoint() (globalPos() is deprecated in Qt 6.6+).
+/// Qt5: Uses globalPos().
+inline QPoint mouseGlobalPos(const QMouseEvent* event) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  return event->globalPosition().toPoint();
+#else
+  return event->globalPos();
+#endif
+}
 
 /// Extracts the key and modifiers from a QKeySequence at the given index.
 /// Qt6: Uses QKeyCombination::key() and QKeyCombination::keyboardModifiers().
