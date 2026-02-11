@@ -22,8 +22,7 @@ add_executable(qtmcp_launcher
     ${LAUNCHER_HEADERS}
 )
 
-# Link Qt libraries - use Qt version-independent approach
-# QT_VERSION_MAJOR is set by root CMakeLists.txt
+# Link Qt libraries
 if(QT_VERSION_MAJOR EQUAL 6)
     target_link_libraries(qtmcp_launcher
         PRIVATE
@@ -37,7 +36,7 @@ else()
 endif()
 
 set_target_properties(qtmcp_launcher PROPERTIES
-    OUTPUT_NAME "qtmcp-launch-${QTMCP_QT_VERSION_TAG}"
+    OUTPUT_NAME "qtmcp-launcher"
     DEBUG_POSTFIX "d"
 )
 
@@ -45,8 +44,3 @@ set_target_properties(qtmcp_launcher PROPERTIES
 target_include_directories(qtmcp_launcher PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
-
-# Note: Cannot create ALIAS for executables, so no QtMCP::launcher alias
-
-# Deploy Qt DLLs on Windows
-qtmcp_deploy_qt(qtmcp_launcher)

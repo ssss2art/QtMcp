@@ -59,7 +59,6 @@ set(PROBE_HEADERS
 )
 
 # Platform-specific initialization entry points
-# These contain DllMain (Windows) and __attribute__((constructor)) (Linux)
 if(WIN32)
     list(APPEND PROBE_SOURCES core/probe_init_windows.cpp)
 elseif(UNIX AND NOT APPLE)
@@ -86,7 +85,7 @@ target_compile_definitions(qtmcp_probe PRIVATE
     QTMCP_PROBE_LIBRARY
 )
 
-# Windows: export all symbols for DLL (simplifies development)
+# Windows: export all symbols for DLL
 if(WIN32)
     set_target_properties(qtmcp_probe PROPERTIES
         WINDOWS_EXPORT_ALL_SYMBOLS ON
@@ -103,8 +102,7 @@ target_include_directories(qtmcp_probe
         ${CMAKE_CURRENT_SOURCE_DIR}/../
 )
 
-# Link Qt libraries - use Qt version-independent approach
-# QT_VERSION_MAJOR is set by root CMakeLists.txt
+# Link Qt libraries
 if(QT_VERSION_MAJOR EQUAL 6)
     target_link_libraries(qtmcp_probe
         PUBLIC
@@ -112,9 +110,9 @@ if(QT_VERSION_MAJOR EQUAL 6)
             Qt6::Network
             Qt6::WebSockets
             Qt6::Widgets
-            Qt6::Test  # For QTest functions in InputSimulator
+            Qt6::Test
         PRIVATE
-            Qt6::CorePrivate  # For qhooks_p.h (object registry hooks)
+            Qt6::CorePrivate
     )
     if(QTMCP_HAS_QML)
         target_link_libraries(qtmcp_probe PUBLIC Qt6::Qml Qt6::Quick)
@@ -127,9 +125,9 @@ else()
             Qt5::Network
             Qt5::WebSockets
             Qt5::Widgets
-            Qt5::Test  # For QTest functions in InputSimulator
+            Qt5::Test
         PRIVATE
-            Qt5::CorePrivate  # For qhooks_p.h (object registry hooks)
+            Qt5::CorePrivate
     )
     if(QTMCP_HAS_QML)
         target_link_libraries(qtmcp_probe PUBLIC Qt5::Qml Qt5::Quick)
@@ -137,20 +135,8 @@ else()
     endif()
 endif()
 
-# Optional dependencies - conditionally link if available
-if(QTMCP_HAS_NLOHMANN_JSON)
-    target_link_libraries(qtmcp_probe PRIVATE nlohmann_json::nlohmann_json)
-    target_compile_definitions(qtmcp_probe PRIVATE QTMCP_HAS_NLOHMANN_JSON)
-endif()
-
-if(QTMCP_HAS_SPDLOG)
-    target_link_libraries(qtmcp_probe PRIVATE spdlog::spdlog)
-    target_compile_definitions(qtmcp_probe PRIVATE QTMCP_HAS_SPDLOG)
-endif()
-
 # Platform-specific configurations
 if(UNIX AND NOT APPLE)
-    # Add X11 for input simulation (optional, for system-level events)
     find_package(X11)
     if(X11_FOUND AND X11_XTest_FOUND)
         target_link_libraries(qtmcp_probe PRIVATE ${X11_LIBRARIES} ${X11_XTest_LIB})
@@ -160,6 +146,3 @@ endif()
 
 # Alias for use in parent project
 add_library(QtMCP::Probe ALIAS qtmcp_probe)
-
-# Deploy Qt DLLs on Windows (for the probe DLL's dependencies)
-qtmcp_deploy_qt(qtmcp_probe)

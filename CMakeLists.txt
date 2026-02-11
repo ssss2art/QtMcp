@@ -15,13 +15,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Export compile commands for clang-tidy and IDEs
+# Export compile commands for IDEs
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Options
 option(QTMCP_BUILD_TESTS "Build unit tests" ON)
 option(QTMCP_BUILD_TEST_APP "Build the test Qt application" ON)
-option(QTMCP_ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
 
 # Qt path hint - takes precedence over CMAKE_PREFIX_PATH
 set(QTMCP_QT_DIR "" CACHE PATH "Explicit path to Qt installation (takes precedence over CMAKE_PREFIX_PATH)")
@@ -39,7 +38,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Find Qt - prefer Qt6, fall back to Qt5 5.15+
-# This allows building with either Qt version using the same CMakeLists.txt
 set(QT_MIN_VERSION_5 "5.15.1")
 set(QT_MIN_VERSION_6 "6.5")
 
@@ -62,11 +60,9 @@ if(Qt6_FOUND)
     set(QT_VERSION ${Qt6_VERSION})
     message(STATUS "Found Qt6: ${Qt6_VERSION}")
 
-    # CorePrivate is needed for the probe but may live in a separate package
     find_package(Qt6 COMPONENTS CorePrivate QUIET)
     if(NOT Qt6CorePrivate_FOUND)
         message(STATUS "Qt6::CorePrivate not found via component - trying header detection")
-        # Some aqt/installer layouts expose private headers without a cmake config
         find_path(_qt6_private_include "private/qhooks_p.h"
             PATHS "${QT_ROOT_DIR}" "${Qt6Core_DIR}/../../.."
             PATH_SUFFIXES "include/QtCore/${Qt6_VERSION}/QtCore"
@@ -74,12 +70,11 @@ if(Qt6_FOUND)
         if(_qt6_private_include)
             message(STATUS "Found Qt6 private headers at: ${_qt6_private_include}")
         else()
-            message(FATAL_ERROR "Qt6::CorePrivate not found. Private headers are required for the probe. "
-                "Ensure your Qt installation includes private development headers.")
+            message(FATAL_ERROR "Qt6::CorePrivate not found. Private headers are required for the probe.")
         endif()
     endif()
 
-    # Optional: Qt Quick/QML support for QML introspection
+    # Optional: Qt Quick/QML support
     find_package(Qt6 COMPONENTS Qml Quick QUIET)
     if(Qt6Qml_FOUND AND Qt6Quick_FOUND)
         set(QTMCP_HAS_QML ON)
@@ -100,7 +95,6 @@ else()
     set(QT_VERSION ${Qt5_VERSION})
     message(STATUS "Found Qt5: ${Qt5_VERSION}")
 
-    # CorePrivate for Qt5
     find_package(Qt5 COMPONENTS CorePrivate QUIET)
     if(NOT Qt5CorePrivate_FOUND)
         message(STATUS "Qt5::CorePrivate not found via component - trying header detection")
@@ -115,7 +109,7 @@ else()
         endif()
     endif()
 
-    # Optional: Qt Quick/QML support for QML introspection
+    # Optional: Qt Quick/QML support
     find_package(Qt5 COMPONENTS Qml Quick QUIET)
     if(Qt5Qml_FOUND AND Qt5Quick_FOUND)
         set(QTMCP_HAS_QML ON)
@@ -133,15 +127,13 @@ endif()
 
 # Enforce minimum patch versions
 if(Qt5_FOUND AND QT_VERSION VERSION_LESS "5.15.1")
-    message(FATAL_ERROR "Qt ${QT_VERSION} is below minimum supported version 5.15.1. "
-        "Please upgrade your Qt 5 installation.")
+    message(FATAL_ERROR "Qt ${QT_VERSION} is below minimum supported version 5.15.1.")
 endif()
 if(Qt6_FOUND AND QT_VERSION VERSION_LESS "6.5")
-    message(FATAL_ERROR "Qt ${QT_VERSION} is below minimum supported version 6.5. "
-        "Please upgrade your Qt 6 installation.")
+    message(FATAL_ERROR "Qt ${QT_VERSION} is below minimum supported version 6.5.")
 endif()
 
-# Suppress APIs deprecated before Qt 5.15.0 — forces use of modern equivalents
+# Suppress APIs deprecated before Qt 5.15.0
 add_definitions(-DQT_DISABLE_DEPRECATED_BEFORE=0x050F00)
 
 # Extract Qt major.minor version tag for artifact naming
@@ -149,17 +141,13 @@ string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _qt_major_minor "${QT_VERSION}")
 set(QTMCP_QT_VERSION_TAG "qt${_qt_major_minor}" CACHE INTERNAL "Qt version tag for artifact naming")
 message(STATUS "Qt version tag: ${QTMCP_QT_VERSION_TAG}")
 
-# Compute versioned install subdirectories
-set(QTMCP_INSTALL_LIBDIR "lib/qtmcp/${QTMCP_QT_VERSION_TAG}" CACHE INTERNAL "Versioned library install directory")
-set(QTMCP_INSTALL_BINDIR "bin/qtmcp/${QTMCP_QT_VERSION_TAG}" CACHE INTERNAL "Versioned runtime install directory")
+# Flat install paths (no versioned subdirectories)
+set(QTMCP_INSTALL_LIBDIR "lib" CACHE INTERNAL "Library install directory")
 
-# Create Qt version-independent target aliases for use throughout the project
-# This allows code to link against Qt::Core, Qt::Network, etc. regardless of Qt version
+# Create Qt version-independent target aliases
 if(QT_VERSION_MAJOR EQUAL 6)
-    # Qt6 already provides Qt:: namespace targets
     set(QT_LIBRARIES Qt6::Core Qt6::Network Qt6::WebSockets Qt6::Widgets)
 else()
-    # Qt5 also provides Qt5:: namespace, create aliases for consistency
     set(QT_LIBRARIES Qt5::Core Qt5::Network Qt5::WebSockets Qt5::Widgets)
 endif()
 
@@ -168,71 +156,9 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-# Windows Qt deployment option
-option(QTMCP_DEPLOY_QT "Auto-deploy Qt DLLs on Windows (using windeployqt)" ON)
-
-# Find windeployqt on Windows for automatic DLL deployment
-if(WIN32 AND QTMCP_DEPLOY_QT)
-    # Get Qt bin directory from Qt6Core target
-    get_target_property(_qt_core_location Qt${QT_VERSION_MAJOR}::Core LOCATION)
-    get_filename_component(_qt_bin_dir "${_qt_core_location}" DIRECTORY)
-
-    find_program(WINDEPLOYQT_EXECUTABLE windeployqt
-        HINTS "${_qt_bin_dir}"
-        DOC "Path to windeployqt executable"
-    )
-
-    if(WINDEPLOYQT_EXECUTABLE)
-        message(STATUS "Found windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
-    else()
-        message(WARNING "windeployqt not found - Qt DLLs will not be auto-deployed")
-    endif()
-endif()
-
-# Function to deploy Qt DLLs for an executable target
-# Usage: qtmcp_deploy_qt(target_name)
-function(qtmcp_deploy_qt TARGET_NAME)
-    if(WIN32 AND QTMCP_DEPLOY_QT AND WINDEPLOYQT_EXECUTABLE)
-        # Add post-build command to run windeployqt
-        # Use generator expression to pass --debug or --release based on config
-        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-                "$<IF:$<CONFIG:Debug>,--debug,--release>"
-                --no-translations
-                --no-compiler-runtime
-                --no-system-d3d-compiler
-                --no-opengl-sw
-                "$<TARGET_FILE:${TARGET_NAME}>"
-            COMMENT "Deploying Qt DLLs for ${TARGET_NAME}..."
-            VERBATIM
-        )
-    endif()
-endfunction()
-
-# Optional dependencies - these will be used if available
-# Phase 1 uses Qt's built-in JSON (QJsonDocument) and can work without these
-find_package(nlohmann_json CONFIG QUIET)
-if(nlohmann_json_FOUND)
-    message(STATUS "Found nlohmann_json")
-    set(QTMCP_HAS_NLOHMANN_JSON ON)
-else()
-    message(STATUS "nlohmann_json not found - using QJsonDocument")
-    set(QTMCP_HAS_NLOHMANN_JSON OFF)
-endif()
-
-find_package(spdlog CONFIG QUIET)
-if(spdlog_FOUND)
-    message(STATUS "Found spdlog")
-    set(QTMCP_HAS_SPDLOG ON)
-else()
-    message(STATUS "spdlog not found - using QDebug for logging")
-    set(QTMCP_HAS_SPDLOG OFF)
-endif()
-
 # Platform-specific settings
 if(WIN32)
     add_definitions(-DQTMCP_PLATFORM_WINDOWS)
-    # Disable min/max macros from windows.h
     add_definitions(-DNOMINMAX)
     add_definitions(-DWIN32_LEAN_AND_MEAN)
 elseif(UNIX AND NOT APPLE)
@@ -242,7 +168,7 @@ elseif(APPLE)
     message(WARNING "macOS support is not yet implemented")
 endif()
 
-# Compiler warnings (Google C++ style encourages treating warnings as errors)
+# Compiler warnings
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(
         -Wall
@@ -264,25 +190,13 @@ elseif(MSVC)
         /Zc:__cplusplus
         /external:anglebrackets
         /external:W0
-        /wd4701  # Qt 6.5 qtestmouse.h has uninitialized variable warning
+        /wd4701
     )
-endif()
-
-# Clang-tidy integration
-if(QTMCP_ENABLE_CLANG_TIDY)
-    find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
-    if(CLANG_TIDY_EXE)
-        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
-        message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
-    else()
-        message(WARNING "clang-tidy not found, static analysis disabled")
-    endif()
 endif()
 
 # Add subdirectories
 add_subdirectory(src/probe)
 
-# Launcher is available on both Windows and Linux
 if(WIN32 OR (UNIX AND NOT APPLE))
     add_subdirectory(src/launcher)
 endif()
@@ -300,15 +214,14 @@ endif()
 # Installation
 include(GNUInstallDirs)
 
-# Probe library: all outputs go to the versioned lib dir so that
-# QtMCPConfig.cmake can find DLLs and import libs in one location.
+# Probe library: flat lib/ directory
 install(TARGETS qtmcp_probe
     LIBRARY DESTINATION ${QTMCP_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${QTMCP_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${QTMCP_INSTALL_LIBDIR}
 )
 
-# Launcher executable: goes to regular bin/ (not Qt-version-specific)
+# Launcher executable
 if(TARGET qtmcp_launcher)
     install(TARGETS qtmcp_launcher
         RUNTIME DESTINATION bin
@@ -324,12 +237,6 @@ install(DIRECTORY src/probe/
 # Package configuration
 include(CMakePackageConfigHelpers)
 
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/QtMCPConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-)
-
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/QtMCPConfig.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/QtMCPConfig.cmake"
@@ -338,7 +245,6 @@ configure_package_config_file(
 
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/QtMCPConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/QtMCPConfigVersion.cmake"
     DESTINATION share/cmake/QtMCP
 )
 
@@ -359,6 +265,5 @@ message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "  Lib install:    ${QTMCP_INSTALL_LIBDIR}")
 message(STATUS "  Build tests:    ${QTMCP_BUILD_TESTS}")
 message(STATUS "  Build test app: ${QTMCP_BUILD_TEST_APP}")
-message(STATUS "  Clang-tidy:     ${QTMCP_ENABLE_CLANG_TIDY}")
 message(STATUS "  QML support:    ${QTMCP_HAS_QML}")
 message(STATUS "")

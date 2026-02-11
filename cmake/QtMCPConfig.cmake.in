@@ -5,11 +5,10 @@ include(CMakeFindDependencyMacro)
 # ---------------------------------------------------------------------------
 # QtMCP Package Configuration
 # Auto-detects the consumer's Qt version (Qt5 or Qt6) and resolves to
-# the correct versioned probe binary under lib/qtmcp/qt{M}.{m}/.
+# the correct probe binary under lib/.
 # ---------------------------------------------------------------------------
 
 # Detect which Qt version the consumer is using.
-# The consumer should have already called find_package(Qt6 ...) or find_package(Qt5 ...)
 if(TARGET Qt6::Core)
     set(_qtmcp_qt_major 6)
     get_target_property(_qt_version Qt6::Core VERSION)
@@ -23,31 +22,18 @@ elseif(TARGET Qt5::Core)
         set(_qt_version "${Qt5Core_VERSION}")
     endif()
 else()
-    # Try finding Qt ourselves
-    find_package(Qt6 QUIET COMPONENTS Core)
-    if(Qt6_FOUND)
-        set(_qtmcp_qt_major 6)
-        set(_qt_version "${Qt6_VERSION}")
-    else()
-        find_package(Qt5 5.15 QUIET COMPONENTS Core)
-        if(Qt5_FOUND)
-            set(_qtmcp_qt_major 5)
-            set(_qt_version "${Qt5_VERSION}")
-        else()
-            set(QtMCP_FOUND FALSE)
-            set(QtMCP_NOT_FOUND_MESSAGE
-                "QtMCP requires Qt5 (5.15+) or Qt6. No Qt found. "
-                "Call find_package(Qt6) or find_package(Qt5) before find_package(QtMCP).")
-            return()
-        endif()
-    endif()
+    set(QtMCP_FOUND FALSE)
+    set(QtMCP_NOT_FOUND_MESSAGE
+        "QtMCP requires Qt5 (5.15+) or Qt6. No Qt found. "
+        "Call find_package(Qt6) or find_package(Qt5) before find_package(QtMCP).")
+    return()
 endif()
 
-# Extract major.minor for versioned path lookup (e.g. "qt6.9")
+# Extract major.minor for versioned naming (e.g. "qt6.9")
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _qtmcp_qt_version_match "${_qt_version}")
 set(_qtmcp_qt_version_tag "qt${_qtmcp_qt_version_match}")
 
-# Find Qt dependencies that QtMCP needs (consumer must have these)
+# Find Qt dependencies
 if(_qtmcp_qt_major EQUAL 6)
     find_dependency(Qt6 COMPONENTS Core Network WebSockets Widgets)
 else()
@@ -56,21 +42,12 @@ endif()
 
 # Compute paths relative to this config file location.
 # Config is installed at: <prefix>/share/cmake/QtMCP/QtMCPConfig.cmake
-# Libraries are at:       <prefix>/lib/qtmcp/<qt-version-tag>/
+# Libraries are at:       <prefix>/lib/
 set_and_check(QTMCP_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 get_filename_component(QTMCP_PREFIX "${QTMCP_CMAKE_DIR}/../../.." ABSOLUTE)
 
-set(QTMCP_LIB_DIR "${QTMCP_PREFIX}/lib/qtmcp/${_qtmcp_qt_version_tag}")
+set(QTMCP_LIB_DIR "${QTMCP_PREFIX}/lib")
 set(QTMCP_INCLUDE_DIR "${QTMCP_PREFIX}/include/qtmcp")
-
-# Verify the versioned library directory exists
-if(NOT EXISTS "${QTMCP_LIB_DIR}")
-    set(QtMCP_FOUND FALSE)
-    set(QtMCP_NOT_FOUND_MESSAGE
-        "QtMCP was not built for ${_qtmcp_qt_version_tag}. "
-        "Available builds: check ${QTMCP_PREFIX}/lib/qtmcp/")
-    return()
-endif()
 
 # ---------------------------------------------------------------------------
 # Create imported target: QtMCP::Probe
@@ -78,7 +55,6 @@ endif()
 if(NOT TARGET QtMCP::Probe)
     add_library(QtMCP::Probe SHARED IMPORTED)
 
-    # Set include directories
     set_target_properties(QtMCP::Probe PROPERTIES
         INTERFACE_INCLUDE_DIRECTORIES "${QTMCP_INCLUDE_DIR}"
     )
@@ -87,7 +63,6 @@ if(NOT TARGET QtMCP::Probe)
     set(_probe_base_name "qtmcp-probe-${_qtmcp_qt_version_tag}")
 
     if(WIN32)
-        # Windows: DLL and import lib in the versioned lib dir
         find_file(_probe_dll
             NAMES "${_probe_base_name}.dll"
             PATHS "${QTMCP_LIB_DIR}"
@@ -108,30 +83,7 @@ if(NOT TARGET QtMCP::Probe)
                 )
             endif()
         endif()
-
-        # Debug variant
-        find_file(_probe_dll_d
-            NAMES "${_probe_base_name}d.dll"
-            PATHS "${QTMCP_LIB_DIR}"
-            NO_DEFAULT_PATH
-        )
-        find_file(_probe_implib_d
-            NAMES "${_probe_base_name}d.lib" "${_probe_base_name}d.dll.a"
-            PATHS "${QTMCP_LIB_DIR}"
-            NO_DEFAULT_PATH
-        )
-        if(_probe_dll_d)
-            set_target_properties(QtMCP::Probe PROPERTIES
-                IMPORTED_LOCATION_DEBUG "${_probe_dll_d}"
-            )
-            if(_probe_implib_d)
-                set_target_properties(QtMCP::Probe PROPERTIES
-                    IMPORTED_IMPLIB_DEBUG "${_probe_implib_d}"
-                )
-            endif()
-        endif()
     else()
-        # Linux/Unix: shared object in the versioned lib dir
         find_file(_probe_so
             NAMES "lib${_probe_base_name}.so"
             PATHS "${QTMCP_LIB_DIR}"
@@ -140,18 +92,6 @@ if(NOT TARGET QtMCP::Probe)
         if(_probe_so)
             set_target_properties(QtMCP::Probe PROPERTIES
                 IMPORTED_LOCATION "${_probe_so}"
-            )
-        endif()
-
-        # Debug variant
-        find_file(_probe_so_d
-            NAMES "lib${_probe_base_name}d.so"
-            PATHS "${QTMCP_LIB_DIR}"
-            NO_DEFAULT_PATH
-        )
-        if(_probe_so_d)
-            set_target_properties(QtMCP::Probe PROPERTIES
-                IMPORTED_LOCATION_DEBUG "${_probe_so_d}"
             )
         endif()
     endif()
@@ -179,9 +119,6 @@ unset(_qtmcp_qt_version_tag)
 unset(_probe_base_name)
 unset(_probe_dll CACHE)
 unset(_probe_implib CACHE)
-unset(_probe_dll_d CACHE)
-unset(_probe_implib_d CACHE)
 unset(_probe_so CACHE)
-unset(_probe_so_d CACHE)
 
 check_required_components(QtMCP)

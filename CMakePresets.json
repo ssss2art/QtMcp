@@ -16,21 +16,10 @@
       }
     },
     {
-      "name": "vcpkg-base",
-      "hidden": true,
-      "inherits": "base",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": {
-          "type": "FILEPATH",
-          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-        }
-      }
-    },
-    {
-      "name": "linux-debug",
+      "name": "debug",
       "displayName": "Linux Debug",
-      "description": "Linux debug build with vcpkg",
-      "inherits": "vcpkg-base",
+      "description": "Linux debug build",
+      "inherits": "base",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -43,10 +32,10 @@
       }
     },
     {
-      "name": "linux-release",
+      "name": "release",
       "displayName": "Linux Release",
-      "description": "Linux release build with vcpkg",
-      "inherits": "vcpkg-base",
+      "description": "Linux release build",
+      "inherits": "base",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -61,8 +50,8 @@
     {
       "name": "windows-debug",
       "displayName": "Windows Debug",
-      "description": "Windows debug build with vcpkg",
-      "inherits": "vcpkg-base",
+      "description": "Windows debug build with VS 2022",
+      "inherits": "base",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -76,15 +65,14 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "QTMCP_BUILD_TESTS": "ON",
-        "QTMCP_BUILD_TEST_APP": "ON",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
+        "QTMCP_BUILD_TEST_APP": "ON"
       }
     },
     {
       "name": "windows-release",
       "displayName": "Windows Release",
-      "description": "Windows release build with vcpkg",
-      "inherits": "vcpkg-base",
+      "description": "Windows release build with VS 2022",
+      "inherits": "base",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -98,48 +86,18 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "QTMCP_BUILD_TESTS": "ON",
-        "QTMCP_BUILD_TEST_APP": "ON",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
-      }
-    },
-    {
-      "name": "ci-linux",
-      "displayName": "CI Linux",
-      "description": "CI build for Linux (Qt from install-qt-action)",
-      "inherits": "vcpkg-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "QTMCP_BUILD_TESTS": "ON",
-        "QTMCP_BUILD_TEST_APP": "ON",
-        "QTMCP_ENABLE_CLANG_TIDY": "OFF"
-      }
-    },
-    {
-      "name": "ci-windows",
-      "displayName": "CI Windows",
-      "description": "CI build for Windows (Qt from install-qt-action)",
-      "inherits": "vcpkg-base",
-      "generator": "Visual Studio 17 2022",
-      "architecture": {
-        "value": "x64",
-        "strategy": "set"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "QTMCP_BUILD_TESTS": "ON",
-        "QTMCP_BUILD_TEST_APP": "ON",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
+        "QTMCP_BUILD_TEST_APP": "ON"
       }
     }
   ],
   "buildPresets": [
     {
-      "name": "linux-debug",
-      "configurePreset": "linux-debug"
+      "name": "debug",
+      "configurePreset": "debug"
     },
     {
-      "name": "linux-release",
-      "configurePreset": "linux-release"
+      "name": "release",
+      "configurePreset": "release"
     },
     {
       "name": "windows-debug",
@@ -150,28 +108,19 @@
       "name": "windows-release",
       "configurePreset": "windows-release",
       "configuration": "Release"
-    },
-    {
-      "name": "ci-linux",
-      "configurePreset": "ci-linux"
-    },
-    {
-      "name": "ci-windows",
-      "configurePreset": "ci-windows",
-      "configuration": "Release"
     }
   ],
   "testPresets": [
     {
-      "name": "linux-debug",
-      "configurePreset": "linux-debug",
+      "name": "debug",
+      "configurePreset": "debug",
       "output": {
         "outputOnFailure": true
       }
     },
     {
-      "name": "linux-release",
-      "configurePreset": "linux-release",
+      "name": "release",
+      "configurePreset": "release",
       "output": {
         "outputOnFailure": true
       }
@@ -187,21 +136,6 @@
     {
       "name": "windows-release",
       "configurePreset": "windows-release",
-      "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "ci-linux",
-      "configurePreset": "ci-linux",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "ci-windows",
-      "configurePreset": "ci-windows",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true

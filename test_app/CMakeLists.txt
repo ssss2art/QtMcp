@@ -19,8 +19,7 @@ add_executable(qtmcp_test_app
     ${TEST_APP_UI}
 )
 
-# Link Qt libraries - use Qt version-independent approach
-# QT_VERSION_MAJOR is set by root CMakeLists.txt
+# Link Qt libraries
 if(QT_VERSION_MAJOR EQUAL 6)
     target_link_libraries(qtmcp_test_app
         PRIVATE
@@ -46,6 +45,3 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
     )
 endif()
-
-# Deploy Qt DLLs on Windows
-qtmcp_deploy_qt(qtmcp_test_app)

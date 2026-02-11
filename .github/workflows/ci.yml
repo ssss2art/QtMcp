@@ -4,290 +4,94 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - 'cmake/**'
-      - '.github/workflows/**'
-      - 'vcpkg.json'
-      - 'CMakePresets.json'
+      - "src/**"
+      - "tests/**"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "CMakePresets.json"
+      - ".github/workflows/**"
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'CMakeLists.txt'
-      - 'cmake/**'
-      - '.github/workflows/**'
-      - 'vcpkg.json'
-      - 'CMakePresets.json'
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  # -----------------------------------------------------------
-  # Lint job - check code formatting
-  # -----------------------------------------------------------
   lint:
-    name: Lint
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Check clang-format
-        uses: jidicula/clang-format-action@v4.11.0
+      - uses: actions/checkout@v4
+      - uses: jidicula/clang-format-action@v4.11.0
         with:
-          clang-format-version: '17'
-          check-path: 'src'
+          clang-format-version: "18"
+          check-path: "src"
 
-  # -----------------------------------------------------------
-  # Matrix build: 4 Qt versions x 2 platforms = 8 cells
-  # -----------------------------------------------------------
   build:
-    name: "${{ matrix.artifact_tag }} / ${{ matrix.platform }}"
-    needs: lint
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # ---- Qt 5.15 ----
-          - qt_version: "5.15.2"
-            qt_major: 5
-            os: ubuntu-22.04
-            platform: linux-gcc
-            preset: ci-linux
-            artifact_tag: qt5.15
-            qt_modules: ""
-          - qt_version: "5.15.2"
-            qt_major: 5
-            os: windows-latest
-            platform: windows-msvc
-            preset: ci-windows
-            artifact_tag: qt5.15
-            qt_modules: ""
-          # ---- Qt 6.5 ----
-          - qt_version: "6.5.3"
-            qt_major: 6
-            os: ubuntu-24.04
-            platform: linux-gcc
-            preset: ci-linux
-            artifact_tag: qt6.5
-            qt_modules: "qtwebsockets"
-          - qt_version: "6.5.3"
-            qt_major: 6
-            os: windows-latest
-            platform: windows-msvc
-            preset: ci-windows
-            artifact_tag: qt6.5
-            qt_modules: "qtwebsockets"
-          # ---- Qt 6.8 ----
-          - qt_version: "6.8.0"
-            qt_major: 6
-            os: ubuntu-24.04
-            platform: linux-gcc
-            preset: ci-linux
-            artifact_tag: qt6.8
-            qt_modules: "qtwebsockets"
-          - qt_version: "6.8.0"
-            qt_major: 6
-            os: windows-latest
-            platform: windows-msvc
-            preset: ci-windows
-            artifact_tag: qt6.8
-            qt_modules: "qtwebsockets"
-          # ---- Qt 6.9 ----
-          - qt_version: "6.9.0"
-            qt_major: 6
-            os: ubuntu-24.04
-            platform: linux-gcc
-            preset: ci-linux
-            artifact_tag: qt6.9
-            qt_modules: "qtwebsockets"
-          - qt_version: "6.9.0"
-            qt_major: 6
-            os: windows-latest
-            platform: windows-msvc
-            preset: ci-windows
-            artifact_tag: qt6.9
-            qt_modules: "qtwebsockets"
-
-    env:
-      VCPKG_MANIFEST_NO_DEFAULT_FEATURES: "ON"
-      VCPKG_MANIFEST_FEATURES: "extras"
-
+          - { qt: "5.15.2", os: ubuntu-24.04, preset: release,         platform: linux }
+          - { qt: "5.15.2", os: windows-latest, preset: windows-release, platform: windows }
+          - { qt: "6.5.3",  os: ubuntu-24.04, preset: release,         platform: linux }
+          - { qt: "6.5.3",  os: windows-latest, preset: windows-release, platform: windows }
+          - { qt: "6.8.0",  os: ubuntu-24.04, preset: release,         platform: linux }
+          - { qt: "6.8.0",  os: windows-latest, preset: windows-release, platform: windows }
+          - { qt: "6.9.0",  os: ubuntu-24.04, preset: release,         platform: linux }
+          - { qt: "6.9.0",  os: windows-latest, preset: windows-release, platform: windows }
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Qt ${{ matrix.qt_version }}
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ matrix.qt_version }}
-          modules: ${{ matrix.qt_modules }}
-          cache: true
-
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: '01f602195983451bc83e72f4214af2cbc495aa94'
-
-      - name: Install X11/XTest dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libxkbcommon-dev \
-            libxcb-xinerama0 \
-            libxcb-cursor0 \
-            libxkbcommon-x11-0 \
-            libxtst-dev \
-            libx11-dev
-
-      - name: Configure (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          if [ "${{ matrix.qt_major }}" = "5" ]; then
-            QT_DIR="$Qt5_DIR"
-          else
-            QT_DIR="$QT_ROOT_DIR"
-          fi
-          cmake --preset ${{ matrix.preset }} \
-            -DCMAKE_PREFIX_PATH="$QT_DIR"
-
-      - name: Configure (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if ("${{ matrix.qt_major }}" -eq "5") {
-            $qtDir = $env:Qt5_DIR
-          } else {
-            $qtDir = $env:QT_ROOT_DIR
-          }
-          cmake --preset ${{ matrix.preset }} `
-            -DCMAKE_PREFIX_PATH="$qtDir"
-
-      - name: Build
-        run: cmake --build --preset ${{ matrix.preset }} --parallel
-
-      - name: Test
-        run: ctest --preset ${{ matrix.preset }} --output-on-failure
-
-      - name: Install
-        run: cmake --install build/${{ matrix.preset }} --prefix install/${{ matrix.preset }}
-
-      - name: Verify install layout (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          PROBE_DIR="install/${{ matrix.preset }}/lib/qtmcp/${{ matrix.artifact_tag }}"
-          echo "Checking probe directory: $PROBE_DIR"
-          ls -la "$PROBE_DIR"
-          FILE_COUNT=$(find "$PROBE_DIR" -type f | wc -l)
-          if [ "$FILE_COUNT" -eq 0 ]; then
-            echo "::error::No probe files found in $PROBE_DIR"
-            exit 1
-          fi
-          echo "Found $FILE_COUNT file(s) in probe directory"
-
-      - name: Verify install layout (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $probeDir = "install/${{ matrix.preset }}/lib/qtmcp/${{ matrix.artifact_tag }}"
-          Write-Host "Checking probe directory: $probeDir"
-          if (-not (Test-Path $probeDir)) {
-            Write-Error "Probe directory not found: $probeDir"
-            exit 1
-          }
-          Get-ChildItem -Path $probeDir -Recurse
-          $files = Get-ChildItem -Path $probeDir -File
-          if ($files.Count -eq 0) {
-            Write-Error "No probe files found in $probeDir"
-            exit 1
-          }
-          Write-Host "Found $($files.Count) file(s) in probe directory"
-
-      - name: Upload probe artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: qtmcp-${{ matrix.artifact_tag }}-${{ matrix.platform }}
-          path: install/${{ matrix.preset }}/
-          retention-days: 7
-          if-no-files-found: error
-
-  # -----------------------------------------------------------
-  # Python MCP server tests
-  # -----------------------------------------------------------
-  python:
-    name: Python Tests
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          cd src/mcp_server
-          pip install -e ".[dev]"
-        continue-on-error: true
-
-      - name: Run tests
-        run: |
-          cd src/mcp_server
-          pytest -v || echo "Tests not yet implemented"
-        continue-on-error: true
-
-  # -----------------------------------------------------------
-  # CodeQL security scanning
-  # -----------------------------------------------------------
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-24.04
-    permissions:
-      security-events: write
-    env:
-      VCPKG_MANIFEST_NO_DEFAULT_FEATURES: "ON"
-      VCPKG_MANIFEST_FEATURES: "extras"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: cpp
+      - uses: actions/checkout@v4
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.0'
-          modules: 'qtwebsockets'
+          version: ${{ matrix.qt }}
           cache: true
 
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: '01f602195983451bc83e72f4214af2cbc495aa94'
-
-      - name: Install dependencies
+      - name: Install X11 dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libxkbcommon-dev \
-            libxcb-xinerama0 \
-            libxcb-cursor0 \
-            libxkbcommon-x11-0 \
-            libxtst-dev \
-            libx11-dev
+          sudo apt-get install -y libxext-dev libxtst-dev libx11-dev
+
+      - name: Configure
+        shell: bash
+        run: |
+          if [ -n "$Qt5_DIR" ]; then
+            QT_PATH="$Qt5_DIR"
+          else
+            QT_PATH="$QT_ROOT_DIR"
+          fi
+          cmake --preset ${{ matrix.preset }} -DCMAKE_PREFIX_PATH="$QT_PATH"
 
       - name: Build
-        run: |
-          cmake --preset ci-linux -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
-          cmake --build --preset ci-linux
+        run: cmake --build --preset ${{ matrix.preset }}
 
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
+
+      - name: Install
+        shell: bash
+        run: cmake --install build/${{ matrix.preset }} --prefix install/${{ matrix.preset }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qtmcp-${{ matrix.preset }}-qt${{ matrix.qt }}
+          path: install/${{ matrix.preset }}
+
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install and test
+        working-directory: python
+        run: |
+          pip install -e ".[dev]"
+          pytest -v

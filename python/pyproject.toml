@@ -27,6 +27,9 @@ dependencies = [
     "websockets>=14.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
 [project.urls]
 Homepage = "https://github.com/ssss2art/QtMcp"
 Documentation = "https://github.com/ssss2art/QtMcp#readme"
