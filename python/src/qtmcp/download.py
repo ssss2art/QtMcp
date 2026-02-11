@@ -360,6 +360,128 @@ def download_probe(
     return output_path
 
 
+def get_launcher_filename(platform_name: str | None = None) -> str:
+    """Get the expected launcher filename for the current platform.
+
+    Args:
+        platform_name: Platform name (e.g., "linux", "windows").
+            Auto-detected if None.
+
+    Returns:
+        Expected filename (e.g., "qtmcp-launcher-windows.exe")
+    """
+    if platform_name is None:
+        platform_name, _ = detect_platform()
+    if platform_name == "windows":
+        return "qtmcp-launcher-windows.exe"
+    return f"qtmcp-launcher-{platform_name}"
+
+
+def build_launcher_url(
+    release_tag: str = "latest",
+    platform_name: str | None = None,
+) -> str:
+    """Build the URL for a launcher binary.
+
+    Args:
+        release_tag: Release tag (e.g., "v0.1.0") or "latest"
+        platform_name: Platform name (auto-detected if None)
+
+    Returns:
+        URL to the launcher binary
+
+    Raises:
+        UnsupportedPlatformError: If platform detection fails
+    """
+    if platform_name is None:
+        platform_name, _ = detect_platform()
+
+    filename = get_launcher_filename(platform_name)
+
+    if release_tag == "latest":
+        release_tag = _default_release_tag()
+
+    return f"{RELEASES_URL}/{release_tag}/{filename}"
+
+
+def download_launcher(
+    output_dir: Path | str | None = None,
+    verify_checksum_flag: bool = True,
+    release_tag: str = "latest",
+) -> Path:
+    """Download the QtMCP launcher binary for the current platform.
+
+    Args:
+        output_dir: Directory to save the launcher (default: current directory)
+        verify_checksum_flag: Whether to verify SHA256 checksum (default: True)
+        release_tag: Release tag to download from (default: "latest")
+
+    Returns:
+        Path to the downloaded launcher binary
+
+    Raises:
+        DownloadError: If download fails
+        ChecksumError: If checksum verification fails
+        UnsupportedPlatformError: If current platform is not supported
+    """
+    platform_name, _ = detect_platform()
+    filename = get_launcher_filename(platform_name)
+    launcher_url = build_launcher_url(release_tag, platform_name)
+
+    if output_dir is None:
+        output_dir = Path.cwd()
+    else:
+        output_dir = Path(output_dir)
+
+    output_path = output_dir / filename
+
+    # Download checksums first if verification enabled
+    expected_hash: str | None = None
+    if verify_checksum_flag:
+        checksums_url = build_checksums_url(release_tag)
+        try:
+            with urllib.request.urlopen(checksums_url, timeout=30) as response:
+                checksums_content = response.read().decode("utf-8")
+            checksums = parse_checksums(checksums_content)
+            expected_hash = checksums.get(filename)
+            if expected_hash is None:
+                raise DownloadError(
+                    f"Checksum not found for {filename} in SHA256SUMS"
+                )
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                raise DownloadError(
+                    f"SHA256SUMS not found for release {release_tag}"
+                ) from e
+            raise DownloadError(
+                f"Error downloading checksums: HTTP {e.code}"
+            ) from e
+        except urllib.error.URLError as e:
+            raise DownloadError(
+                f"Network error downloading checksums: {e.reason}"
+            ) from e
+
+    # Download launcher binary
+    download_file(launcher_url, output_path)
+
+    # Verify checksum if enabled
+    if verify_checksum_flag and expected_hash:
+        if not verify_checksum(output_path, expected_hash):
+            output_path.unlink(missing_ok=True)
+            raise ChecksumError(
+                f"Checksum verification failed for {filename}. "
+                "File may be corrupted or tampered with."
+            )
+
+    # Set executable permission on Linux
+    if platform_name == "linux":
+        import stat
+
+        output_path.chmod(output_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    return output_path
+
+
 def get_probe_filename(qt_version: str, compiler: str | None = None) -> str:
     """Get the expected probe filename for a Qt version on current platform.
 

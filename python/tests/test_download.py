@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import sys
 import urllib.error
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -20,10 +21,13 @@ from qtmcp.download import (
     VersionNotFoundError,
     _default_release_tag,
     build_checksums_url,
+    build_launcher_url,
     build_probe_url,
     default_compiler,
     detect_platform,
+    download_launcher,
     download_probe,
+    get_launcher_filename,
     get_probe_filename,
     normalize_version,
     parse_checksums,
@@ -412,6 +416,151 @@ class TestGetProbeFilename:
         with mock.patch("qtmcp.download.sys.platform", "linux"):
             filename = get_probe_filename("6.8", compiler="clang18")
             assert filename == "qtmcp-probe-qt6.8-linux-clang18.so"
+
+
+class TestGetLauncherFilename:
+    """Tests for launcher filename generation."""
+
+    def test_windows_filename(self) -> None:
+        """Windows launcher should have .exe extension."""
+        with mock.patch("qtmcp.download.sys.platform", "win32"):
+            assert get_launcher_filename() == "qtmcp-launcher-windows.exe"
+
+    def test_linux_filename(self) -> None:
+        """Linux launcher should have no extension."""
+        with mock.patch("qtmcp.download.sys.platform", "linux"):
+            assert get_launcher_filename() == "qtmcp-launcher-linux"
+
+    def test_explicit_platform(self) -> None:
+        """Explicit platform_name should be used directly."""
+        assert get_launcher_filename("windows") == "qtmcp-launcher-windows.exe"
+        assert get_launcher_filename("linux") == "qtmcp-launcher-linux"
+
+
+class TestLauncherUrlBuilding:
+    """Tests for launcher URL construction."""
+
+    def test_build_launcher_url_windows(self) -> None:
+        """Build correct URL for Windows launcher."""
+        url = build_launcher_url(release_tag="v0.1.0", platform_name="windows")
+        assert url == (
+            "https://github.com/ssss2art/QtMcp/releases/download/"
+            "v0.1.0/qtmcp-launcher-windows.exe"
+        )
+
+    def test_build_launcher_url_linux(self) -> None:
+        """Build correct URL for Linux launcher."""
+        url = build_launcher_url(release_tag="v0.1.0", platform_name="linux")
+        assert url == (
+            "https://github.com/ssss2art/QtMcp/releases/download/"
+            "v0.1.0/qtmcp-launcher-linux"
+        )
+
+    def test_build_launcher_url_latest_uses_package_version(self) -> None:
+        """'latest' release tag should resolve from package version."""
+        with mock.patch("qtmcp.download._pkg_version", return_value="0.2.0"):
+            url = build_launcher_url(release_tag="latest", platform_name="linux")
+            assert "/v0.2.0/" in url
+
+    def test_build_launcher_url_auto_detect_platform(self) -> None:
+        """Platform should be auto-detected when not specified."""
+        with mock.patch("qtmcp.download.sys.platform", "win32"):
+            url = build_launcher_url(release_tag="v0.1.0")
+            assert "qtmcp-launcher-windows.exe" in url
+
+
+class TestDownloadLauncher:
+    """Tests for the download_launcher function."""
+
+    def test_download_success_without_checksum(self, tmp_path: Path) -> None:
+        """Download succeeds without checksum verification."""
+        fake_content = b"fake launcher binary"
+
+        def mock_urlopen(url: str, timeout: int | None = None) -> io.BytesIO:
+            return io.BytesIO(fake_content)
+
+        with mock.patch("qtmcp.download.sys.platform", "win32"):
+            with mock.patch("qtmcp.download.urllib.request.urlopen", mock_urlopen):
+                path = download_launcher(
+                    output_dir=tmp_path,
+                    verify_checksum_flag=False,
+                    release_tag="v0.1.0",
+                )
+
+        assert path.exists()
+        assert path.read_bytes() == fake_content
+        assert path.name == "qtmcp-launcher-windows.exe"
+
+    def test_download_with_checksum_verification(self, tmp_path: Path) -> None:
+        """Download verifies checksum when enabled."""
+        fake_content = b"fake launcher binary"
+        expected_hash = hashlib.sha256(fake_content).hexdigest()
+        checksums_content = f"{expected_hash}  qtmcp-launcher-windows.exe\n"
+
+        call_count = {"count": 0}
+
+        def mock_urlopen(url: str, timeout: int | None = None) -> io.BytesIO:
+            call_count["count"] += 1
+            if "SHA256SUMS" in url:
+                return io.BytesIO(checksums_content.encode())
+            return io.BytesIO(fake_content)
+
+        with mock.patch("qtmcp.download.sys.platform", "win32"):
+            with mock.patch("qtmcp.download.urllib.request.urlopen", mock_urlopen):
+                path = download_launcher(
+                    output_dir=tmp_path,
+                    verify_checksum_flag=True,
+                    release_tag="v0.1.0",
+                )
+
+        assert path.exists()
+        assert call_count["count"] == 2  # SHA256SUMS + launcher
+
+    def test_download_checksum_mismatch_raises(self, tmp_path: Path) -> None:
+        """Checksum mismatch should raise ChecksumError."""
+        fake_content = b"fake launcher binary"
+        wrong_hash = "0" * 64
+        checksums_content = f"{wrong_hash}  qtmcp-launcher-windows.exe\n"
+
+        def mock_urlopen(url: str, timeout: int | None = None) -> io.BytesIO:
+            if "SHA256SUMS" in url:
+                return io.BytesIO(checksums_content.encode())
+            return io.BytesIO(fake_content)
+
+        with mock.patch("qtmcp.download.sys.platform", "win32"):
+            with mock.patch("qtmcp.download.urllib.request.urlopen", mock_urlopen):
+                with pytest.raises(ChecksumError) as exc_info:
+                    download_launcher(
+                        output_dir=tmp_path,
+                        verify_checksum_flag=True,
+                        release_tag="v0.1.0",
+                    )
+
+        assert "verification failed" in str(exc_info.value)
+        assert not (tmp_path / "qtmcp-launcher-windows.exe").exists()
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="chmod not effective on Windows")
+    def test_linux_sets_executable_permission(self, tmp_path: Path) -> None:
+        """Linux launcher should have executable permission set."""
+        import stat
+
+        fake_content = b"fake launcher binary"
+
+        def mock_urlopen(url: str, timeout: int | None = None) -> io.BytesIO:
+            return io.BytesIO(fake_content)
+
+        with mock.patch("qtmcp.download.sys.platform", "linux"):
+            with mock.patch("qtmcp.download.urllib.request.urlopen", mock_urlopen):
+                path = download_launcher(
+                    output_dir=tmp_path,
+                    verify_checksum_flag=False,
+                    release_tag="v0.1.0",
+                )
+
+        assert path.exists()
+        assert path.name == "qtmcp-launcher-linux"
+        mode = path.stat().st_mode
+        assert mode & stat.S_IXUSR
 
 
 class TestAvailableVersions:

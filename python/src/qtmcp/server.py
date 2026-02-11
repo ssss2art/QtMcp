@@ -127,19 +127,30 @@ def create_server(
                 launcher = (
                     launcher_path
                     or os.environ.get("QTMCP_LAUNCHER")
-                    or "qtmcp-launch"
+                    or "qtmcp-launcher"
                 )
                 logger.debug(
                     "Launching target %s via %s on port %d", target, launcher, port
                 )
-                process = await asyncio.create_subprocess_exec(
-                    launcher,
-                    target,
-                    "--port",
-                    str(port),
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
+                try:
+                    process = await asyncio.create_subprocess_exec(
+                        launcher,
+                        target,
+                        "--port",
+                        str(port),
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                except FileNotFoundError:
+                    raise FileNotFoundError(
+                        f"Launcher not found: {launcher!r}. "
+                        "Install with: qtmcp download-launcher"
+                    )
+                except OSError as e:
+                    raise OSError(
+                        f"Could not start launcher {launcher!r}: {e}. "
+                        "Install with: qtmcp download-launcher"
+                    ) from e
                 await asyncio.sleep(1.5)
                 actual_ws_url = f"ws://localhost:{port}"
 

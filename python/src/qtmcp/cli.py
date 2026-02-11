@@ -52,7 +52,6 @@ def cmd_download_probe(args: argparse.Namespace) -> int:
             compiler=args.compiler,
         )
         print(f"Downloaded probe to: {path}")
-        return 0
     except VersionNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         print(f"Available versions: {', '.join(sorted(AVAILABLE_VERSIONS))}", file=sys.stderr)
@@ -67,6 +66,60 @@ def cmd_download_probe(args: argparse.Namespace) -> int:
     except DownloadError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
+
+    # Also download launcher if requested
+    if getattr(args, "with_launcher", False):
+        rc = _download_launcher_impl(
+            output_dir=args.output_dir,
+            no_verify=args.no_verify,
+            release_tag=args.release,
+        )
+        if rc != 0:
+            return rc
+
+    return 0
+
+
+def _download_launcher_impl(
+    output_dir: str | None,
+    no_verify: bool,
+    release_tag: str,
+) -> int:
+    """Shared launcher download logic used by both commands."""
+    from qtmcp.download import (
+        ChecksumError,
+        DownloadError,
+        UnsupportedPlatformError,
+        download_launcher,
+    )
+
+    try:
+        path = download_launcher(
+            output_dir=output_dir,
+            verify_checksum_flag=not no_verify,
+            release_tag=release_tag,
+        )
+        print(f"Downloaded launcher to: {path}")
+        return 0
+    except UnsupportedPlatformError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    except ChecksumError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        print("Try --no-verify to skip checksum verification (not recommended).", file=sys.stderr)
+        return 1
+    except DownloadError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_download_launcher(args: argparse.Namespace) -> int:
+    """Download launcher binary from GitHub Releases."""
+    return _download_launcher_impl(
+        output_dir=args.output_dir,
+        no_verify=args.no_verify,
+        release_tag=args.release,
+    )
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -177,7 +230,49 @@ def create_parser() -> argparse.ArgumentParser:
         metavar="COMPILER",
         help="Compiler suffix (e.g., gcc13, msvc17, mingw13). Auto-detected if omitted.",
     )
+    download_parser.add_argument(
+        "--with-launcher",
+        action="store_true",
+        help="Also download the launcher binary",
+    )
     download_parser.set_defaults(func=cmd_download_probe)
+
+    # --- download-launcher subcommand ---
+    launcher_parser = subparsers.add_parser(
+        "download-launcher",
+        help="Download launcher binary from GitHub Releases",
+        description=(
+            "Download the QtMCP launcher executable for your platform from GitHub Releases.\n\n"
+            "The launcher injects the probe into a target Qt application at startup.\n\n"
+            "Platform is auto-detected:\n"
+            "  - Linux   -> qtmcp-launcher-linux\n"
+            "  - Windows -> qtmcp-launcher-windows.exe\n\n"
+            "Example:\n"
+            "  qtmcp download-launcher\n"
+            "  qtmcp download-launcher --output-dir ./bin\n"
+            "  qtmcp download-launcher --no-verify --release v0.1.0"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    launcher_parser.add_argument(
+        "--output-dir",
+        "-o",
+        default=None,
+        metavar="DIR",
+        help="Directory to save the launcher (default: current directory)",
+    )
+    launcher_parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Skip SHA256 checksum verification (not recommended)",
+    )
+    launcher_parser.add_argument(
+        "--release",
+        default="latest",
+        metavar="TAG",
+        help="Release tag to download from (default: latest)",
+    )
+    launcher_parser.set_defaults(func=cmd_download_launcher)
 
     return parser
 
