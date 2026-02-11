@@ -24,9 +24,6 @@ This guide covers building the QtMcp probe and launcher from source code.
 ### Optional
 
 - **Qt Qml/Quick** - Enables QML introspection
-- **vcpkg** - For dependency management (used by CI presets)
-- **nlohmann_json** - Alternative JSON library (falls back to QJsonDocument)
-- **spdlog** - Alternative logging (falls back to QDebug)
 
 ## Clone and Build
 
@@ -64,18 +61,18 @@ ctest --test-dir build --output-on-failure -C Release
 
 ## Using CMake Presets
 
-The project includes predefined presets for common configurations. These require vcpkg to be set up.
+The project includes predefined presets for common configurations.
 
 ### Available Presets
 
 | Preset | Platform | Build Type | Description |
 |--------|----------|------------|-------------|
-| `linux-debug` | Linux | Debug | Development build with tests |
-| `linux-release` | Linux | Release | Optimized Linux build |
+| `debug` | Linux | Debug | Development build with tests |
+| `release` | Linux | Release | Optimized Linux build |
 | `windows-debug` | Windows | Debug | Development build with tests |
 | `windows-release` | Windows | Release | Optimized Windows build |
-| `ci-linux` | Linux | Release | CI build configuration |
-| `ci-windows` | Windows | Release | CI build configuration |
+
+Presets are platform-conditional -- only the presets for your current OS will appear.
 
 ### Using Presets
 
@@ -83,31 +80,42 @@ The project includes predefined presets for common configurations. These require
 # List available presets
 cmake --list-presets
 
-# Configure with a preset (requires VCPKG_ROOT environment variable)
-cmake --preset linux-release
+# Configure with a preset
+cmake --preset release
 
 # Build with the preset
-cmake --build --preset linux-release
+cmake --build --preset release
 
 # Run tests with the preset
-ctest --preset linux-release
+ctest --preset release
 ```
 
-### Setting Up vcpkg for Presets
+### Custom Qt Path with Presets
+
+Pass `-DCMAKE_PREFIX_PATH` after the preset to point at a custom Qt installation:
 
 ```bash
-# Clone vcpkg
-git clone https://github.com/microsoft/vcpkg.git
-cd vcpkg
-
-# Bootstrap
-./bootstrap-vcpkg.sh  # Linux/macOS
-.\bootstrap-vcpkg.bat  # Windows
-
-# Set environment variable
-export VCPKG_ROOT=/path/to/vcpkg  # Linux/macOS
-set VCPKG_ROOT=C:\path\to\vcpkg   # Windows
+cmake --preset release -DCMAKE_PREFIX_PATH=/opt/Qt/6.7.2/gcc_64
 ```
+
+For a persistent local override, create a `CMakeUserPresets.json` (not checked in) that inherits from an existing preset:
+
+```json
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "my-qt",
+      "inherits": "windows-release",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "C:/Qt/6.7.2/msvc2022_64"
+      }
+    }
+  ]
+}
+```
+
+Then use `cmake --preset my-qt`.
 
 ## Build Options
 
@@ -117,9 +125,7 @@ Configure these options with `-D<OPTION>=<VALUE>`:
 |--------|---------|-------------|
 | `QTMCP_BUILD_TESTS` | `ON` | Build unit tests |
 | `QTMCP_BUILD_TEST_APP` | `ON` | Build the test Qt application |
-| `QTMCP_QT_DIR` | - | Explicit path to Qt installation (takes precedence over CMAKE_PREFIX_PATH) |
-| `QTMCP_ENABLE_CLANG_TIDY` | `OFF` | Enable clang-tidy static analysis |
-| `QTMCP_DEPLOY_QT` | `ON` | Auto-deploy Qt DLLs on Windows |
+| `QTMCP_QT_DIR` | - | Explicit path to Qt installation (prepended to `CMAKE_PREFIX_PATH`) |
 
 ### Examples
 
@@ -129,9 +135,6 @@ cmake -B build -DQTMCP_BUILD_TESTS=OFF -DQTMCP_BUILD_TEST_APP=OFF
 
 # Specify Qt installation directly
 cmake -B build -DQTMCP_QT_DIR=/opt/Qt/6.8.0/gcc_64
-
-# Enable static analysis
-cmake -B build -DQTMCP_ENABLE_CLANG_TIDY=ON
 ```
 
 ## Build Artifacts
@@ -142,22 +145,24 @@ After building, find the artifacts in these locations:
 
 | Platform | Location |
 |----------|----------|
-| Windows | `build/lib/qtmcp_probe.dll` |
-| Linux | `build/lib/libqtmcp_probe.so` |
+| Windows | `build/lib/Release/qtmcp-probe-qt6.8.dll` |
+| Linux | `build/lib/libqtmcp-probe-qt6.8.so` |
+
+The probe binary name includes the Qt major.minor version it was built against (e.g. `qt6.8`, `qt5.15`).
 
 ### Launcher Executable
 
 | Platform | Location |
 |----------|----------|
-| Windows | `build/bin/qtmcp_launcher.exe` |
-| Linux | `build/bin/qtmcp_launcher` |
+| Windows | `build/bin/Release/qtmcp-launcher.exe` |
+| Linux | `build/bin/qtmcp-launcher` |
 
 ### Test App (if enabled)
 
 | Platform | Location |
 |----------|----------|
-| Windows | `build/bin/qtmcp_test_app.exe` |
-| Linux | `build/bin/qtmcp_test_app` |
+| Windows | `build/bin/Release/qtmcp-test-app.exe` |
+| Linux | `build/bin/qtmcp-test-app` |
 
 ## Running Tests
 
@@ -194,10 +199,10 @@ Installation layout:
 ```
 <prefix>/
 ├── bin/
-│   └── qtmcp_launcher(.exe)
-├── lib/qtmcp/qt6.8/
-│   ├── qtmcp_probe.dll  (Windows)
-│   └── libqtmcp_probe.so (Linux)
+│   └── qtmcp-launcher(.exe)
+├── lib/
+│   ├── qtmcp-probe-qt6.8.dll  (Windows)
+│   └── libqtmcp-probe-qt6.8.so (Linux)
 ├── include/qtmcp/
 │   └── (header files)
 └── share/cmake/QtMCP/
@@ -218,7 +223,7 @@ ls /path/to/Qt/5.15.2/gcc_64/include/QtCore/5.15.2/QtCore/private/
 
 ### Qt 6.x
 
-Qt 6.5+ is fully supported. Qt 6.x changed some internal APIs, but QtMcp handles this transparently.
+Qt 6.5+ is fully supported. Qt 6.x changed some internal APIs, but QtMcp handles this transparently via compatibility helpers in `src/compat/`.
 
 ### Building for Multiple Qt Versions
 
@@ -254,10 +259,6 @@ cmake -B build -DQTMCP_QT_DIR=/path/to/Qt/6.8.0/gcc_64
 cmake -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.8.0/gcc_64
 ```
 
-### Windows: "windeployqt not found"
-
-Ensure Qt's bin directory is in your PATH, or the warning is harmless if you're deploying manually.
-
 ### Compiler Version Errors
 
 QtMcp requires C++17. Check your compiler version:
@@ -275,13 +276,13 @@ On Windows, Visual Studio 2019 or later is required.
 
 1. Install CMake Tools extension
 2. Open the QtMcp folder
-3. Select a configure preset or set CMAKE_PREFIX_PATH in settings.json
+3. Select a configure preset or set `CMAKE_PREFIX_PATH` in settings.json
 4. Build and debug from the CMake panel
 
 ### CLion
 
 1. Open the CMakeLists.txt as a project
-2. Set CMAKE_PREFIX_PATH in CMake options: `-DCMAKE_PREFIX_PATH=/path/to/Qt`
+2. Set `CMAKE_PREFIX_PATH` in CMake options: `-DCMAKE_PREFIX_PATH=/path/to/Qt`
 3. Select build configuration and build
 
 ### Visual Studio

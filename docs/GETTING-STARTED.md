@@ -118,6 +118,69 @@ Then start the MCP server separately:
 qtmcp serve --mode native --ws-url ws://localhost:9222
 ```
 
+### Method 3: CMake Integration (Link into Your Project)
+
+If you build QtMcp from source, you can link the probe directly into your CMake project. This is useful during development when you always want the probe available.
+
+**1. Build and install QtMcp:**
+
+```bash
+cd QtMcp
+cmake --preset release -DCMAKE_PREFIX_PATH=/path/to/Qt/6.8.0/gcc_64
+cmake --build --preset release
+cmake --install build/release --prefix /opt/qtmcp
+```
+
+On Windows:
+```powershell
+cmake --preset windows-release -DCMAKE_PREFIX_PATH="C:\Qt\6.8.0\msvc2022_64"
+cmake --build --preset windows-release
+cmake --install build/windows-release --prefix C:\qtmcp
+```
+
+**2. In your project's CMakeLists.txt:**
+
+```cmake
+find_package(Qt6 COMPONENTS Core Widgets REQUIRED)
+find_package(QtMCP REQUIRED)
+
+add_executable(myapp main.cpp)
+target_link_libraries(myapp PRIVATE Qt6::Core Qt6::Widgets)
+qtmcp_inject_probe(myapp)
+```
+
+**3. Configure your project with both Qt and QtMcp in the prefix path:**
+
+```bash
+cmake -B build -DCMAKE_PREFIX_PATH="/path/to/Qt/6.8.0/gcc_64;/opt/qtmcp"
+cmake --build build
+```
+
+On Windows:
+```powershell
+cmake -B build -DCMAKE_PREFIX_PATH="C:\Qt\6.8.0\msvc2022_64;C:\qtmcp"
+cmake --build build
+```
+
+`qtmcp_inject_probe()` handles the platform details automatically:
+- **Windows:** Copies the probe DLL next to your executable after each build
+- **Linux:** Generates a helper script (`qtmcp-preload-myapp.sh`) that launches your app with `LD_PRELOAD` set
+
+To run with the probe on Linux, use the generated script:
+```bash
+./build/qtmcp-preload-myapp.sh
+```
+
+On Windows, the probe DLL is already next to your exe, so just run your app normally.
+
+**4. Start the MCP server separately:**
+
+```bash
+qtmcp serve --mode native --ws-url ws://localhost:9222
+```
+
+The `QtMCPConfig.cmake` package auto-detects your project's Qt version (Qt5 or Qt6) and resolves to the matching probe binary, so the same QtMcp install can work with either.
+
 ### Environment Variables
 
 The probe reads these environment variables at startup:
