@@ -42,17 +42,20 @@ jobs:
             qt_full=$(echo "$basename" | grep -oP 'qt\K[0-9]+\.[0-9]+\.[0-9]+')
             qt_tag="qt$(echo "$qt_full" | grep -oP '^[0-9]+\.[0-9]+')"
 
+            # Extract compiler suffix from directory name (e.g., gcc13, msvc17)
+            compiler=$(echo "$basename" | grep -oP '(gcc|msvc|clang|mingw)\d+$')
+
             # Copy probe binaries
             if [ "$platform" = "windows" ]; then
               for f in "$dir"/lib/qtmcp-probe-*.dll; do
-                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-windows.dll"
+                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-windows-${compiler}.dll"
               done
               for f in "$dir"/lib/qtmcp-probe-*.lib; do
-                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-windows.lib"
+                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-windows-${compiler}.lib"
               done
             else
               for f in "$dir"/lib/libqtmcp-probe-*.so; do
-                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-linux.so"
+                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-linux-${compiler}.so"
               done
             fi
 

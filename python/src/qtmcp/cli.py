@@ -49,6 +49,7 @@ def cmd_download_probe(args: argparse.Namespace) -> int:
             output_dir=args.output_dir,
             verify_checksum_flag=not args.no_verify,
             release_tag=args.release,
+            compiler=args.compiler,
         )
         print(f"Downloaded probe to: {path}")
         return 0
@@ -135,12 +136,14 @@ def create_parser() -> argparse.ArgumentParser:
         description=(
             "Download the QtMCP probe DLL/SO for your Qt version from GitHub Releases.\n\n"
             "Available Qt versions: 5.15, 5.15-patched, 6.5, 6.8, 6.9\n\n"
-            "Platform is auto-detected:\n"
-            "  - Linux   -> linux-gcc   (.so)\n"
-            "  - Windows -> windows-msvc (.dll)\n\n"
+            "Platform and compiler are auto-detected:\n"
+            "  - Linux   -> linux-gcc13   (.so)\n"
+            "  - Windows -> windows-msvc17 (.dll)\n\n"
+            "Override the compiler with --compiler (e.g., gcc14, mingw13, clang18).\n\n"
             "Example:\n"
             "  qtmcp download-probe --qt-version 6.8\n"
-            "  qtmcp download-probe --qt-version 5.15-patched --output-dir ./lib"
+            "  qtmcp download-probe --qt-version 5.15-patched --output-dir ./lib\n"
+            "  qtmcp download-probe --qt-version 6.8 --compiler gcc14"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -167,6 +170,12 @@ def create_parser() -> argparse.ArgumentParser:
         default="latest",
         metavar="TAG",
         help="Release tag to download from (default: latest)",
+    )
+    download_parser.add_argument(
+        "--compiler",
+        default=None,
+        metavar="COMPILER",
+        help="Compiler suffix (e.g., gcc13, msvc17, mingw13). Auto-detected if omitted.",
     )
     download_parser.set_defaults(func=cmd_download_probe)
 

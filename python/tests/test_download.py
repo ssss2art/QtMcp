@@ -13,12 +13,14 @@ import pytest
 
 from qtmcp.download import (
     AVAILABLE_VERSIONS,
+    DEFAULT_COMPILERS,
     ChecksumError,
     DownloadError,
     UnsupportedPlatformError,
     VersionNotFoundError,
     build_checksums_url,
     build_probe_url,
+    default_compiler,
     detect_platform,
     download_probe,
     get_probe_filename,
@@ -32,24 +34,24 @@ class TestPlatformDetection:
     """Tests for platform detection logic."""
 
     def test_linux_platform_detection(self) -> None:
-        """Linux platforms should map to linux-gcc suffix."""
+        """Linux platforms should map to linux suffix."""
         with mock.patch("qtmcp.download.sys.platform", "linux"):
-            suffix, ext = detect_platform()
-            assert suffix == "linux-gcc"
+            platform, ext = detect_platform()
+            assert platform == "linux"
             assert ext == "so"
 
     def test_linux2_platform_detection(self) -> None:
         """linux2 (older Python) should also work."""
         with mock.patch("qtmcp.download.sys.platform", "linux2"):
-            suffix, ext = detect_platform()
-            assert suffix == "linux-gcc"
+            platform, ext = detect_platform()
+            assert platform == "linux"
             assert ext == "so"
 
     def test_win32_platform_detection(self) -> None:
-        """Windows platforms should map to windows-msvc suffix."""
+        """Windows platforms should map to windows suffix."""
         with mock.patch("qtmcp.download.sys.platform", "win32"):
-            suffix, ext = detect_platform()
-            assert suffix == "windows-msvc"
+            platform, ext = detect_platform()
+            assert platform == "windows"
             assert ext == "dll"
 
     def test_unsupported_platform_raises(self) -> None:
@@ -59,6 +61,32 @@ class TestPlatformDetection:
                 detect_platform()
             assert "darwin" in str(exc_info.value)
             assert "Supported platforms" in str(exc_info.value)
+
+
+class TestDefaultCompiler:
+    """Tests for default compiler resolution."""
+
+    def test_linux_default_compiler(self) -> None:
+        """Linux default compiler should be gcc13."""
+        assert default_compiler("linux") == "gcc13"
+
+    def test_windows_default_compiler(self) -> None:
+        """Windows default compiler should be msvc17."""
+        assert default_compiler("windows") == "msvc17"
+
+    def test_auto_detect_compiler(self) -> None:
+        """Auto-detect should use platform detection."""
+        with mock.patch("qtmcp.download.sys.platform", "linux"):
+            assert default_compiler() == "gcc13"
+        with mock.patch("qtmcp.download.sys.platform", "win32"):
+            assert default_compiler() == "msvc17"
+
+    def test_default_compilers_contents(self) -> None:
+        """DEFAULT_COMPILERS should have entries for both platforms."""
+        assert "linux" in DEFAULT_COMPILERS
+        assert "windows" in DEFAULT_COMPILERS
+        assert DEFAULT_COMPILERS["linux"] == "gcc13"
+        assert DEFAULT_COMPILERS["windows"] == "msvc17"
 
 
 class TestVersionNormalization:
@@ -85,35 +113,60 @@ class TestUrlBuilding:
     def test_build_probe_url_linux(self) -> None:
         """Build correct URL for Linux platform."""
         url = build_probe_url(
-            "6.8", release_tag="v1.0.0", platform_suffix="linux-gcc", extension="so"
+            "6.8", release_tag="v0.1.0", platform="linux", extension="so", compiler="gcc13"
         )
-        assert url == "https://github.com/ssss2art/QtMcp/releases/download/v1.0.0/qtmcp-probe-qt6.8-linux-gcc.so"
+        assert url == "https://github.com/ssss2art/QtMcp/releases/download/v0.1.0/qtmcp-probe-qt6.8-linux-gcc13.so"
 
     def test_build_probe_url_windows(self) -> None:
         """Build correct URL for Windows platform."""
         url = build_probe_url(
-            "6.8", release_tag="v1.0.0", platform_suffix="windows-msvc", extension="dll"
+            "6.8", release_tag="v0.1.0", platform="windows", extension="dll", compiler="msvc17"
         )
-        assert url == "https://github.com/ssss2art/QtMcp/releases/download/v1.0.0/qtmcp-probe-qt6.8-windows-msvc.dll"
+        assert url == "https://github.com/ssss2art/QtMcp/releases/download/v0.1.0/qtmcp-probe-qt6.8-windows-msvc17.dll"
 
     def test_build_probe_url_patched(self) -> None:
         """Build correct URL for patched Qt version."""
         url = build_probe_url(
-            "5.15-patched", release_tag="v1.0.0", platform_suffix="linux-gcc", extension="so"
+            "5.15-patched", release_tag="v0.1.0", platform="linux", extension="so", compiler="gcc13"
         )
-        assert url == "https://github.com/ssss2art/QtMcp/releases/download/v1.0.0/qtmcp-probe-qt5.15-patched-linux-gcc.so"
+        assert url == "https://github.com/ssss2art/QtMcp/releases/download/v0.1.0/qtmcp-probe-qt5.15-patched-linux-gcc13.so"
+
+    def test_build_probe_url_default_compiler(self) -> None:
+        """Default compiler should be auto-resolved from platform."""
+        with mock.patch("qtmcp.download.sys.platform", "linux"):
+            url = build_probe_url("6.8", release_tag="v0.1.0", platform="linux", extension="so")
+            assert "linux-gcc13" in url
+
+    def test_build_probe_url_explicit_compiler_override(self) -> None:
+        """Explicit compiler should override default."""
+        url = build_probe_url(
+            "6.8", release_tag="v0.1.0", platform="linux", extension="so", compiler="clang18"
+        )
+        assert "linux-clang18" in url
 
     def test_build_probe_url_invalid_version(self) -> None:
         """Invalid Qt version should raise VersionNotFoundError."""
         with pytest.raises(VersionNotFoundError) as exc_info:
-            build_probe_url("6.0", release_tag="v1.0.0")
+            build_probe_url("6.0", release_tag="v0.1.0")
         assert "6.0" in str(exc_info.value)
         assert "Available versions" in str(exc_info.value)
+
+    def test_build_probe_url_latest_resolves_to_v010(self) -> None:
+        """'latest' release tag should resolve to v0.1.0."""
+        url = build_probe_url(
+            "6.8", release_tag="latest", platform="linux", extension="so", compiler="gcc13"
+        )
+        assert "/v0.1.0/" in url
 
     def test_build_checksums_url(self) -> None:
         """Build correct URL for SHA256SUMS file."""
         url = build_checksums_url("v1.2.3")
         assert url == "https://github.com/ssss2art/QtMcp/releases/download/v1.2.3/SHA256SUMS"
+
+    def test_build_checksums_url_latest_resolves_to_v010(self) -> None:
+        """'latest' should resolve to v0.1.0 for checksums."""
+        url = build_checksums_url("latest")
+        assert "/v0.1.0/" in url
 
 
 class TestChecksumParsing:
@@ -122,18 +175,18 @@ class TestChecksumParsing:
     def test_parse_standard_format(self) -> None:
         """Parse standard sha256sum output format."""
         content = """\
-abc123def456  qtmcp-probe-qt6.8-linux-gcc.so
-789xyz012abc  qtmcp-probe-qt6.8-windows-msvc.dll
+abc123def456  qtmcp-probe-qt6.8-linux-gcc13.so
+789xyz012abc  qtmcp-probe-qt6.8-windows-msvc17.dll
 """
         checksums = parse_checksums(content)
-        assert checksums["qtmcp-probe-qt6.8-linux-gcc.so"] == "abc123def456"
-        assert checksums["qtmcp-probe-qt6.8-windows-msvc.dll"] == "789xyz012abc"
+        assert checksums["qtmcp-probe-qt6.8-linux-gcc13.so"] == "abc123def456"
+        assert checksums["qtmcp-probe-qt6.8-windows-msvc17.dll"] == "789xyz012abc"
 
     def test_parse_binary_mode_format(self) -> None:
         """Parse sha256sum binary mode format (asterisk prefix)."""
-        content = "abc123def456 *qtmcp-probe-qt6.8-linux-gcc.so\n"
+        content = "abc123def456 *qtmcp-probe-qt6.8-linux-gcc13.so\n"
         checksums = parse_checksums(content)
-        assert checksums["qtmcp-probe-qt6.8-linux-gcc.so"] == "abc123def456"
+        assert checksums["qtmcp-probe-qt6.8-linux-gcc13.so"] == "abc123def456"
 
     def test_parse_empty_lines_ignored(self) -> None:
         """Empty lines should be ignored."""
@@ -190,20 +243,20 @@ class TestDownloadProbe:
                     "6.8",
                     output_dir=tmp_path,
                     verify_checksum_flag=False,
-                    release_tag="v1.0.0",
+                    release_tag="v0.1.0",
                 )
 
         assert path.exists()
         assert path.read_bytes() == fake_content
         assert "qt6.8" in path.name
-        assert "windows-msvc" in path.name
+        assert "windows-msvc17" in path.name
         assert path.suffix == ".dll"
 
     def test_download_with_checksum_verification(self, tmp_path: Path) -> None:
         """Download verifies checksum when enabled."""
         fake_content = b"fake probe binary"
         expected_hash = hashlib.sha256(fake_content).hexdigest()
-        checksums_content = f"{expected_hash}  qtmcp-probe-qt6.8-windows-msvc.dll\n"
+        checksums_content = f"{expected_hash}  qtmcp-probe-qt6.8-windows-msvc17.dll\n"
 
         call_count = {"count": 0}
 
@@ -219,7 +272,7 @@ class TestDownloadProbe:
                     "6.8",
                     output_dir=tmp_path,
                     verify_checksum_flag=True,
-                    release_tag="v1.0.0",
+                    release_tag="v0.1.0",
                 )
 
         assert path.exists()
@@ -229,7 +282,7 @@ class TestDownloadProbe:
         """Checksum mismatch should raise ChecksumError."""
         fake_content = b"fake probe binary"
         wrong_hash = "0" * 64
-        checksums_content = f"{wrong_hash}  qtmcp-probe-qt6.8-windows-msvc.dll\n"
+        checksums_content = f"{wrong_hash}  qtmcp-probe-qt6.8-windows-msvc17.dll\n"
 
         def mock_urlopen(url: str, timeout: int | None = None) -> io.BytesIO:
             if "SHA256SUMS" in url:
@@ -243,12 +296,32 @@ class TestDownloadProbe:
                         "6.8",
                         output_dir=tmp_path,
                         verify_checksum_flag=True,
-                        release_tag="v1.0.0",
+                        release_tag="v0.1.0",
                     )
 
         assert "verification failed" in str(exc_info.value)
         # Corrupted file should be deleted
-        assert not (tmp_path / "qtmcp-probe-qt6.8-windows-msvc.dll").exists()
+        assert not (tmp_path / "qtmcp-probe-qt6.8-windows-msvc17.dll").exists()
+
+    def test_download_with_explicit_compiler(self, tmp_path: Path) -> None:
+        """Download with explicit compiler override."""
+        fake_content = b"fake probe binary"
+
+        def mock_urlopen(url: str, timeout: int | None = None) -> io.BytesIO:
+            return io.BytesIO(fake_content)
+
+        with mock.patch("qtmcp.download.sys.platform", "win32"):
+            with mock.patch("qtmcp.download.urllib.request.urlopen", mock_urlopen):
+                path = download_probe(
+                    "6.8",
+                    output_dir=tmp_path,
+                    verify_checksum_flag=False,
+                    release_tag="v0.1.0",
+                    compiler="gcc14",
+                )
+
+        assert path.exists()
+        assert "windows-gcc14" in path.name
 
 
 class TestErrorHandling:
@@ -266,7 +339,7 @@ class TestErrorHandling:
                         "6.8",
                         output_dir=tmp_path,
                         verify_checksum_flag=True,
-                        release_tag="v1.0.0",
+                        release_tag="v0.1.0",
                     )
 
         assert "not found" in str(exc_info.value).lower()
@@ -283,7 +356,7 @@ class TestErrorHandling:
                         "6.8",
                         output_dir=tmp_path,
                         verify_checksum_flag=True,
-                        release_tag="v1.0.0",
+                        release_tag="v0.1.0",
                     )
 
         assert "network error" in str(exc_info.value).lower()
@@ -296,13 +369,19 @@ class TestGetProbeFilename:
         """Get correct filename for Windows."""
         with mock.patch("qtmcp.download.sys.platform", "win32"):
             filename = get_probe_filename("6.8")
-            assert filename == "qtmcp-probe-qt6.8-windows-msvc.dll"
+            assert filename == "qtmcp-probe-qt6.8-windows-msvc17.dll"
 
     def test_get_filename_linux(self) -> None:
         """Get correct filename for Linux."""
         with mock.patch("qtmcp.download.sys.platform", "linux"):
             filename = get_probe_filename("5.15-patched")
-            assert filename == "qtmcp-probe-qt5.15-patched-linux-gcc.so"
+            assert filename == "qtmcp-probe-qt5.15-patched-linux-gcc13.so"
+
+    def test_get_filename_explicit_compiler(self) -> None:
+        """Explicit compiler param should override default."""
+        with mock.patch("qtmcp.download.sys.platform", "linux"):
+            filename = get_probe_filename("6.8", compiler="clang18")
+            assert filename == "qtmcp-probe-qt6.8-linux-clang18.so"
 
 
 class TestAvailableVersions:

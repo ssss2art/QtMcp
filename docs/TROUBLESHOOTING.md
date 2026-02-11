@@ -216,11 +216,11 @@ cat /proc/$(pgrep app-name)/maps | grep -i qt
 
 ### Available Probe Versions
 
-| Your App Uses | Download |
-|---------------|----------|
-| Qt 6.5, 6.6, 6.7, 6.8 | `--qt-version 6.8` |
-| Qt 5.15.x | `--qt-version 5.15-patched` |
-| Qt 5.12 and earlier | Not supported |
+| Your App Uses | Download | Default Compiler |
+|---------------|----------|-----------------|
+| Qt 6.5, 6.6, 6.7, 6.8 | `--qt-version 6.8` | gcc13 (Linux), msvc17 (Windows) |
+| Qt 5.15.x | `--qt-version 5.15-patched` | gcc13 (Linux), msvc17 (Windows) |
+| Qt 5.12 and earlier | Not supported | - |
 
 ## Platform-Specific Issues
 

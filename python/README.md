@@ -20,6 +20,9 @@ qtmcp download-probe --qt-version 6.8
 
 # Other available versions: 5.15, 6.5, 6.8, 6.9
 qtmcp download-probe --qt-version 5.15
+
+# Override the default compiler (default: gcc13 on Linux, msvc17 on Windows)
+qtmcp download-probe --qt-version 6.8 --compiler gcc14
 ```
 
 2. **Launch your Qt application** with the probe:

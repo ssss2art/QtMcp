@@ -26,10 +26,16 @@ AVAILABLE_VERSIONS = frozenset([
     "6.9",
 ])
 
-# Platform mapping
+# Platform mapping (platform name only, no compiler)
 PLATFORM_MAP: dict[str, tuple[str, str]] = {
-    "linux": ("linux-gcc", "so"),
-    "win32": ("windows-msvc", "dll"),
+    "linux": ("linux", "so"),
+    "win32": ("windows", "dll"),
+}
+
+# Default compiler per platform (compiler + major version)
+DEFAULT_COMPILERS: dict[str, str] = {
+    "linux": "gcc13",
+    "windows": "msvc17",
 }
 
 
@@ -50,10 +56,10 @@ class VersionNotFoundError(DownloadError):
 
 
 def detect_platform() -> tuple[str, str]:
-    """Detect the current platform and return (platform_suffix, file_extension).
+    """Detect the current platform and return (platform_name, file_extension).
 
     Returns:
-        Tuple of (platform_suffix, file_extension) e.g. ("linux-gcc", "so")
+        Tuple of (platform_name, file_extension) e.g. ("linux", "so")
 
     Raises:
         UnsupportedPlatformError: If the current platform is not supported.
@@ -69,6 +75,24 @@ def detect_platform() -> tuple[str, str]:
         )
 
     return PLATFORM_MAP[platform]
+
+
+def default_compiler(platform_name: str | None = None) -> str:
+    """Get the default compiler for a platform.
+
+    Args:
+        platform_name: Platform name (e.g., "linux", "windows").
+            Auto-detected if None.
+
+    Returns:
+        Default compiler string (e.g., "gcc13", "msvc17")
+
+    Raises:
+        UnsupportedPlatformError: If platform detection fails.
+    """
+    if platform_name is None:
+        platform_name, _ = detect_platform()
+    return DEFAULT_COMPILERS[platform_name]
 
 
 def normalize_version(qt_version: str) -> str:
@@ -102,16 +126,18 @@ def normalize_version(qt_version: str) -> str:
 def build_probe_url(
     qt_version: str,
     release_tag: str = "latest",
-    platform_suffix: str | None = None,
+    platform: str | None = None,
     extension: str | None = None,
+    compiler: str | None = None,
 ) -> str:
     """Build the URL for a probe binary.
 
     Args:
         qt_version: Qt version (e.g., "6.8", "5.15-patched")
-        release_tag: Release tag (e.g., "v1.0.0") or "latest"
-        platform_suffix: Platform suffix (auto-detected if None)
+        release_tag: Release tag (e.g., "v0.1.0") or "latest"
+        platform: Platform name (auto-detected if None)
         extension: File extension (auto-detected if None)
+        compiler: Compiler suffix (e.g., "gcc13", "msvc17"). Auto-detected if None.
 
     Returns:
         URL to the probe binary
@@ -128,18 +154,20 @@ def build_probe_url(
             f"Qt version '{version}' not available. Available versions: {available}"
         )
 
-    if platform_suffix is None or extension is None:
-        detected_suffix, detected_ext = detect_platform()
-        platform_suffix = platform_suffix or detected_suffix
+    if platform is None or extension is None:
+        detected_platform, detected_ext = detect_platform()
+        platform = platform or detected_platform
         extension = extension or detected_ext
 
-    filename = f"qtmcp-probe-qt{version}-{platform_suffix}.{extension}"
+    if compiler is None:
+        compiler = default_compiler(platform)
+
+    filename = f"qtmcp-probe-qt{version}-{platform}-{compiler}.{extension}"
 
     # Note: "latest" tag support would require GitHub API to resolve
     # For now, require explicit version tag
     if release_tag == "latest":
-        # Use latest known stable version - can be updated
-        release_tag = "v1.0.0"
+        release_tag = "v0.1.0"
 
     return f"{RELEASES_URL}/{release_tag}/{filename}"
 
@@ -154,7 +182,7 @@ def build_checksums_url(release_tag: str = "latest") -> str:
         URL to the SHA256SUMS file
     """
     if release_tag == "latest":
-        release_tag = "v1.0.0"
+        release_tag = "v0.1.0"
     return f"{RELEASES_URL}/{release_tag}/SHA256SUMS"
 
 
@@ -233,6 +261,7 @@ def download_probe(
     output_dir: Path | str | None = None,
     verify_checksum_flag: bool = True,
     release_tag: str = "latest",
+    compiler: str | None = None,
 ) -> Path:
     """Download the QtMCP probe binary for the specified Qt version.
 
@@ -245,6 +274,7 @@ def download_probe(
         output_dir: Directory to save the probe (default: current directory)
         verify_checksum_flag: Whether to verify SHA256 checksum (default: True)
         release_tag: Release tag to download from (default: "latest")
+        compiler: Compiler suffix (e.g., "gcc13", "msvc17"). Auto-detected if None.
 
     Returns:
         Path to the downloaded probe binary
@@ -263,10 +293,14 @@ def download_probe(
     version = normalize_version(qt_version)
 
     # Detect platform
-    platform_suffix, extension = detect_platform()
+    platform_name, extension = detect_platform()
+
+    # Resolve compiler
+    if compiler is None:
+        compiler = default_compiler(platform_name)
 
     # Build URLs
-    probe_url = build_probe_url(version, release_tag, platform_suffix, extension)
+    probe_url = build_probe_url(version, release_tag, platform_name, extension, compiler)
 
     # Determine output path
     if output_dir is None:
@@ -274,7 +308,7 @@ def download_probe(
     else:
         output_dir = Path(output_dir)
 
-    filename = f"qtmcp-probe-qt{version}-{platform_suffix}.{extension}"
+    filename = f"qtmcp-probe-qt{version}-{platform_name}-{compiler}.{extension}"
     output_path = output_dir / filename
 
     # Download checksums first if verification enabled
@@ -319,15 +353,18 @@ def download_probe(
     return output_path
 
 
-def get_probe_filename(qt_version: str) -> str:
+def get_probe_filename(qt_version: str, compiler: str | None = None) -> str:
     """Get the expected probe filename for a Qt version on current platform.
 
     Args:
         qt_version: Qt version (e.g., "6.8", "5.15-patched")
+        compiler: Compiler suffix (e.g., "gcc13", "msvc17"). Auto-detected if None.
 
     Returns:
-        Expected filename (e.g., "qtmcp-probe-qt6.8-windows-msvc.dll")
+        Expected filename (e.g., "qtmcp-probe-qt6.8-windows-msvc17.dll")
     """
     version = normalize_version(qt_version)
-    platform_suffix, extension = detect_platform()
-    return f"qtmcp-probe-qt{version}-{platform_suffix}.{extension}"
+    platform_name, extension = detect_platform()
+    if compiler is None:
+        compiler = default_compiler(platform_name)
+    return f"qtmcp-probe-qt{version}-{platform_name}-{compiler}.{extension}"

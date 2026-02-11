@@ -36,6 +36,9 @@ qtmcp download-probe --qt-version 6.8
 
 # Other available versions: 5.15, 6.5, 6.8, 6.9
 qtmcp download-probe --qt-version 5.15
+
+# Override the default compiler if needed (default: gcc13 on Linux, msvc17 on Windows)
+qtmcp download-probe --qt-version 6.8 --compiler gcc14
 ```
 
 See [python/README.md](../python/README.md) for complete CLI documentation.
@@ -45,10 +48,10 @@ See [python/README.md](../python/README.md) for complete CLI documentation.
 Download probe binaries directly from [GitHub Releases](https://github.com/ssss2art/QtMcp/releases).
 
 Each release includes probes for each supported Qt version, for both platforms:
-- `qtmcp-probe-qt5.15-linux.so` / `qtmcp-probe-qt5.15-windows.dll`
-- `qtmcp-probe-qt6.5-linux.so` / `qtmcp-probe-qt6.5-windows.dll`
-- `qtmcp-probe-qt6.8-linux.so` / `qtmcp-probe-qt6.8-windows.dll`
-- `qtmcp-probe-qt6.9-linux.so` / `qtmcp-probe-qt6.9-windows.dll`
+- `qtmcp-probe-qt5.15-linux-gcc13.so` / `qtmcp-probe-qt5.15-windows-msvc17.dll`
+- `qtmcp-probe-qt6.5-linux-gcc13.so` / `qtmcp-probe-qt6.5-windows-msvc17.dll`
+- `qtmcp-probe-qt6.8-linux-gcc13.so` / `qtmcp-probe-qt6.8-windows-msvc17.dll`
+- `qtmcp-probe-qt6.9-linux-gcc13.so` / `qtmcp-probe-qt6.9-windows-msvc17.dll`
 - `qtmcp-launcher-linux` / `qtmcp-launcher-windows.exe`
 
 ### Option 3: Build from Source
@@ -74,12 +77,12 @@ ldd /path/to/app | grep -i qt
 ```
 
 Available probe versions:
-| Qt Version | Probe Name | Notes |
-|------------|------------|-------|
-| Qt 5.15.x | `qt5.15` | For Qt 5 applications |
-| Qt 6.5.x | `qt6.5` | For Qt 6.5 applications |
-| Qt 6.8.x | `qt6.8` | For Qt 6.8 applications |
-| Qt 6.9.x | `qt6.9` | For Qt 6.9 applications |
+| Qt Version | Probe Name | Default Compiler | Notes |
+|------------|------------|-----------------|-------|
+| Qt 5.15.x | `qt5.15` | gcc13 / msvc17 | For Qt 5 applications |
+| Qt 6.5.x | `qt6.5` | gcc13 / msvc17 | For Qt 6.5 applications |
+| Qt 6.8.x | `qt6.8` | gcc13 / msvc17 | For Qt 6.8 applications |
+| Qt 6.9.x | `qt6.9` | gcc13 / msvc17 | For Qt 6.9 applications |
 
 The probe must match your application's Qt major.minor version.
 
