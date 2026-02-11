@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
 
 [project.urls]
 Homepage = "https://github.com/ssss2art/QtMcp"

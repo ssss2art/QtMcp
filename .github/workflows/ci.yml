@@ -57,11 +57,19 @@ jobs:
       - name: Configure
         shell: bash
         run: |
-          if [ -n "$Qt5_DIR" ]; then
-            QT_PATH="$Qt5_DIR"
-          else
+          # install-qt-action sets QT_ROOT_DIR on Linux and Qt5_DIR/Qt6_DIR variously.
+          # Qt5_DIR and Qt6_DIR point to lib/cmake/Qt{5,6}/ — walk up to the prefix.
+          if [ -n "$QT_ROOT_DIR" ]; then
             QT_PATH="$QT_ROOT_DIR"
+          elif [ -n "$Qt6_DIR" ]; then
+            QT_PATH="$(cd "$Qt6_DIR/../../.." && pwd)"
+          elif [ -n "$Qt5_DIR" ]; then
+            QT_PATH="$(cd "$Qt5_DIR/../../.." && pwd)"
+          else
+            echo "::error::No Qt path found in environment"
+            exit 1
           fi
+          echo "Using Qt prefix: $QT_PATH"
           cmake --preset ${{ matrix.preset }} -DCMAKE_PREFIX_PATH="$QT_PATH"
 
       - name: Build
