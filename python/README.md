@@ -15,11 +15,11 @@ pip install qtmcp
 1. **Download the probe** for your Qt version:
 
 ```bash
-# Download probe for Qt 6.8
+# Download probe matching your app's Qt version
 qtmcp download-probe --qt-version 6.8
 
-# Or for Qt 5.15 (patched version for older apps)
-qtmcp download-probe --qt-version 5.15-patched
+# Other available versions: 5.15, 6.5, 6.8, 6.9
+qtmcp download-probe --qt-version 5.15
 ```
 
 2. **Launch your Qt application** with the probe:
