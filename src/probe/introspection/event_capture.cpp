@@ -192,7 +192,7 @@ static QString focusReasonName(Qt::FocusReason reason) {
 }
 
 QJsonObject EventCapture::buildMouseNotification(QObject* widget, QEvent* event,
-                                                  const QString& typeName) {
+                                                 const QString& typeName) {
   auto* me = static_cast<QMouseEvent*>(event);
 
   QJsonObject notification;
@@ -219,7 +219,7 @@ QJsonObject EventCapture::buildMouseNotification(QObject* widget, QEvent* event,
 }
 
 QJsonObject EventCapture::buildKeyNotification(QObject* widget, QEvent* event,
-                                                const QString& typeName) {
+                                               const QString& typeName) {
   auto* ke = static_cast<QKeyEvent*>(event);
 
   QJsonObject notification;
@@ -236,7 +236,7 @@ QJsonObject EventCapture::buildKeyNotification(QObject* widget, QEvent* event,
 }
 
 QJsonObject EventCapture::buildFocusNotification(QObject* widget, QEvent* event,
-                                                  const QString& typeName) {
+                                                 const QString& typeName) {
   auto* fe = static_cast<QFocusEvent*>(event);
 
   QJsonObject notification;
@@ -251,7 +251,7 @@ QJsonObject EventCapture::buildFocusNotification(QObject* widget, QEvent* event,
 }
 
 QJsonObject EventCapture::buildWindowNotification(QObject* widget, QEvent* event,
-                                                   const QString& typeName) {
+                                                  const QString& typeName) {
   QJsonObject notification;
   notification[QStringLiteral("type")] = typeName;
   notification[QStringLiteral("objectId")] = ObjectRegistry::instance()->objectId(widget);
