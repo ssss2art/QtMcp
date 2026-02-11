@@ -18,6 +18,7 @@ from qtmcp.download import (
     DownloadError,
     UnsupportedPlatformError,
     VersionNotFoundError,
+    _default_release_tag,
     build_checksums_url,
     build_probe_url,
     default_compiler,
@@ -89,6 +90,25 @@ class TestDefaultCompiler:
         assert DEFAULT_COMPILERS["windows"] == "msvc17"
 
 
+class TestDefaultReleaseTag:
+    """Tests for default release tag derivation."""
+
+    def test_clean_version(self) -> None:
+        """Clean version produces v-prefixed tag."""
+        with mock.patch("qtmcp.download._pkg_version", return_value="0.2.0"):
+            assert _default_release_tag() == "v0.2.0"
+
+    def test_dev_suffix_stripped(self) -> None:
+        """Dev suffix is stripped."""
+        with mock.patch("qtmcp.download._pkg_version", return_value="0.3.0.dev5+gabcdef"):
+            assert _default_release_tag() == "v0.3.0"
+
+    def test_post_suffix_stripped(self) -> None:
+        """Post suffix is stripped."""
+        with mock.patch("qtmcp.download._pkg_version", return_value="0.2.0.post1"):
+            assert _default_release_tag() == "v0.2.0"
+
+
 class TestVersionNormalization:
     """Tests for Qt version normalization."""
 
@@ -151,22 +171,32 @@ class TestUrlBuilding:
         assert "6.0" in str(exc_info.value)
         assert "Available versions" in str(exc_info.value)
 
-    def test_build_probe_url_latest_resolves_to_v010(self) -> None:
-        """'latest' release tag should resolve to v0.1.0."""
-        url = build_probe_url(
-            "6.8", release_tag="latest", platform="linux", extension="so", compiler="gcc13"
-        )
-        assert "/v0.1.0/" in url
+    def test_build_probe_url_latest_uses_package_version(self) -> None:
+        """'latest' release tag should resolve from package version."""
+        with mock.patch("qtmcp.download._pkg_version", return_value="0.2.0"):
+            url = build_probe_url(
+                "6.8", release_tag="latest", platform="linux", extension="so", compiler="gcc13"
+            )
+            assert "/v0.2.0/" in url
+
+    def test_build_probe_url_latest_strips_dev_suffix(self) -> None:
+        """'latest' should strip dev suffixes from package version."""
+        with mock.patch("qtmcp.download._pkg_version", return_value="0.3.0.dev5+gabcdef"):
+            url = build_probe_url(
+                "6.8", release_tag="latest", platform="linux", extension="so", compiler="gcc13"
+            )
+            assert "/v0.3.0/" in url
 
     def test_build_checksums_url(self) -> None:
         """Build correct URL for SHA256SUMS file."""
         url = build_checksums_url("v1.2.3")
         assert url == "https://github.com/ssss2art/QtMcp/releases/download/v1.2.3/SHA256SUMS"
 
-    def test_build_checksums_url_latest_resolves_to_v010(self) -> None:
-        """'latest' should resolve to v0.1.0 for checksums."""
-        url = build_checksums_url("latest")
-        assert "/v0.1.0/" in url
+    def test_build_checksums_url_latest_uses_package_version(self) -> None:
+        """'latest' should resolve from package version for checksums."""
+        with mock.patch("qtmcp.download._pkg_version", return_value="0.2.0"):
+            url = build_checksums_url("latest")
+            assert "/v0.2.0/" in url
 
 
 class TestChecksumParsing:

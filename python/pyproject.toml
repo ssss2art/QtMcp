@@ -1,6 +1,6 @@
 [project]
 name = "qtmcp"
-version = "0.1.0"
+dynamic = ["version"]
 description = "MCP server for controlling Qt applications via QtMCP probe"
 readme = "README.md"
 license = {text = "MIT"}
@@ -41,5 +41,12 @@ Changelog = "https://github.com/ssss2art/QtMcp/releases"
 qtmcp = "qtmcp.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+raw-options.root = ".."
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/qtmcp/_version.py"

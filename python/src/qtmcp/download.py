@@ -10,12 +10,21 @@ import hashlib
 import sys
 import urllib.error
 import urllib.request
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Literal
 
 # GitHub repository for QtMCP releases
 GITHUB_REPO = "ssss2art/QtMcp"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/download"
+
+
+def _default_release_tag() -> str:
+    """Derive the default release tag from the installed package version."""
+    v = _pkg_version("qtmcp")
+    # Strip dev/post/local suffixes for a clean release tag
+    base = v.split(".dev")[0].split("+")[0].split(".post")[0]
+    return f"v{base}"
 
 # Available Qt versions (release workflow builds these)
 AVAILABLE_VERSIONS = frozenset([
@@ -134,7 +143,7 @@ def build_probe_url(
 
     Args:
         qt_version: Qt version (e.g., "6.8", "5.15-patched")
-        release_tag: Release tag (e.g., "v0.1.0") or "latest"
+        release_tag: Release tag (e.g., "v0.2.0") or "latest"
         platform: Platform name (auto-detected if None)
         extension: File extension (auto-detected if None)
         compiler: Compiler suffix (e.g., "gcc13", "msvc17"). Auto-detected if None.
@@ -164,10 +173,8 @@ def build_probe_url(
 
     filename = f"qtmcp-probe-qt{version}-{platform}-{compiler}.{extension}"
 
-    # Note: "latest" tag support would require GitHub API to resolve
-    # For now, require explicit version tag
     if release_tag == "latest":
-        release_tag = "v0.1.0"
+        release_tag = _default_release_tag()
 
     return f"{RELEASES_URL}/{release_tag}/{filename}"
 
@@ -182,7 +189,7 @@ def build_checksums_url(release_tag: str = "latest") -> str:
         URL to the SHA256SUMS file
     """
     if release_tag == "latest":
-        release_tag = "v0.1.0"
+        release_tag = _default_release_tag()
     return f"{RELEASES_URL}/{release_tag}/SHA256SUMS"
 
 

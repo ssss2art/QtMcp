@@ -50,6 +50,7 @@ node_modules/
 # Python
 __pycache__/
 *.pyc
+_version.py
 
 # Claude Code local config
 .claude/
