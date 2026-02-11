@@ -124,10 +124,12 @@ def create_server(
             # Auto-launch target if specified
             actual_ws_url = ws_url
             if target is not None:
+                from qtmcp.download import get_launcher_filename
+
                 launcher = (
                     launcher_path
                     or os.environ.get("QTMCP_LAUNCHER")
-                    or "qtmcp-launcher"
+                    or get_launcher_filename()
                 )
                 logger.debug(
                     "Launching target %s via %s on port %d", target, launcher, port
