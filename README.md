@@ -45,8 +45,8 @@ QtMcp lets Claude and other AI assistants interact with any Qt desktop applicati
 ```bash
 pip install qtmcp
 
-# Download probe for your Qt version (use --compiler to override default)
-qtmcp download-probe --qt-version 6.8
+# Download probe + launcher for your Qt version
+qtmcp download-tools --qt-version 6.8
 
 # Launch your app with the probe and start the MCP server
 qtmcp serve --mode native --target /path/to/your-qt-app

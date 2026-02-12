@@ -22,12 +22,13 @@ jobs:
         with:
           path: artifacts
 
-      - name: Prepare release assets
+      - name: Prepare release archives
         shell: bash
         run: |
           mkdir -p release
 
-          # Extract probe binaries for each Qt version and platform
+          # Extract probe + launcher for each Qt version and platform,
+          # then package into per-(qt_version, platform) archives.
           for dir in artifacts/qtmcp-*/; do
             basename=$(basename "$dir")
 
@@ -42,38 +43,45 @@ jobs:
             qt_full=$(echo "$basename" | grep -oP 'qt\K[0-9]+\.[0-9]+\.[0-9]+')
             qt_tag="qt$(echo "$qt_full" | grep -oP '^[0-9]+\.[0-9]+')"
 
-            # Extract compiler suffix from directory name (e.g., gcc13, msvc17)
-            compiler=$(echo "$basename" | grep -oP '(gcc|msvc|clang|mingw)\d+$')
+            # Stage files into a temp directory with simplified names
+            staging="staging/${qt_tag}-${platform}"
+            mkdir -p "$staging"
 
-            # Copy probe binaries
+            # Copy probe binary with simplified name (no version/compiler suffix)
             if [ "$platform" = "windows" ]; then
               for f in "$dir"/lib/qtmcp-probe-*.dll; do
-                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-windows-${compiler}.dll"
+                [ -f "$f" ] && cp "$f" "$staging/qtmcp-probe.dll"
               done
-              for f in "$dir"/lib/qtmcp-probe-*.lib; do
-                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-windows-${compiler}.lib"
+              for f in "$dir"/bin/qtmcp-launcher*; do
+                [ -f "$f" ] && cp "$f" "$staging/qtmcp-launcher.exe"
               done
             else
               for f in "$dir"/lib/libqtmcp-probe-*.so; do
-                [ -f "$f" ] && cp "$f" "release/qtmcp-probe-${qt_tag}-linux-${compiler}.so"
+                [ -f "$f" ] && cp "$f" "$staging/qtmcp-probe.so"
               done
-            fi
-
-            # Copy launcher from qt6.8 cells only (one per platform)
-            if [[ "$qt_full" == "6.8.0" ]]; then
-              if [ "$platform" = "windows" ]; then
-                for f in "$dir"/bin/qtmcp-launcher*; do
-                  [ -f "$f" ] && cp "$f" "release/qtmcp-launcher-windows.exe"
-                done
-              else
-                for f in "$dir"/bin/qtmcp-launcher*; do
-                  [ -f "$f" ] && cp "$f" "release/qtmcp-launcher-linux"
-                done
-              fi
+              for f in "$dir"/bin/qtmcp-launcher*; do
+                [ -f "$f" ] && cp "$f" "$staging/qtmcp-launcher"
+              done
             fi
           done
 
-          # Generate checksums
+          # Create archives from staged directories
+          for staging_dir in staging/*/; do
+            tag_platform=$(basename "$staging_dir")
+            # Parse qt_tag and platform from directory name (e.g., "qt6.8-windows")
+            qt_tag=$(echo "$tag_platform" | grep -oP '^qt[0-9]+\.[0-9]+(-patched)?')
+            platform=$(echo "$tag_platform" | grep -oP '(windows|linux)$')
+
+            if [ "$platform" = "windows" ]; then
+              archive="qtmcp-${qt_tag}-${platform}.zip"
+              (cd "$staging_dir" && zip -j "../../release/$archive" *)
+            else
+              archive="qtmcp-${qt_tag}-${platform}.tar.gz"
+              tar -czf "release/$archive" -C "$staging_dir" .
+            fi
+          done
+
+          # Generate checksums over archive files only
           cd release
           sha256sum * > SHA256SUMS
           cat SHA256SUMS

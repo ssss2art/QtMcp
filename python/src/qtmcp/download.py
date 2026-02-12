@@ -1,18 +1,19 @@
-"""Download QtMCP probe binaries from GitHub Releases.
+"""Download QtMCP tool archives from GitHub Releases.
 
-This module provides utilities to download the correct probe binary
-for your Qt version and platform.
+This module provides utilities to download the correct probe + launcher
+archive for your Qt version and platform.
 """
 
 from __future__ import annotations
 
 import hashlib
 import sys
+import tarfile
 import urllib.error
 import urllib.request
+import zipfile
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
-from typing import Literal
 
 # GitHub repository for QtMCP releases
 GITHUB_REPO = "ssss2art/QtMcp"
@@ -35,21 +36,15 @@ AVAILABLE_VERSIONS = frozenset([
     "6.9",
 ])
 
-# Platform mapping (platform name only, no compiler)
-PLATFORM_MAP: dict[str, tuple[str, str]] = {
-    "linux": ("linux", "so"),
-    "win32": ("windows", "dll"),
-}
-
-# Default compiler per platform (compiler + major version)
-DEFAULT_COMPILERS: dict[str, str] = {
-    "linux": "gcc13",
-    "windows": "msvc17",
+# Platform mapping: sys.platform -> (platform_name, archive_ext, lib_ext)
+PLATFORM_MAP: dict[str, tuple[str, str, str]] = {
+    "linux": ("linux", "tar.gz", "so"),
+    "win32": ("windows", "zip", "dll"),
 }
 
 
 class DownloadError(Exception):
-    """Raised when probe download fails."""
+    """Raised when download fails."""
 
 
 class ChecksumError(DownloadError):
@@ -64,11 +59,11 @@ class VersionNotFoundError(DownloadError):
     """Raised when the requested Qt version is not available."""
 
 
-def detect_platform() -> tuple[str, str]:
-    """Detect the current platform and return (platform_name, file_extension).
+def detect_platform() -> str:
+    """Detect the current platform name.
 
     Returns:
-        Tuple of (platform_name, file_extension) e.g. ("linux", "so")
+        Platform name string: "linux" or "windows"
 
     Raises:
         UnsupportedPlatformError: If the current platform is not supported.
@@ -83,25 +78,32 @@ def detect_platform() -> tuple[str, str]:
             f"Unsupported platform: {platform}. Supported platforms: {supported}"
         )
 
-    return PLATFORM_MAP[platform]
+    return PLATFORM_MAP[platform][0]
 
 
-def default_compiler(platform_name: str | None = None) -> str:
-    """Get the default compiler for a platform.
-
-    Args:
-        platform_name: Platform name (e.g., "linux", "windows").
-            Auto-detected if None.
+def get_probe_filename(platform_name: str | None = None) -> str:
+    """Get the simplified probe filename for the current platform.
 
     Returns:
-        Default compiler string (e.g., "gcc13", "msvc17")
-
-    Raises:
-        UnsupportedPlatformError: If platform detection fails.
+        Filename like "qtmcp-probe.dll" or "qtmcp-probe.so"
     """
     if platform_name is None:
-        platform_name, _ = detect_platform()
-    return DEFAULT_COMPILERS[platform_name]
+        platform_name = detect_platform()
+    ext = "dll" if platform_name == "windows" else "so"
+    return f"qtmcp-probe.{ext}"
+
+
+def get_launcher_filename(platform_name: str | None = None) -> str:
+    """Get the simplified launcher filename for the current platform.
+
+    Returns:
+        Filename like "qtmcp-launcher.exe" or "qtmcp-launcher"
+    """
+    if platform_name is None:
+        platform_name = detect_platform()
+    if platform_name == "windows":
+        return "qtmcp-launcher.exe"
+    return "qtmcp-launcher"
 
 
 def normalize_version(qt_version: str) -> str:
@@ -132,24 +134,37 @@ def normalize_version(qt_version: str) -> str:
     return normalized
 
 
-def build_probe_url(
-    qt_version: str,
-    release_tag: str = "latest",
-    platform: str | None = None,
-    extension: str | None = None,
-    compiler: str | None = None,
-) -> str:
-    """Build the URL for a probe binary.
+def get_archive_filename(qt_version: str, platform_name: str | None = None) -> str:
+    """Get the archive filename for a Qt version and platform.
 
     Args:
         qt_version: Qt version (e.g., "6.8", "5.15-patched")
-        release_tag: Release tag (e.g., "v0.2.0") or "latest"
-        platform: Platform name (auto-detected if None)
-        extension: File extension (auto-detected if None)
-        compiler: Compiler suffix (e.g., "gcc13", "msvc17"). Auto-detected if None.
+        platform_name: Platform name (auto-detected if None)
 
     Returns:
-        URL to the probe binary
+        Archive filename like "qtmcp-qt6.8-windows.zip" or "qtmcp-qt5.15-linux.tar.gz"
+    """
+    version = normalize_version(qt_version)
+    if platform_name is None:
+        platform_name = detect_platform()
+    ext = "zip" if platform_name == "windows" else "tar.gz"
+    return f"qtmcp-qt{version}-{platform_name}.{ext}"
+
+
+def build_archive_url(
+    qt_version: str,
+    release_tag: str = "latest",
+    platform_name: str | None = None,
+) -> str:
+    """Build the URL for a release archive.
+
+    Args:
+        qt_version: Qt version (e.g., "6.8", "5.15-patched")
+        release_tag: Release tag (e.g., "v0.3.0") or "latest"
+        platform_name: Platform name (auto-detected if None)
+
+    Returns:
+        URL to the archive file
 
     Raises:
         UnsupportedPlatformError: If platform detection fails
@@ -163,15 +178,7 @@ def build_probe_url(
             f"Qt version '{version}' not available. Available versions: {available}"
         )
 
-    if platform is None or extension is None:
-        detected_platform, detected_ext = detect_platform()
-        platform = platform or detected_platform
-        extension = extension or detected_ext
-
-    if compiler is None:
-        compiler = default_compiler(platform)
-
-    filename = f"qtmcp-probe-qt{version}-{platform}-{compiler}.{extension}"
+    filename = get_archive_filename(version, platform_name)
 
     if release_tag == "latest":
         release_tag = _default_release_tag()
@@ -263,51 +270,112 @@ def download_file(url: str, output_path: Path) -> None:
         raise DownloadError(f"Network error downloading {url}: {e.reason}") from e
 
 
-def download_probe(
+def _validate_tar_member(member: tarfile.TarInfo) -> bool:
+    """Validate a tar member name to prevent path traversal attacks.
+
+    Returns:
+        True if the member name is safe.
+    """
+    # Reject absolute paths
+    if member.name.startswith("/") or member.name.startswith("\\"):
+        return False
+    # Reject path traversal
+    if ".." in member.name.split("/"):
+        return False
+    if ".." in member.name.split("\\"):
+        return False
+    # Reject symlinks
+    if member.issym() or member.islnk():
+        return False
+    return True
+
+
+def extract_archive(archive_path: Path, output_dir: Path) -> list[Path]:
+    """Extract a zip or tar.gz archive to a directory.
+
+    Args:
+        archive_path: Path to the archive file
+        output_dir: Directory to extract into
+
+    Returns:
+        List of extracted file paths
+
+    Raises:
+        DownloadError: If extraction fails or archive contains unsafe paths
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    extracted = []
+
+    name = archive_path.name
+    try:
+        if name.endswith(".zip"):
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                for info in zf.infolist():
+                    # Skip directories
+                    if info.is_dir():
+                        continue
+                    # Validate path safety
+                    if ".." in info.filename.split("/") or info.filename.startswith("/"):
+                        raise DownloadError(
+                            f"Archive contains unsafe path: {info.filename}"
+                        )
+                    zf.extract(info, output_dir)
+                    extracted.append(output_dir / info.filename)
+        elif name.endswith(".tar.gz") or name.endswith(".tgz"):
+            with tarfile.open(archive_path, "r:gz") as tf:
+                for member in tf.getmembers():
+                    if member.isdir():
+                        continue
+                    if not _validate_tar_member(member):
+                        raise DownloadError(
+                            f"Archive contains unsafe path: {member.name}"
+                        )
+                    tf.extract(member, output_dir, filter="data")
+                    extracted.append(output_dir / member.name)
+        else:
+            raise DownloadError(f"Unsupported archive format: {name}")
+    except (zipfile.BadZipFile, tarfile.TarError) as e:
+        raise DownloadError(f"Failed to extract archive: {e}") from e
+
+    return extracted
+
+
+def download_and_extract(
     qt_version: str,
     output_dir: Path | str | None = None,
-    verify_checksum_flag: bool = True,
+    verify: bool = True,
     release_tag: str = "latest",
-    compiler: str | None = None,
-) -> Path:
-    """Download the QtMCP probe binary for the specified Qt version.
+    platform_name: str | None = None,
+) -> tuple[Path, Path]:
+    """Download and extract the QtMCP tools archive for a Qt version.
 
-    Downloads the appropriate probe binary (DLL or SO) from GitHub Releases
-    based on the Qt version and current platform. Optionally verifies the
-    SHA256 checksum.
+    Downloads the archive (zip on Windows, tar.gz on Linux) containing
+    the probe and launcher, verifies the checksum, and extracts them.
 
     Args:
         qt_version: Qt version (e.g., "6.8", "5.15", "5.15-patched")
-        output_dir: Directory to save the probe (default: current directory)
-        verify_checksum_flag: Whether to verify SHA256 checksum (default: True)
+        output_dir: Directory to extract into (default: current directory)
+        verify: Whether to verify SHA256 checksum (default: True)
         release_tag: Release tag to download from (default: "latest")
-        compiler: Compiler suffix (e.g., "gcc13", "msvc17"). Auto-detected if None.
+        platform_name: Platform name (auto-detected if None)
 
     Returns:
-        Path to the downloaded probe binary
+        Tuple of (probe_path, launcher_path) pointing to extracted files
 
     Raises:
-        DownloadError: If download fails
+        DownloadError: If download or extraction fails
         ChecksumError: If checksum verification fails
         UnsupportedPlatformError: If current platform is not supported
         VersionNotFoundError: If Qt version is not available
-
-    Example:
-        >>> probe_path = download_probe("6.8")
-        >>> print(f"Downloaded probe to: {probe_path}")
     """
-    # Normalize version
     version = normalize_version(qt_version)
 
-    # Detect platform
-    platform_name, extension = detect_platform()
+    if platform_name is None:
+        platform_name = detect_platform()
 
-    # Resolve compiler
-    if compiler is None:
-        compiler = default_compiler(platform_name)
-
-    # Build URLs
-    probe_url = build_probe_url(version, release_tag, platform_name, extension, compiler)
+    # Build URL
+    archive_url = build_archive_url(version, release_tag, platform_name)
+    archive_filename = get_archive_filename(version, platform_name)
 
     # Determine output path
     if output_dir is None:
@@ -315,21 +383,21 @@ def download_probe(
     else:
         output_dir = Path(output_dir)
 
-    filename = f"qtmcp-probe-qt{version}-{platform_name}-{compiler}.{extension}"
-    output_path = output_dir / filename
+    output_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = output_dir / archive_filename
 
     # Download checksums first if verification enabled
     expected_hash: str | None = None
-    if verify_checksum_flag:
+    if verify:
         checksums_url = build_checksums_url(release_tag)
         try:
             with urllib.request.urlopen(checksums_url, timeout=30) as response:
                 checksums_content = response.read().decode("utf-8")
             checksums = parse_checksums(checksums_content)
-            expected_hash = checksums.get(filename)
+            expected_hash = checksums.get(archive_filename)
             if expected_hash is None:
                 raise DownloadError(
-                    f"Checksum not found for {filename} in SHA256SUMS"
+                    f"Checksum not found for {archive_filename} in SHA256SUMS"
                 )
         except urllib.error.HTTPError as e:
             if e.code == 404:
@@ -344,156 +412,35 @@ def download_probe(
                 f"Network error downloading checksums: {e.reason}"
             ) from e
 
-    # Download probe binary
-    download_file(probe_url, output_path)
+    # Download archive
+    download_file(archive_url, archive_path)
 
     # Verify checksum if enabled
-    if verify_checksum_flag and expected_hash:
-        if not verify_checksum(output_path, expected_hash):
-            # Remove corrupted file
-            output_path.unlink(missing_ok=True)
+    if verify and expected_hash:
+        if not verify_checksum(archive_path, expected_hash):
+            archive_path.unlink(missing_ok=True)
             raise ChecksumError(
-                f"Checksum verification failed for {filename}. "
+                f"Checksum verification failed for {archive_filename}. "
                 "File may be corrupted or tampered with."
             )
 
-    return output_path
+    # Extract archive
+    try:
+        extract_archive(archive_path, output_dir)
+    finally:
+        # Clean up the archive file after extraction
+        archive_path.unlink(missing_ok=True)
 
-
-def get_launcher_filename(platform_name: str | None = None) -> str:
-    """Get the expected launcher filename for the current platform.
-
-    Args:
-        platform_name: Platform name (e.g., "linux", "windows").
-            Auto-detected if None.
-
-    Returns:
-        Expected filename (e.g., "qtmcp-launcher-windows.exe")
-    """
-    if platform_name is None:
-        platform_name, _ = detect_platform()
-    if platform_name == "windows":
-        return "qtmcp-launcher-windows.exe"
-    return f"qtmcp-launcher-{platform_name}"
-
-
-def build_launcher_url(
-    release_tag: str = "latest",
-    platform_name: str | None = None,
-) -> str:
-    """Build the URL for a launcher binary.
-
-    Args:
-        release_tag: Release tag (e.g., "v0.1.0") or "latest"
-        platform_name: Platform name (auto-detected if None)
-
-    Returns:
-        URL to the launcher binary
-
-    Raises:
-        UnsupportedPlatformError: If platform detection fails
-    """
-    if platform_name is None:
-        platform_name, _ = detect_platform()
-
-    filename = get_launcher_filename(platform_name)
-
-    if release_tag == "latest":
-        release_tag = _default_release_tag()
-
-    return f"{RELEASES_URL}/{release_tag}/{filename}"
-
-
-def download_launcher(
-    output_dir: Path | str | None = None,
-    verify_checksum_flag: bool = True,
-    release_tag: str = "latest",
-) -> Path:
-    """Download the QtMCP launcher binary for the current platform.
-
-    Args:
-        output_dir: Directory to save the launcher (default: current directory)
-        verify_checksum_flag: Whether to verify SHA256 checksum (default: True)
-        release_tag: Release tag to download from (default: "latest")
-
-    Returns:
-        Path to the downloaded launcher binary
-
-    Raises:
-        DownloadError: If download fails
-        ChecksumError: If checksum verification fails
-        UnsupportedPlatformError: If current platform is not supported
-    """
-    platform_name, _ = detect_platform()
-    filename = get_launcher_filename(platform_name)
-    launcher_url = build_launcher_url(release_tag, platform_name)
-
-    if output_dir is None:
-        output_dir = Path.cwd()
-    else:
-        output_dir = Path(output_dir)
-
-    output_path = output_dir / filename
-
-    # Download checksums first if verification enabled
-    expected_hash: str | None = None
-    if verify_checksum_flag:
-        checksums_url = build_checksums_url(release_tag)
-        try:
-            with urllib.request.urlopen(checksums_url, timeout=30) as response:
-                checksums_content = response.read().decode("utf-8")
-            checksums = parse_checksums(checksums_content)
-            expected_hash = checksums.get(filename)
-            if expected_hash is None:
-                raise DownloadError(
-                    f"Checksum not found for {filename} in SHA256SUMS"
-                )
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                raise DownloadError(
-                    f"SHA256SUMS not found for release {release_tag}"
-                ) from e
-            raise DownloadError(
-                f"Error downloading checksums: HTTP {e.code}"
-            ) from e
-        except urllib.error.URLError as e:
-            raise DownloadError(
-                f"Network error downloading checksums: {e.reason}"
-            ) from e
-
-    # Download launcher binary
-    download_file(launcher_url, output_path)
-
-    # Verify checksum if enabled
-    if verify_checksum_flag and expected_hash:
-        if not verify_checksum(output_path, expected_hash):
-            output_path.unlink(missing_ok=True)
-            raise ChecksumError(
-                f"Checksum verification failed for {filename}. "
-                "File may be corrupted or tampered with."
-            )
-
-    # Set executable permission on Linux
+    # Set executable permissions on Linux
     if platform_name == "linux":
         import stat
 
-        output_path.chmod(output_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        for name in [get_probe_filename(platform_name), get_launcher_filename(platform_name)]:
+            path = output_dir / name
+            if path.exists():
+                path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-    return output_path
+    probe_path = output_dir / get_probe_filename(platform_name)
+    launcher_path = output_dir / get_launcher_filename(platform_name)
 
-
-def get_probe_filename(qt_version: str, compiler: str | None = None) -> str:
-    """Get the expected probe filename for a Qt version on current platform.
-
-    Args:
-        qt_version: Qt version (e.g., "6.8", "5.15-patched")
-        compiler: Compiler suffix (e.g., "gcc13", "msvc17"). Auto-detected if None.
-
-    Returns:
-        Expected filename (e.g., "qtmcp-probe-qt6.8-windows-msvc17.dll")
-    """
-    version = normalize_version(qt_version)
-    platform_name, extension = detect_platform()
-    if compiler is None:
-        compiler = default_compiler(platform_name)
-    return f"qtmcp-probe-qt{version}-{platform_name}-{compiler}.{extension}"
+    return probe_path, launcher_path

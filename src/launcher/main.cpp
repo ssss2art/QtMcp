@@ -25,9 +25,12 @@ QString findProbePath(const QString& qtVersion) {
   QDir exeDir(QCoreApplication::applicationDirPath());
 
 #ifdef Q_OS_WIN
-  const QString globPattern = QStringLiteral("qtmcp-probe*.dll");
+  const QStringList globPatterns = {QStringLiteral("qtmcp-probe*.dll")};
 #else
-  const QString globPattern = QStringLiteral("libqtmcp-probe*.so");
+  // Match both CMake build output (libqtmcp-probe*.so) and
+  // archive-extracted probes (qtmcp-probe*.so)
+  const QStringList globPatterns = {QStringLiteral("libqtmcp-probe*.so"),
+                                    QStringLiteral("qtmcp-probe*.so")};
 #endif
 
   QStringList searchDirs = {
@@ -42,10 +45,12 @@ QString findProbePath(const QString& qtVersion) {
     QDir d(dir);
     if (!d.exists())
       continue;
-    for (const QString& entry : d.entryList({globPattern}, QDir::Files, QDir::Name)) {
-      QString fullPath = QFileInfo(d.filePath(entry)).absoluteFilePath();
-      if (!allMatches.contains(fullPath))
-        allMatches.append(fullPath);
+    for (const QString& globPattern : globPatterns) {
+      for (const QString& entry : d.entryList({globPattern}, QDir::Files, QDir::Name)) {
+        QString fullPath = QFileInfo(d.filePath(entry)).absoluteFilePath();
+        if (!allMatches.contains(fullPath))
+          allMatches.append(fullPath);
+      }
     }
   }
 

@@ -12,17 +12,17 @@ pip install qtmcp
 
 ## Quick Start
 
-1. **Download the probe** for your Qt version:
+1. **Download the tools** for your Qt version:
 
 ```bash
-# Download probe matching your app's Qt version
-qtmcp download-probe --qt-version 6.8
+# Download probe + launcher matching your app's Qt version
+qtmcp download-tools --qt-version 6.8
 
 # Other available versions: 5.15, 6.5, 6.8, 6.9
-qtmcp download-probe --qt-version 5.15
+qtmcp download-tools --qt-version 5.15
 
-# Override the default compiler (default: gcc13 on Linux, msvc17 on Windows)
-qtmcp download-probe --qt-version 6.8 --compiler gcc14
+# Extract to a specific directory
+qtmcp download-tools --qt-version 6.8 --output ./tools
 ```
 
 2. **Launch your Qt application** with the probe:

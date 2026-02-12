@@ -33,26 +33,26 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_download_probe(args: argparse.Namespace) -> int:
-    """Download probe binary from GitHub Releases."""
+def cmd_download_tools(args: argparse.Namespace) -> int:
+    """Download probe + launcher archive from GitHub Releases."""
     from qtmcp.download import (
         AVAILABLE_VERSIONS,
         ChecksumError,
         DownloadError,
         UnsupportedPlatformError,
         VersionNotFoundError,
-        download_probe,
+        download_and_extract,
     )
 
     try:
-        path = download_probe(
+        probe_path, launcher_path = download_and_extract(
             qt_version=args.qt_version,
-            output_dir=args.output_dir,
-            verify_checksum_flag=not args.no_verify,
+            output_dir=args.output,
+            verify=not args.no_verify,
             release_tag=args.release,
-            compiler=args.compiler,
         )
-        print(f"Downloaded probe to: {path}")
+        print(f"Extracted probe:    {probe_path}")
+        print(f"Extracted launcher: {launcher_path}")
     except VersionNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         print(f"Available versions: {', '.join(sorted(AVAILABLE_VERSIONS))}", file=sys.stderr)
@@ -68,59 +68,7 @@ def cmd_download_probe(args: argparse.Namespace) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    # Also download launcher if requested
-    if getattr(args, "with_launcher", False):
-        rc = _download_launcher_impl(
-            output_dir=args.output_dir,
-            no_verify=args.no_verify,
-            release_tag=args.release,
-        )
-        if rc != 0:
-            return rc
-
     return 0
-
-
-def _download_launcher_impl(
-    output_dir: str | None,
-    no_verify: bool,
-    release_tag: str,
-) -> int:
-    """Shared launcher download logic used by both commands."""
-    from qtmcp.download import (
-        ChecksumError,
-        DownloadError,
-        UnsupportedPlatformError,
-        download_launcher,
-    )
-
-    try:
-        path = download_launcher(
-            output_dir=output_dir,
-            verify_checksum_flag=not no_verify,
-            release_tag=release_tag,
-        )
-        print(f"Downloaded launcher to: {path}")
-        return 0
-    except UnsupportedPlatformError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-    except ChecksumError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        print("Try --no-verify to skip checksum verification (not recommended).", file=sys.stderr)
-        return 1
-    except DownloadError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-
-
-def cmd_download_launcher(args: argparse.Namespace) -> int:
-    """Download launcher binary from GitHub Releases."""
-    return _download_launcher_impl(
-        output_dir=args.output_dir,
-        no_verify=args.no_verify,
-        release_tag=args.release,
-    )
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -189,21 +137,19 @@ def create_parser() -> argparse.ArgumentParser:
     )
     serve_parser.set_defaults(func=cmd_serve)
 
-    # --- download-probe subcommand ---
+    # --- download-tools subcommand ---
     download_parser = subparsers.add_parser(
-        "download-probe",
-        help="Download probe binary from GitHub Releases",
+        "download-tools",
+        help="Download probe + launcher from GitHub Releases",
         description=(
-            "Download the QtMCP probe DLL/SO for your Qt version from GitHub Releases.\n\n"
+            "Download the QtMCP probe and launcher for your Qt version from GitHub Releases.\n\n"
             "Available Qt versions: 5.15, 5.15-patched, 6.5, 6.8, 6.9\n\n"
-            "Platform and compiler are auto-detected:\n"
-            "  - Linux   -> linux-gcc13   (.so)\n"
-            "  - Windows -> windows-msvc17 (.dll)\n\n"
-            "Override the compiler with --compiler (e.g., gcc14, mingw13, clang18).\n\n"
+            "Downloads a platform-specific archive (zip on Windows, tar.gz on Linux)\n"
+            "containing qtmcp-probe and qtmcp-launcher, then extracts them.\n\n"
             "Example:\n"
-            "  qtmcp download-probe --qt-version 6.8\n"
-            "  qtmcp download-probe --qt-version 5.15-patched --output-dir ./lib\n"
-            "  qtmcp download-probe --qt-version 6.8 --compiler gcc14"
+            "  qtmcp download-tools --qt-version 6.8\n"
+            "  qtmcp download-tools --qt-version 5.15 --output ./tools\n"
+            "  qtmcp download-tools --qt-version 5.15-patched --release v0.3.0"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -211,14 +157,14 @@ def create_parser() -> argparse.ArgumentParser:
         "--qt-version",
         required=True,
         metavar="VERSION",
-        help="Qt version to download probe for (e.g., 6.8, 5.15, 5.15-patched)",
+        help="Qt version to download tools for (e.g., 6.8, 5.15, 5.15-patched)",
     )
     download_parser.add_argument(
-        "--output-dir",
+        "--output",
         "-o",
         default=None,
         metavar="DIR",
-        help="Directory to save the probe (default: current directory)",
+        help="Directory to extract tools into (default: current directory)",
     )
     download_parser.add_argument(
         "--no-verify",
@@ -231,55 +177,7 @@ def create_parser() -> argparse.ArgumentParser:
         metavar="TAG",
         help="Release tag to download from (default: latest)",
     )
-    download_parser.add_argument(
-        "--compiler",
-        default=None,
-        metavar="COMPILER",
-        help="Compiler suffix (e.g., gcc13, msvc17, mingw13). Auto-detected if omitted.",
-    )
-    download_parser.add_argument(
-        "--with-launcher",
-        action="store_true",
-        help="Also download the launcher binary",
-    )
-    download_parser.set_defaults(func=cmd_download_probe)
-
-    # --- download-launcher subcommand ---
-    launcher_parser = subparsers.add_parser(
-        "download-launcher",
-        help="Download launcher binary from GitHub Releases",
-        description=(
-            "Download the QtMCP launcher executable for your platform from GitHub Releases.\n\n"
-            "The launcher injects the probe into a target Qt application at startup.\n\n"
-            "Platform is auto-detected:\n"
-            "  - Linux   -> qtmcp-launcher-linux\n"
-            "  - Windows -> qtmcp-launcher-windows.exe\n\n"
-            "Example:\n"
-            "  qtmcp download-launcher\n"
-            "  qtmcp download-launcher --output-dir ./bin\n"
-            "  qtmcp download-launcher --no-verify --release v0.1.0"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    launcher_parser.add_argument(
-        "--output-dir",
-        "-o",
-        default=None,
-        metavar="DIR",
-        help="Directory to save the launcher (default: current directory)",
-    )
-    launcher_parser.add_argument(
-        "--no-verify",
-        action="store_true",
-        help="Skip SHA256 checksum verification (not recommended)",
-    )
-    launcher_parser.add_argument(
-        "--release",
-        default="latest",
-        metavar="TAG",
-        help="Release tag to download from (default: latest)",
-    )
-    launcher_parser.set_defaults(func=cmd_download_launcher)
+    download_parser.set_defaults(func=cmd_download_tools)
 
     return parser
 

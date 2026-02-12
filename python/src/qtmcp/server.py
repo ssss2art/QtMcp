@@ -153,12 +153,12 @@ def create_server(
                 except FileNotFoundError:
                     raise FileNotFoundError(
                         f"Launcher not found: {launcher!r}. "
-                        "Install with: qtmcp download-launcher"
+                        "Install with: qtmcp download-tools --qt-version <VERSION>"
                     )
                 except OSError as e:
                     raise OSError(
                         f"Could not start launcher {launcher!r}: {e}. "
-                        "Install with: qtmcp download-launcher"
+                        "Install with: qtmcp download-tools --qt-version <VERSION>"
                     ) from e
                 await asyncio.sleep(1.5)
                 actual_ws_url = f"ws://localhost:{port}"
