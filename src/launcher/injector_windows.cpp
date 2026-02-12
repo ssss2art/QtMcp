@@ -28,6 +28,7 @@
 #define NOMINMAX
 #endif
 #include <Windows.h>
+#include <Psapi.h>
 #include <cstdio>
 
 namespace {
@@ -113,6 +114,30 @@ void printWindowsError(const char* prefix, DWORD errorCode) {
   } else {
     fprintf(stderr, "[injector] %s: error %lu\n", prefix, errorCode);
   }
+}
+
+/// @brief Find a loaded module in a remote process by filename.
+/// @param process Handle to the remote process (PROCESS_QUERY_INFORMATION | PROCESS_VM_READ).
+/// @param moduleName The DLL filename to search for (e.g. L"qtmcp-probe.dll").
+/// @return The module base address in the remote process, or nullptr if not found.
+HMODULE findRemoteModule(HANDLE process, const wchar_t* moduleName) {
+  HMODULE modules[1024];
+  DWORD bytesNeeded = 0;
+
+  if (!EnumProcessModules(process, modules, sizeof(modules), &bytesNeeded)) {
+    return nullptr;
+  }
+
+  DWORD moduleCount = bytesNeeded / sizeof(HMODULE);
+  for (DWORD i = 0; i < moduleCount; ++i) {
+    wchar_t name[MAX_PATH];
+    if (GetModuleBaseNameW(process, modules[i], name, MAX_PATH)) {
+      if (_wcsicmp(name, moduleName) == 0) {
+        return modules[i];
+      }
+    }
+  }
+  return nullptr;
 }
 
 }  // namespace
@@ -298,6 +323,78 @@ qint64 launchWithProbe(const LaunchOptions& options) {
 
   // 9. Free the remote memory (no longer needed)
   VirtualFreeEx(processHandle.get(), remoteMem, 0, MEM_RELEASE);
+
+  // --- Phase 2: Call exported qtmcpProbeInit in the remote process ---
+  // The probe DLL is now loaded, but Q_COREAPP_STARTUP_FUNCTION may not work
+  // reliably when injected into a suspended process. We explicitly call the
+  // probe's init entry point (GammaRay pattern) to ensure proper registration.
+  {
+    // 2a. Extract just the DLL filename from the full path
+    QFileInfo probeFileInfo(options.probePath);
+    std::wstring probeDllName = probeFileInfo.fileName().toStdWString();
+
+    // 2b. Find the probe module's base address in the remote process
+    HMODULE remoteProbeBase = findRemoteModule(processHandle.get(), probeDllName.c_str());
+    if (!remoteProbeBase) {
+      if (!options.quiet) {
+        fprintf(stderr, "[injector] Warning: Could not find %ls in remote process modules\n",
+                probeDllName.c_str());
+      }
+      // Fall through — Q_COREAPP_STARTUP_FUNCTION may still work
+    } else {
+      // 2c. Load the probe DLL locally WITHOUT running DllMain/constructors.
+      // DONT_RESOLVE_DLL_REFERENCES maps the binary for address calculation only.
+      HMODULE localProbe = LoadLibraryExW(dllPath.c_str(), nullptr, DONT_RESOLVE_DLL_REFERENCES);
+      if (!localProbe) {
+        if (!options.quiet) {
+          printWindowsError("LoadLibraryExW (local, no-init) failed", GetLastError());
+        }
+      } else {
+        // 2d. Get local address of the exported init function
+        auto localFunc =
+            reinterpret_cast<LPTHREAD_START_ROUTINE>(GetProcAddress(localProbe, "qtmcpProbeInit"));
+
+        if (!localFunc) {
+          if (!options.quiet) {
+            fprintf(stderr, "[injector] Warning: qtmcpProbeInit not found in probe DLL exports\n");
+          }
+        } else {
+          // 2e. Calculate the remote address via offset from base
+          auto offset = reinterpret_cast<const char*>(localFunc) -
+                        reinterpret_cast<const char*>(localProbe);
+          auto remoteFunc = reinterpret_cast<LPTHREAD_START_ROUTINE>(
+              reinterpret_cast<const char*>(remoteProbeBase) + offset);
+
+          if (!options.quiet) {
+            fprintf(stderr, "[injector] Calling qtmcpProbeInit at remote address %p\n",
+                    reinterpret_cast<void*>(remoteFunc));
+          }
+
+          // 2f. Call qtmcpProbeInit via CreateRemoteThread
+          HandleGuard initThread(CreateRemoteThread(processHandle.get(), nullptr, 0, remoteFunc,
+                                                    nullptr, 0, nullptr));
+
+          if (!initThread.valid()) {
+            if (!options.quiet) {
+              printWindowsError("CreateRemoteThread (init) failed", GetLastError());
+            }
+          } else {
+            DWORD initWait = WaitForSingleObject(initThread.get(), 10000);
+            if (initWait != WAIT_OBJECT_0) {
+              if (!options.quiet) {
+                fprintf(stderr, "[injector] Warning: qtmcpProbeInit thread did not complete in time\n");
+              }
+            } else if (!options.quiet) {
+              fprintf(stderr, "[injector] qtmcpProbeInit completed successfully\n");
+            }
+          }
+        }
+
+        // 2g. Free the local mapping
+        FreeLibrary(localProbe);
+      }
+    }
+  }
 
   // 10. Resume the main thread
   DWORD suspendCount = ResumeThread(threadHandle.get());

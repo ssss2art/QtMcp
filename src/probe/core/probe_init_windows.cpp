@@ -7,6 +7,10 @@
 // create threads, load libraries, or do any "real" work in DllMain.
 // All initialization is deferred until after the DLL load completes.
 //
+// Initialization paths:
+// 1. Build-time linking / LD_PRELOAD: Q_COREAPP_STARTUP_FUNCTION fires automatically
+// 2. Runtime injection: launcher calls exported qtmcpProbeInit() via CreateRemoteThread
+//
 // See: https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-best-practices
 
 #ifdef _WIN32
@@ -53,23 +57,49 @@ void ensureInitialized() {
 }  // namespace qtmcp
 
 // Automatic initialization hook using Q_COREAPP_STARTUP_FUNCTION.
-// This function runs automatically when QCoreApplication starts.
-// It's the safe place to trigger probe initialization after Qt is ready.
+// This fires automatically when QCoreApplication starts for the build-time
+// linking case. For runtime injection, the launcher calls qtmcpProbeInit()
+// which either inits immediately or registers via qAddPreRoutine().
 #include <QCoreApplication>
 
 static void qtmcpAutoInit() {
   // Check if probe is disabled via environment
   QByteArray enabled = qgetenv("QTMCP_ENABLED");
   if (enabled == "0") {
-    return;  // Probe disabled
+    OutputDebugStringA("[QtMCP] Probe disabled via QTMCP_ENABLED=0\n");
+    return;
   }
 
-  // QCoreApplication now exists, safe to initialize the probe
+  OutputDebugStringA("[QtMCP] qtmcpAutoInit — calling ensureInitialized()\n");
   qtmcp::ensureInitialized();
 }
 
-// Register the startup function with Qt
+// Register the startup function with Qt (fallback for build-time linking)
 Q_COREAPP_STARTUP_FUNCTION(qtmcpAutoInit)
+
+/// Explicit initialization entry point for runtime injection.
+/// Called by the launcher via CreateRemoteThread after LoadLibraryW completes.
+/// Has LPTHREAD_START_ROUTINE signature: DWORD WINAPI func(LPVOID).
+extern "C" __declspec(dllexport)
+DWORD WINAPI qtmcpProbeInit(LPVOID /*param*/) {
+  OutputDebugStringA("[QtMCP] qtmcpProbeInit() called by launcher\n");
+
+  g_dllLoaded = true;
+
+  if (QCoreApplication::instance()) {
+    // QApp already exists (attached to running process) — init now
+    OutputDebugStringA("[QtMCP] QCoreApplication exists, initializing immediately\n");
+    qtmcp::ensureInitialized();
+  } else {
+    // QApp doesn't exist yet (suspended process) — register for later.
+    // qAddPreRoutine calls the callback immediately if QApp exists,
+    // otherwise adds to the list for QCoreApplication constructor to call.
+    OutputDebugStringA("[QtMCP] QCoreApplication not yet created, registering qAddPreRoutine\n");
+    qAddPreRoutine(qtmcpAutoInit);
+  }
+
+  return 0;
+}
 
 // Windows DLL entry point.
 //

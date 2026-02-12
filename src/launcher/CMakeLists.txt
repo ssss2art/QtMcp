@@ -35,6 +35,11 @@ else()
     )
 endif()
 
+# Windows: link Psapi for EnumProcessModules / GetModuleBaseNameW
+if(WIN32)
+    target_link_libraries(qtmcp_launcher PRIVATE Psapi)
+endif()
+
 set_target_properties(qtmcp_launcher PROPERTIES
     OUTPUT_NAME "qtmcp-launcher"
     DEBUG_POSTFIX "d"
