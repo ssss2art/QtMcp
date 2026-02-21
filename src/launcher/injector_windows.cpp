@@ -27,8 +27,8 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <Windows.h>
 #include <Psapi.h>
+#include <Windows.h>
 #include <cstdio>
 
 namespace {
@@ -360,8 +360,8 @@ qint64 launchWithProbe(const LaunchOptions& options) {
           }
         } else {
           // 2e. Calculate the remote address via offset from base
-          auto offset = reinterpret_cast<const char*>(localFunc) -
-                        reinterpret_cast<const char*>(localProbe);
+          auto offset =
+              reinterpret_cast<const char*>(localFunc) - reinterpret_cast<const char*>(localProbe);
           auto remoteFunc = reinterpret_cast<LPTHREAD_START_ROUTINE>(
               reinterpret_cast<const char*>(remoteProbeBase) + offset);
 
@@ -371,8 +371,8 @@ qint64 launchWithProbe(const LaunchOptions& options) {
           }
 
           // 2f. Call qtmcpProbeInit via CreateRemoteThread
-          HandleGuard initThread(CreateRemoteThread(processHandle.get(), nullptr, 0, remoteFunc,
-                                                    nullptr, 0, nullptr));
+          HandleGuard initThread(
+              CreateRemoteThread(processHandle.get(), nullptr, 0, remoteFunc, nullptr, 0, nullptr));
 
           if (!initThread.valid()) {
             if (!options.quiet) {
@@ -382,7 +382,8 @@ qint64 launchWithProbe(const LaunchOptions& options) {
             DWORD initWait = WaitForSingleObject(initThread.get(), 10000);
             if (initWait != WAIT_OBJECT_0) {
               if (!options.quiet) {
-                fprintf(stderr, "[injector] Warning: qtmcpProbeInit thread did not complete in time\n");
+                fprintf(stderr,
+                        "[injector] Warning: qtmcpProbeInit thread did not complete in time\n");
               }
             } else if (!options.quiet) {
               fprintf(stderr, "[injector] qtmcpProbeInit completed successfully\n");

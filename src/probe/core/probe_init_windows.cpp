@@ -80,8 +80,7 @@ Q_COREAPP_STARTUP_FUNCTION(qtmcpAutoInit)
 /// Explicit initialization entry point for runtime injection.
 /// Called by the launcher via CreateRemoteThread after LoadLibraryW completes.
 /// Has LPTHREAD_START_ROUTINE signature: DWORD WINAPI func(LPVOID).
-extern "C" __declspec(dllexport)
-DWORD WINAPI qtmcpProbeInit(LPVOID /*param*/) {
+extern "C" __declspec(dllexport) DWORD WINAPI qtmcpProbeInit(LPVOID /*param*/) {
   OutputDebugStringA("[QtMCP] qtmcpProbeInit() called by launcher\n");
 
   g_dllLoaded = true;
