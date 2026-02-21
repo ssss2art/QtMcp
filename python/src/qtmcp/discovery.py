@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import socket
 import time
 from dataclasses import dataclass, field
 from typing import Callable
@@ -101,10 +102,18 @@ class DiscoveryListener:
             return
 
         loop = asyncio.get_running_loop()
+
+        # Create socket manually with SO_REUSEADDR so multiple qtmcp
+        # server instances can listen for probe broadcasts concurrently.
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.setblocking(False)
+        sock.bind(("0.0.0.0", self._port))
+
         self._transport, self._protocol = await loop.create_datagram_endpoint(
             lambda: DiscoveryProtocol(self),
-            local_addr=("0.0.0.0", self._port),
-            allow_broadcast=True,
+            sock=sock,
         )
         self._running = True
         logger.info("Discovery listener started on UDP port %d", self._port)
