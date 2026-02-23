@@ -31,7 +31,8 @@ jobs:
       matrix:
         include:
           - { qt: "5.15.2", os: ubuntu-24.04, preset: release,         platform: linux,   compiler: gcc13,  modules: "" }
-          - { qt: "5.15.2", os: windows-latest, preset: windows-release, platform: windows, compiler: msvc17, modules: "" }
+          - { qt: "5.15.2", os: windows-latest, preset: windows-release,     platform: windows, compiler: msvc17, modules: "" }
+          - { qt: "5.15.2", os: windows-latest, preset: windows-x86-release, platform: windows, compiler: msvc17, modules: "", arch: "win32_msvc2019" }
           - { qt: "6.5.3",  os: ubuntu-24.04, preset: release,         platform: linux,   compiler: gcc13,  modules: "qtwebsockets" }
           - { qt: "6.5.3",  os: windows-latest, preset: windows-release, platform: windows, compiler: msvc17, modules: "qtwebsockets" }
           - { qt: "6.8.0",  os: ubuntu-24.04, preset: release,         platform: linux,   compiler: gcc13,  modules: "qtwebsockets" }
@@ -47,6 +48,7 @@ jobs:
         with:
           version: ${{ matrix.qt }}
           modules: ${{ matrix.modules }}
+          arch: ${{ matrix.arch || '' }}
           cache: true
 
       - name: Install X11 dependencies (Linux)

@@ -50,6 +50,7 @@ def cmd_download_tools(args: argparse.Namespace) -> int:
             output_dir=args.output,
             verify=not args.no_verify,
             release_tag=args.release,
+            arch=args.arch,
         )
         print(f"Extracted probe:    {probe_path}")
         print(f"Extracted launcher: {launcher_path}")
@@ -135,6 +136,12 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable UDP probe discovery",
     )
+    serve_parser.add_argument(
+        "--arch",
+        default=None,
+        choices=["x64", "x86"],
+        help="Target architecture (default: x64). Must match target app bitness.",
+    )
     serve_parser.set_defaults(func=cmd_serve)
 
     # --- download-tools subcommand ---
@@ -176,6 +183,12 @@ def create_parser() -> argparse.ArgumentParser:
         default="latest",
         metavar="TAG",
         help="Release tag to download from (default: latest)",
+    )
+    download_parser.add_argument(
+        "--arch",
+        default=None,
+        choices=["x64", "x86"],
+        help="Target architecture (default: x64). Must match target app bitness.",
     )
     download_parser.set_defaults(func=cmd_download_tools)
 

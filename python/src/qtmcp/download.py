@@ -36,6 +36,11 @@ AVAILABLE_VERSIONS = frozenset([
     "6.9",
 ])
 
+# Supported architectures per platform
+WINDOWS_ARCHITECTURES = frozenset(["x64", "x86"])
+LINUX_ARCHITECTURES = frozenset(["x64", "x86"])
+DEFAULT_ARCH = "x64"
+
 # Platform mapping: sys.platform -> (platform_name, archive_ext, lib_ext)
 PLATFORM_MAP: dict[str, tuple[str, str, str]] = {
     "linux": ("linux", "tar.gz", "so"),
@@ -134,20 +139,38 @@ def normalize_version(qt_version: str) -> str:
     return normalized
 
 
-def get_archive_filename(qt_version: str, platform_name: str | None = None) -> str:
-    """Get the archive filename for a Qt version and platform.
+def get_archive_filename(
+    qt_version: str, platform_name: str | None = None, arch: str | None = None,
+) -> str:
+    """Get the archive filename for a Qt version, platform, and architecture.
 
     Args:
         qt_version: Qt version (e.g., "6.8", "5.15-patched")
         platform_name: Platform name (auto-detected if None)
+        arch: Target architecture ("x64" or "x86"). Defaults to "x64".
 
     Returns:
-        Archive filename like "qtmcp-qt6.8-windows.zip" or "qtmcp-qt5.15-linux.tar.gz"
+        Archive filename like "qtmcp-qt6.8-windows-x64.zip" or
+        "qtmcp-qt5.15-linux.tar.gz"
+
+    Windows archives always include the arch suffix (-x64 or -x86).
+    Linux x64 archives have no arch suffix (backward compatibility).
+    Linux x86 archives include the -x86 suffix.
     """
     version = normalize_version(qt_version)
     if platform_name is None:
         platform_name = detect_platform()
+    if arch is None:
+        arch = DEFAULT_ARCH
     ext = "zip" if platform_name == "windows" else "tar.gz"
+
+    # Windows: always include arch suffix
+    if platform_name == "windows":
+        return f"qtmcp-qt{version}-{platform_name}-{arch}.{ext}"
+
+    # Linux: only include arch suffix for x86 (backward compat for x64)
+    if arch == "x86":
+        return f"qtmcp-qt{version}-{platform_name}-x86.{ext}"
     return f"qtmcp-qt{version}-{platform_name}.{ext}"
 
 
@@ -155,6 +178,7 @@ def build_archive_url(
     qt_version: str,
     release_tag: str = "latest",
     platform_name: str | None = None,
+    arch: str | None = None,
 ) -> str:
     """Build the URL for a release archive.
 
@@ -162,6 +186,7 @@ def build_archive_url(
         qt_version: Qt version (e.g., "6.8", "5.15-patched")
         release_tag: Release tag (e.g., "v0.3.0") or "latest"
         platform_name: Platform name (auto-detected if None)
+        arch: Target architecture ("x64" or "x86"). Defaults to "x64".
 
     Returns:
         URL to the archive file
@@ -178,7 +203,7 @@ def build_archive_url(
             f"Qt version '{version}' not available. Available versions: {available}"
         )
 
-    filename = get_archive_filename(version, platform_name)
+    filename = get_archive_filename(version, platform_name, arch)
 
     if release_tag == "latest":
         release_tag = _default_release_tag()
@@ -346,6 +371,7 @@ def download_and_extract(
     verify: bool = True,
     release_tag: str = "latest",
     platform_name: str | None = None,
+    arch: str | None = None,
 ) -> tuple[Path, Path]:
     """Download and extract the QtMCP tools archive for a Qt version.
 
@@ -358,6 +384,7 @@ def download_and_extract(
         verify: Whether to verify SHA256 checksum (default: True)
         release_tag: Release tag to download from (default: "latest")
         platform_name: Platform name (auto-detected if None)
+        arch: Target architecture ("x64" or "x86"). Defaults to "x64".
 
     Returns:
         Tuple of (probe_path, launcher_path) pointing to extracted files
@@ -374,8 +401,8 @@ def download_and_extract(
         platform_name = detect_platform()
 
     # Build URL
-    archive_url = build_archive_url(version, release_tag, platform_name)
-    archive_filename = get_archive_filename(version, platform_name)
+    archive_url = build_archive_url(version, release_tag, platform_name, arch)
+    archive_filename = get_archive_filename(version, platform_name, arch)
 
     # Determine output path
     if output_dir is None:

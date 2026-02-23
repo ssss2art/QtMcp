@@ -27,8 +27,10 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+// clang-format off
+#include <Windows.h>  // must precede Psapi.h (provides BOOL, DWORD, WINAPI)
 #include <Psapi.h>
-#include <Windows.h>
+// clang-format on
 #include <cstdio>
 
 namespace {

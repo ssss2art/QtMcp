@@ -88,6 +88,48 @@
         "QTMCP_BUILD_TESTS": "ON",
         "QTMCP_BUILD_TEST_APP": "ON"
       }
+    },
+    {
+      "name": "windows-x86-debug",
+      "displayName": "Windows x86 Debug",
+      "description": "Windows 32-bit debug build with VS 2022",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "generator": "Visual Studio 17 2022",
+      "architecture": {
+        "value": "Win32",
+        "strategy": "set"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QTMCP_BUILD_TESTS": "ON",
+        "QTMCP_BUILD_TEST_APP": "ON"
+      }
+    },
+    {
+      "name": "windows-x86-release",
+      "displayName": "Windows x86 Release",
+      "description": "Windows 32-bit release build with VS 2022",
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "generator": "Visual Studio 17 2022",
+      "architecture": {
+        "value": "Win32",
+        "strategy": "set"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "QTMCP_BUILD_TESTS": "ON",
+        "QTMCP_BUILD_TEST_APP": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -107,6 +149,16 @@
     {
       "name": "windows-release",
       "configurePreset": "windows-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-x86-debug",
+      "configurePreset": "windows-x86-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-x86-release",
+      "configurePreset": "windows-x86-release",
       "configuration": "Release"
     }
   ],
@@ -136,6 +188,22 @@
     {
       "name": "windows-release",
       "configurePreset": "windows-release",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-x86-debug",
+      "configurePreset": "windows-x86-debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-x86-release",
+      "configurePreset": "windows-x86-release",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true

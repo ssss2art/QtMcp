@@ -27,8 +27,9 @@ jobs:
         run: |
           mkdir -p release
 
-          # Extract probe + launcher for each Qt version and platform,
-          # then package into per-(qt_version, platform) archives.
+          # Extract probe + launcher for each Qt version, platform, and
+          # architecture, then package into per-(qt_version, platform, arch)
+          # archives.
           for dir in artifacts/qtmcp-*/; do
             basename=$(basename "$dir")
 
@@ -39,12 +40,19 @@ jobs:
               platform="linux"
             fi
 
+            # Determine architecture from preset name
+            if [[ "$basename" == *"x86"* ]]; then
+              arch="x86"
+            else
+              arch="x64"
+            fi
+
             # Extract Qt version tag from directory name (e.g., qt5.15.2 -> qt5.15)
             qt_full=$(echo "$basename" | grep -oP 'qt\K[0-9]+\.[0-9]+\.[0-9]+')
             qt_tag="qt$(echo "$qt_full" | grep -oP '^[0-9]+\.[0-9]+')"
 
             # Stage files into a temp directory with simplified names
-            staging="staging/${qt_tag}-${platform}"
+            staging="staging/${qt_tag}-${platform}-${arch}"
             mkdir -p "$staging"
 
             # Copy probe binary with simplified name (no version/compiler suffix)
@@ -65,18 +73,24 @@ jobs:
             fi
           done
 
-          # Create archives from staged directories
+          # Create archives from staged directories.
+          # Naming: Windows always gets -x64/-x86 suffix.
+          #         Linux x64 has no suffix (backward compat); Linux x86 gets -x86.
           for staging_dir in staging/*/; do
-            tag_platform=$(basename "$staging_dir")
-            # Parse qt_tag and platform from directory name (e.g., "qt6.8-windows")
-            qt_tag=$(echo "$tag_platform" | grep -oP '^qt[0-9]+\.[0-9]+(-patched)?')
-            platform=$(echo "$tag_platform" | grep -oP '(windows|linux)$')
+            tag_platform_arch=$(basename "$staging_dir")
+            qt_tag=$(echo "$tag_platform_arch" | grep -oP '^qt[0-9]+\.[0-9]+(-patched)?')
+            platform=$(echo "$tag_platform_arch" | grep -oP '(windows|linux)')
+            arch=$(echo "$tag_platform_arch" | grep -oP '(x64|x86)$')
 
             if [ "$platform" = "windows" ]; then
-              archive="qtmcp-${qt_tag}-${platform}.zip"
+              archive="qtmcp-${qt_tag}-${platform}-${arch}.zip"
               (cd "$staging_dir" && zip -j "../../release/$archive" *)
             else
-              archive="qtmcp-${qt_tag}-${platform}.tar.gz"
+              if [ "$arch" = "x86" ]; then
+                archive="qtmcp-${qt_tag}-${platform}-x86.tar.gz"
+              else
+                archive="qtmcp-${qt_tag}-${platform}.tar.gz"
+              fi
               tar -czf "release/$archive" -C "$staging_dir" .
             fi
           done

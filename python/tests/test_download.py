@@ -15,6 +15,9 @@ import pytest
 
 from qtmcp.download import (
     AVAILABLE_VERSIONS,
+    DEFAULT_ARCH,
+    LINUX_ARCHITECTURES,
+    WINDOWS_ARCHITECTURES,
     ChecksumError,
     DownloadError,
     UnsupportedPlatformError,
@@ -135,45 +138,86 @@ class TestFilenames:
 class TestArchiveFilename:
     """Tests for archive filename generation."""
 
-    def test_windows_zip(self) -> None:
-        """Windows archives should be .zip."""
-        assert get_archive_filename("6.8", "windows") == "qtmcp-qt6.8-windows.zip"
+    def test_windows_zip_default_x64(self) -> None:
+        """Windows archives default to x64 and include arch suffix."""
+        assert get_archive_filename("6.8", "windows") == "qtmcp-qt6.8-windows-x64.zip"
 
-    def test_linux_tar_gz(self) -> None:
-        """Linux archives should be .tar.gz."""
+    def test_windows_zip_explicit_x64(self) -> None:
+        """Windows archives with explicit x64."""
+        assert get_archive_filename("6.8", "windows", arch="x64") == "qtmcp-qt6.8-windows-x64.zip"
+
+    def test_windows_zip_x86(self) -> None:
+        """Windows x86 archives include -x86 suffix."""
+        assert get_archive_filename("6.8", "windows", arch="x86") == "qtmcp-qt6.8-windows-x86.zip"
+
+    def test_linux_tar_gz_default_x64(self) -> None:
+        """Linux x64 archives have no arch suffix (backward compat)."""
         assert get_archive_filename("6.8", "linux") == "qtmcp-qt6.8-linux.tar.gz"
+
+    def test_linux_tar_gz_explicit_x64(self) -> None:
+        """Linux with explicit x64 has no arch suffix."""
+        assert get_archive_filename("6.8", "linux", arch="x64") == "qtmcp-qt6.8-linux.tar.gz"
+
+    def test_linux_tar_gz_x86(self) -> None:
+        """Linux x86 archives include -x86 suffix."""
+        assert get_archive_filename("6.8", "linux", arch="x86") == "qtmcp-qt6.8-linux-x86.tar.gz"
 
     def test_patched_version(self) -> None:
         """Patched versions should be preserved in filename."""
         assert get_archive_filename("5.15-patched", "linux") == "qtmcp-qt5.15-patched-linux.tar.gz"
 
+    def test_patched_version_x86(self) -> None:
+        """Patched version with x86 arch."""
+        assert get_archive_filename("5.15-patched", "linux", arch="x86") == "qtmcp-qt5.15-patched-linux-x86.tar.gz"
+
     def test_version_normalization(self) -> None:
         """Full version strings should be normalized."""
-        assert get_archive_filename("6.8.0", "windows") == "qtmcp-qt6.8-windows.zip"
+        assert get_archive_filename("6.8.0", "windows") == "qtmcp-qt6.8-windows-x64.zip"
 
     def test_auto_detect_platform(self) -> None:
         """Platform should be auto-detected when not specified."""
         with mock.patch("qtmcp.download.sys.platform", "win32"):
-            assert get_archive_filename("6.8") == "qtmcp-qt6.8-windows.zip"
+            assert get_archive_filename("6.8") == "qtmcp-qt6.8-windows-x64.zip"
+
+    def test_arch_none_defaults_to_x64(self) -> None:
+        """arch=None should default to x64 behavior."""
+        assert get_archive_filename("6.8", "windows", arch=None) == "qtmcp-qt6.8-windows-x64.zip"
+        assert get_archive_filename("6.8", "linux", arch=None) == "qtmcp-qt6.8-linux.tar.gz"
 
 
 class TestArchiveUrlBuilding:
     """Tests for archive URL construction."""
 
-    def test_build_archive_url_windows(self) -> None:
-        """Build correct URL for Windows archive."""
+    def test_build_archive_url_windows_default_x64(self) -> None:
+        """Build correct URL for Windows archive (default x64)."""
         url = build_archive_url("6.8", release_tag="v0.3.0", platform_name="windows")
         assert url == (
             "https://github.com/ssss2art/QtMcp/releases/download/"
-            "v0.3.0/qtmcp-qt6.8-windows.zip"
+            "v0.3.0/qtmcp-qt6.8-windows-x64.zip"
+        )
+
+    def test_build_archive_url_windows_x86(self) -> None:
+        """Build correct URL for Windows x86 archive."""
+        url = build_archive_url("6.8", release_tag="v0.3.0", platform_name="windows", arch="x86")
+        assert url == (
+            "https://github.com/ssss2art/QtMcp/releases/download/"
+            "v0.3.0/qtmcp-qt6.8-windows-x86.zip"
         )
 
     def test_build_archive_url_linux(self) -> None:
-        """Build correct URL for Linux archive."""
+        """Build correct URL for Linux archive (no arch suffix for x64)."""
         url = build_archive_url("6.8", release_tag="v0.3.0", platform_name="linux")
         assert url == (
             "https://github.com/ssss2art/QtMcp/releases/download/"
             "v0.3.0/qtmcp-qt6.8-linux.tar.gz"
+        )
+
+    def test_build_archive_url_linux_x86(self) -> None:
+        """Build correct URL for Linux x86 archive."""
+        url = build_archive_url("6.8", release_tag="v0.3.0", platform_name="linux", arch="x86")
+        assert url == (
+            "https://github.com/ssss2art/QtMcp/releases/download/"
+            "v0.3.0/qtmcp-qt6.8-linux-x86.tar.gz"
         )
 
     def test_build_archive_url_patched(self) -> None:
@@ -222,11 +266,11 @@ class TestChecksumParsing:
         """Parse standard sha256sum output format."""
         content = """\
 abc123def456  qtmcp-qt6.8-linux.tar.gz
-789xyz012abc  qtmcp-qt6.8-windows.zip
+789xyz012abc  qtmcp-qt6.8-windows-x64.zip
 """
         checksums = parse_checksums(content)
         assert checksums["qtmcp-qt6.8-linux.tar.gz"] == "abc123def456"
-        assert checksums["qtmcp-qt6.8-windows.zip"] == "789xyz012abc"
+        assert checksums["qtmcp-qt6.8-windows-x64.zip"] == "789xyz012abc"
 
     def test_parse_binary_mode_format(self) -> None:
         """Parse sha256sum binary mode format (asterisk prefix)."""
@@ -411,7 +455,7 @@ class TestDownloadAndExtract:
         """Download verifies checksum when enabled."""
         archive_data = self._make_zip(b"probe", b"launcher")
         expected_hash = hashlib.sha256(archive_data).hexdigest()
-        checksums_content = f"{expected_hash}  qtmcp-qt6.8-windows.zip\n"
+        checksums_content = f"{expected_hash}  qtmcp-qt6.8-windows-x64.zip\n"
 
         call_count = {"count": 0}
 
@@ -438,7 +482,7 @@ class TestDownloadAndExtract:
         """Checksum mismatch should raise ChecksumError."""
         archive_data = self._make_zip(b"probe", b"launcher")
         wrong_hash = "0" * 64
-        checksums_content = f"{wrong_hash}  qtmcp-qt6.8-windows.zip\n"
+        checksums_content = f"{wrong_hash}  qtmcp-qt6.8-windows-x64.zip\n"
 
         def mock_urlopen(url: str, timeout: int | None = None) -> io.BytesIO:
             if "SHA256SUMS" in url:
@@ -457,7 +501,7 @@ class TestDownloadAndExtract:
 
         assert "verification failed" in str(exc_info.value)
         # Archive should be cleaned up
-        assert not (tmp_path / "qtmcp-qt6.8-windows.zip").exists()
+        assert not (tmp_path / "qtmcp-qt6.8-windows-x64.zip").exists()
 
     def test_archive_cleaned_up_after_extraction(self, tmp_path: Path) -> None:
         """Archive file should be deleted after successful extraction."""
@@ -476,7 +520,7 @@ class TestDownloadAndExtract:
                 )
 
         # Archive should be cleaned up
-        assert not (tmp_path / "qtmcp-qt6.8-windows.zip").exists()
+        assert not (tmp_path / "qtmcp-qt6.8-windows-x64.zip").exists()
         # But extracted files should remain
         assert (tmp_path / "qtmcp-probe.dll").exists()
         assert (tmp_path / "qtmcp-launcher.exe").exists()
@@ -534,3 +578,26 @@ class TestAvailableVersions:
     def test_versions_is_frozen(self) -> None:
         """AVAILABLE_VERSIONS should be immutable."""
         assert isinstance(AVAILABLE_VERSIONS, frozenset)
+
+
+class TestArchitectureConstants:
+    """Tests for architecture-related constants."""
+
+    def test_default_arch_is_x64(self) -> None:
+        """Default architecture should be x64."""
+        assert DEFAULT_ARCH == "x64"
+
+    def test_windows_architectures(self) -> None:
+        """Windows should support x64 and x86."""
+        assert "x64" in WINDOWS_ARCHITECTURES
+        assert "x86" in WINDOWS_ARCHITECTURES
+
+    def test_linux_architectures(self) -> None:
+        """Linux should support x64 and x86."""
+        assert "x64" in LINUX_ARCHITECTURES
+        assert "x86" in LINUX_ARCHITECTURES
+
+    def test_architecture_sets_are_frozen(self) -> None:
+        """Architecture sets should be immutable."""
+        assert isinstance(WINDOWS_ARCHITECTURES, frozenset)
+        assert isinstance(LINUX_ARCHITECTURES, frozenset)
