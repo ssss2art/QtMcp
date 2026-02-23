@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(QtMCP
-    VERSION 0.1.0
+    VERSION 0.3.0
     DESCRIPTION "Qt application introspection and automation library with MCP integration"
     LANGUAGES CXX
 )
