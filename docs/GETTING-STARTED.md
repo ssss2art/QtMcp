@@ -198,6 +198,13 @@ The probe reads these environment variables at startup:
 | `QTMCP_PORT` | `9222` | WebSocket server port |
 | `QTMCP_MODE` | `all` | API mode: `native`, `chrome`, `computer_use`, or `all` |
 
+The MCP server reads these additional environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `QTMCP_QT_PATH` | *(none)* | Path to Qt lib/bin directory, added to library search path when launching targets |
+| `QTMCP_CONNECT_TIMEOUT` | `30` | Max seconds to wait for probe connection on startup |
+
 Example:
 ```bash
 # Linux
@@ -208,6 +215,26 @@ set QTMCP_PORT=9999
 set QTMCP_MODE=native
 qtmcp-launch.exe your-app.exe
 ```
+
+### Specifying the Qt Path
+
+If the target application doesn't have Qt deployed alongside it (i.e., Qt DLLs/shared
+libraries aren't in the same directory), you need to tell QtMCP where to find them:
+
+```bash
+# Linux - point to the Qt lib directory
+qtmcp serve --mode native --target /path/to/app --qt-path /opt/Qt/6.8.0/gcc_64/lib
+
+# Windows - point to the Qt bin directory
+qtmcp serve --mode native --target C:\path\to\app.exe --qt-path C:\Qt\6.8.0\msvc2022_64\bin
+
+# Or set via environment variable
+export QTMCP_QT_PATH=/opt/Qt/6.8.0/gcc_64/lib
+qtmcp serve --mode native --target /path/to/app
+```
+
+This prepends the path to `LD_LIBRARY_PATH` (Linux) or `PATH` (Windows) before
+launching the target application.
 
 ## Connecting to Claude
 
@@ -224,6 +251,22 @@ Add to your `claude_desktop_config.json`:
     "qtmcp": {
       "command": "qtmcp",
       "args": ["serve", "--mode", "native", "--target", "C:\\path\\to\\your-app.exe"]
+    }
+  }
+}
+```
+
+If Qt isn't deployed alongside the target, add `--qt-path`:
+```json
+{
+  "mcpServers": {
+    "qtmcp": {
+      "command": "qtmcp",
+      "args": [
+        "serve", "--mode", "native",
+        "--target", "C:\\path\\to\\your-app.exe",
+        "--qt-path", "C:\\Qt\\6.8.0\\msvc2022_64\\bin"
+      ]
     }
   }
 }

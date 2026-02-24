@@ -28,6 +28,8 @@ def cmd_serve(args: argparse.Namespace) -> int:
         discovery_port=args.discovery_port,
         discovery_enabled=not args.no_discovery,
         qt_version=args.qt_version,
+        qt_path=args.qt_path,
+        connect_timeout=args.connect_timeout,
     )
     server.run()
     return 0
@@ -137,10 +139,27 @@ def create_parser() -> argparse.ArgumentParser:
         help="Disable UDP probe discovery",
     )
     serve_parser.add_argument(
+        "--qt-path",
+        default=os.environ.get("QTMCP_QT_PATH"),
+        metavar="PATH",
+        help=(
+            "Path to Qt installation lib/bin directory. "
+            "Added to LD_LIBRARY_PATH (Linux) or PATH (Windows) before "
+            "launching the target. Can also be set via QTMCP_QT_PATH env var."
+        ),
+    )
+    serve_parser.add_argument(
         "--arch",
         default=None,
         choices=["x64", "x86"],
         help="Target architecture (default: x64). Must match target app bitness.",
+    )
+    serve_parser.add_argument(
+        "--connect-timeout",
+        type=float,
+        default=float(os.environ.get("QTMCP_CONNECT_TIMEOUT", "30")),
+        metavar="SECONDS",
+        help="Max seconds to wait for probe connection on startup (default: 30)",
     )
     serve_parser.set_defaults(func=cmd_serve)
 

@@ -80,6 +80,42 @@ Look for:
 - `[QtMCP] Object hooks installed` - Full initialization completed
 - `[QtMCP] ERROR:` - Initialization failed
 
+## Startup / Connection Timing
+
+### Symptoms
+- MCP server starts but tools return "No probe connected"
+- Inconsistent startup — sometimes works, sometimes doesn't
+- "Timed out waiting for probe" errors
+
+### Understanding the Startup Sequence
+
+When using `--target`, the MCP server:
+1. Starts the discovery listener (UDP)
+2. Launches the target via the launcher
+3. Waits for the probe to announce itself via UDP discovery
+4. Retries WebSocket connection with exponential backoff (up to `--connect-timeout` seconds, default 30)
+
+### Solutions
+
+**Increase the timeout** if the app is slow to start:
+```bash
+qtmcp serve --mode native --target /path/to/app --connect-timeout 60
+```
+
+**Specify Qt path** if Qt libs aren't alongside the target:
+```bash
+# Linux
+qtmcp serve --mode native --target /path/to/app --qt-path /opt/Qt/6.8.0/gcc_64/lib
+
+# Windows
+qtmcp serve --mode native --target C:\app.exe --qt-path C:\Qt\6.8.0\msvc2022_64\bin
+```
+
+**Check probe stderr output** for initialization messages:
+- `[QtMCP] Probe singleton created` — DLL loaded
+- `[QtMCP] Probe initialized on port 9222` — ready for connections
+- `[QtMCP] ERROR:` — something went wrong
+
 ## Connection Issues
 
 ### Symptoms
@@ -265,6 +301,10 @@ Some applications clear `LD_PRELOAD` or use `setuid`. This can prevent probe loa
 
 If the probe can't find Qt libraries:
 ```bash
+# Option 1: Use --qt-path (recommended when using qtmcp serve)
+qtmcp serve --mode native --target ./your-app --qt-path /path/to/Qt/6.8.0/gcc_64/lib
+
+# Option 2: Set LD_LIBRARY_PATH manually
 export LD_LIBRARY_PATH=/path/to/Qt/6.8.0/gcc_64/lib:$LD_LIBRARY_PATH
 LD_PRELOAD=/path/to/libqtmcp.so ./your-app
 ```

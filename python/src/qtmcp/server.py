@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import platform
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -84,6 +85,113 @@ async def disconnect_probe() -> None:
         _probe = None
 
 
+def _build_launch_env(qt_path: str | None) -> dict[str, str] | None:
+    """Build an environment dict with Qt library paths prepended.
+
+    Returns None (inherit current env) when no qt_path is given.
+    """
+    if not qt_path:
+        return None
+
+    env = os.environ.copy()
+    is_windows = platform.system() == "Windows"
+
+    if is_windows:
+        # On Windows, Qt DLLs are found via PATH
+        existing = env.get("PATH", "")
+        env["PATH"] = qt_path + os.pathsep + existing
+        logger.info("Prepended %s to PATH for target launch", qt_path)
+    else:
+        # On Linux, Qt .so files are found via LD_LIBRARY_PATH
+        existing = env.get("LD_LIBRARY_PATH", "")
+        if existing:
+            env["LD_LIBRARY_PATH"] = qt_path + os.pathsep + existing
+        else:
+            env["LD_LIBRARY_PATH"] = qt_path
+        logger.info("Prepended %s to LD_LIBRARY_PATH for target launch", qt_path)
+
+    return env
+
+
+async def _wait_for_probe_ready(
+    ws_url: str,
+    timeout: float,
+    discovery: DiscoveryListener | None,
+    process: asyncio.subprocess.Process | None,
+) -> None:
+    """Wait for the probe to become connectable using retry with backoff.
+
+    If discovery is available, we first wait for a discovery announcement
+    (which means the probe's WebSocket server is listening) before
+    attempting the WebSocket connection. This avoids hammering a port
+    that isn't open yet.
+
+    Falls back to pure retry-with-backoff when discovery is unavailable.
+    """
+    deadline = asyncio.get_event_loop().time() + timeout
+
+    # Phase 1: If we have discovery, wait for the probe to announce itself.
+    # The C++ probe sends its first UDP announce immediately after the WS
+    # server starts listening, so this is a reliable readiness signal.
+    if discovery is not None:
+        remaining = deadline - asyncio.get_event_loop().time()
+        if remaining > 0:
+            logger.info(
+                "Waiting up to %.1fs for probe discovery announcement...", remaining
+            )
+            probe_info = await discovery.wait_for_probe(timeout=min(remaining, timeout))
+            if probe_info:
+                logger.info(
+                    "Probe discovered: %s (pid=%d) at %s",
+                    probe_info.app_name,
+                    probe_info.pid,
+                    probe_info.ws_url,
+                )
+
+    # Phase 2: Retry WebSocket connection with exponential backoff.
+    # Even after discovery, the WS handshake can race briefly.
+    delay = 0.5
+    max_delay = 4.0
+    attempt = 0
+
+    while True:
+        remaining = deadline - asyncio.get_event_loop().time()
+        if remaining <= 0:
+            raise ConnectionError(
+                f"Timed out after {timeout:.0f}s waiting for probe at {ws_url}. "
+                "Check that the target application started correctly and "
+                "the probe loaded (look for '[QtMCP]' messages in stderr)."
+            )
+
+        # Check if the launched process crashed
+        if process is not None and process.returncode is not None:
+            stderr_data = b""
+            if process.stderr:
+                try:
+                    stderr_data = await asyncio.wait_for(
+                        process.stderr.read(4096), timeout=1.0
+                    )
+                except (asyncio.TimeoutError, Exception):
+                    pass
+            stderr_text = stderr_data.decode("utf-8", errors="replace").strip()
+            msg = f"Target process exited with code {process.returncode}"
+            if stderr_text:
+                msg += f": {stderr_text[:500]}"
+            raise ConnectionError(msg)
+
+        attempt += 1
+        try:
+            await connect_to_probe(ws_url)
+            logger.info("Probe connection established (attempt %d)", attempt)
+            return
+        except Exception as e:
+            logger.debug(
+                "Connection attempt %d to %s failed: %s", attempt, ws_url, e
+            )
+            await asyncio.sleep(min(delay, remaining))
+            delay = min(delay * 2, max_delay)
+
+
 def create_server(
     mode: str,
     ws_url: str | None = None,
@@ -93,6 +201,8 @@ def create_server(
     discovery_port: int = 9221,
     discovery_enabled: bool = True,
     qt_version: str | None = None,
+    qt_path: str | None = None,
+    connect_timeout: float = 30.0,
 ) -> FastMCP:
     """Create a FastMCP server for the given mode.
 
@@ -105,6 +215,8 @@ def create_server(
         discovery_port: UDP port for probe discovery (default: 9221).
         discovery_enabled: Whether to start the discovery listener.
         qt_version: Optional Qt version for probe auto-detection (e.g. "5.15").
+        qt_path: Optional path to Qt lib/bin dir, prepended to library search path.
+        connect_timeout: Max seconds to wait for probe connection on startup.
 
     Returns:
         Configured FastMCP instance ready to run.
@@ -133,7 +245,7 @@ def create_server(
                     or os.environ.get("QTMCP_LAUNCHER")
                     or get_launcher_filename()
                 )
-                logger.debug(
+                logger.info(
                     "Launching target %s via %s on port %d", target, launcher, port
                 )
                 launch_args = [
@@ -144,11 +256,16 @@ def create_server(
                 ]
                 if qt_version:
                     launch_args.extend(["--qt-version", qt_version])
+
+                # Build environment with Qt path if provided
+                launch_env = _build_launch_env(qt_path)
+
                 try:
                     process = await asyncio.create_subprocess_exec(
                         *launch_args,
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE,
+                        env=launch_env,
                     )
                 except FileNotFoundError:
                     raise FileNotFoundError(
@@ -160,13 +277,24 @@ def create_server(
                         f"Could not start launcher {launcher!r}: {e}. "
                         "Install with: qtmcp download-tools --qt-version <VERSION>"
                     ) from e
-                await asyncio.sleep(1.5)
                 actual_ws_url = f"ws://localhost:{port}"
 
-            # Auto-connect only if an explicit URL was given or target was launched
+            # Auto-connect with retry when a URL is available
             if actual_ws_url is not None:
                 try:
-                    await connect_to_probe(actual_ws_url)
+                    await _wait_for_probe_ready(
+                        actual_ws_url,
+                        timeout=connect_timeout,
+                        discovery=_discovery if target is not None else None,
+                        process=process,
+                    )
+                except ConnectionError as e:
+                    logger.warning(
+                        "Could not auto-connect to %s: %s. "
+                        "Use qtmcp_list_probes and qtmcp_connect_probe to connect later.",
+                        actual_ws_url,
+                        e,
+                    )
                 except Exception as e:
                     logger.warning(
                         "Could not auto-connect to %s: %s. "
