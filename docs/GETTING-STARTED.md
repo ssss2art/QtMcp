@@ -18,6 +18,10 @@ QtMcp consists of two main components:
 └────────────────────────────┘     └──────────────────┘     └─────────────┘
 ```
 
+The MCP server starts instantly without launching any application. Claude
+then uses the `qtmcp_launch_app` or `qtmcp_inject_probe` tools to start
+or attach to a Qt application on demand.
+
 ## Installation Options
 
 ### Option 1: pip install (Recommended)
@@ -32,13 +36,10 @@ Then download the probe for your Qt version:
 
 ```bash
 # Download probe matching your app's Qt version
-qtmcp download-probe --qt-version 6.8
+qtmcp download-tools --qt-version 6.8
 
 # Other available versions: 5.15, 6.5, 6.8, 6.9
-qtmcp download-probe --qt-version 5.15
-
-# Override the default compiler if needed (default: gcc13 on Linux, msvc17 on Windows)
-qtmcp download-probe --qt-version 6.8 --compiler gcc14
+qtmcp download-tools --qt-version 5.15
 ```
 
 See [python/README.md](../python/README.md) for complete CLI documentation.
@@ -86,47 +87,108 @@ Available probe versions:
 
 The probe must match your application's Qt major.minor version.
 
-## Running Your Application with the Probe
+## Connecting to Claude
 
-### Method 1: Using `qtmcp serve --target` (Recommended)
+### Claude Desktop
 
-The simplest approach - let `qtmcp` handle probe injection automatically:
+Add to your `claude_desktop_config.json`:
+
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "qtmcp": {
+      "command": "qtmcp",
+      "args": ["serve", "--mode", "native"]
+    }
+  }
+}
+```
+
+If Qt isn't deployed alongside the target app, add `--qt-path` so the
+launch tool can find the Qt libraries:
+```json
+{
+  "mcpServers": {
+    "qtmcp": {
+      "command": "qtmcp",
+      "args": [
+        "serve", "--mode", "native",
+        "--qt-path", "C:\\Qt\\6.8.0\\msvc2022_64\\bin"
+      ]
+    }
+  }
+}
+```
+
+### Claude Code
+
+```bash
+claude mcp add --transport stdio qtmcp -- qtmcp serve --mode native
+```
+
+With a Qt path:
+```bash
+claude mcp add --transport stdio qtmcp -- qtmcp serve --mode native --qt-path /opt/Qt/6.8.0/gcc_64/lib
+```
+
+### How It Works
+
+Once the MCP server is registered, Claude has access to these lifecycle tools:
+
+1. **`qtmcp_launch_app`** — Launch a new Qt application with the probe injected.
+   Claude calls this when you ask it to work with a Qt app:
+   ```
+   "Launch /path/to/myapp and inspect its UI"
+   ```
+
+2. **`qtmcp_inject_probe`** — Inject the probe into an already-running Qt application
+   (Linux only, requires gdb). Useful when the app is already open:
+   ```
+   "Connect to the Qt app running as PID 12345"
+   ```
+
+3. **`qtmcp_connect_probe`** — Connect to a probe that's already running
+   (e.g., the app was started with LD_PRELOAD or has the probe linked in):
+   ```
+   "Connect to the probe at ws://localhost:9222"
+   ```
+
+4. **`qtmcp_list_probes`** — Discover probes on the network via UDP broadcast.
+
+### Verifying the Connection
+
+1. Ask Claude to launch your Qt application (or connect to a running one)
+2. Check that Claude reports a successful connection
+3. Try a simple command: "Take a screenshot of the Qt application"
+
+## Running the Probe Manually
+
+If you prefer to start the application yourself (without using the
+`qtmcp_launch_app` tool), you can load the probe manually and then have
+Claude connect to it.
+
+### Using `qtmcp-launch`
 
 ```bash
 # Windows
-qtmcp serve --mode native --target "C:\path\to\your-app.exe"
+qtmcp-launch.exe your-app.exe --detach
 
 # Linux
-qtmcp serve --mode native --target /path/to/your-app
+qtmcp-launch your-app --detach
 ```
 
-This automatically:
-1. Locates the correct probe for your platform
-2. Sets up environment variables
-3. Launches the application with the probe loaded
-4. Starts the MCP server
+Then ask Claude to connect: *"Connect to the probe at ws://localhost:9222"*
 
-### Method 2: Using `qtmcp-launch` Directly
+### Using LD_PRELOAD (Linux)
 
-For more control, use the launcher directly:
-
-**Windows:**
-```cmd
-qtmcp-launch.exe your-app.exe --app-args arg1 arg2
-```
-
-**Linux:**
 ```bash
-# LD_PRELOAD-based injection
-LD_PRELOAD=/path/to/libqtmcp.so ./your-app arg1 arg2
+LD_PRELOAD=/path/to/libqtmcp-probe.so ./your-app
 ```
 
-Then start the MCP server separately:
-```bash
-qtmcp serve --mode native --ws-url ws://localhost:9222
-```
-
-### Method 3: CMake Integration (Link into Your Project)
+### CMake Integration (Link into Your Project)
 
 If you build QtMcp from source, you can link the probe directly into your CMake project. This is useful during development when you always want the probe available.
 
@@ -174,22 +236,9 @@ cmake --build build
 - **Windows:** Copies the probe DLL next to your executable after each build
 - **Linux:** Generates a helper script (`qtmcp-preload-myapp.sh`) that launches your app with `LD_PRELOAD` set
 
-To run with the probe on Linux, use the generated script:
-```bash
-./build/qtmcp-preload-myapp.sh
-```
-
-On Windows, the probe DLL is already next to your exe, so just run your app normally.
-
-**4. Start the MCP server separately:**
-
-```bash
-qtmcp serve --mode native --ws-url ws://localhost:9222
-```
-
 The `QtMCPConfig.cmake` package auto-detects your project's Qt version (Qt5 or Qt6) and resolves to the matching probe binary, so the same QtMcp install can work with either.
 
-### Environment Variables
+## Environment Variables
 
 The probe reads these environment variables at startup:
 
@@ -203,18 +252,8 @@ The MCP server reads these additional environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `QTMCP_QT_PATH` | *(none)* | Path to Qt lib/bin directory, added to library search path when launching targets |
-| `QTMCP_CONNECT_TIMEOUT` | `30` | Max seconds to wait for probe connection on startup |
-
-Example:
-```bash
-# Linux
-QTMCP_PORT=9999 QTMCP_MODE=native LD_PRELOAD=/path/to/libqtmcp.so ./your-app
-
-# Windows (via qtmcp-launch)
-set QTMCP_PORT=9999
-set QTMCP_MODE=native
-qtmcp-launch.exe your-app.exe
-```
+| `QTMCP_CONNECT_TIMEOUT` | `30` | Max seconds to wait for probe connection |
+| `QTMCP_LAUNCHER` | *(auto)* | Path to qtmcp-launch executable |
 
 ### Specifying the Qt Path
 
@@ -222,68 +261,16 @@ If the target application doesn't have Qt deployed alongside it (i.e., Qt DLLs/s
 libraries aren't in the same directory), you need to tell QtMCP where to find them:
 
 ```bash
-# Linux - point to the Qt lib directory
-qtmcp serve --mode native --target /path/to/app --qt-path /opt/Qt/6.8.0/gcc_64/lib
+# Via CLI argument (applies to all tool invocations)
+qtmcp serve --mode native --qt-path /opt/Qt/6.8.0/gcc_64/lib
 
-# Windows - point to the Qt bin directory
-qtmcp serve --mode native --target C:\path\to\app.exe --qt-path C:\Qt\6.8.0\msvc2022_64\bin
-
-# Or set via environment variable
+# Via environment variable
 export QTMCP_QT_PATH=/opt/Qt/6.8.0/gcc_64/lib
-qtmcp serve --mode native --target /path/to/app
+qtmcp serve --mode native
 ```
 
-This prepends the path to `LD_LIBRARY_PATH` (Linux) or `PATH` (Windows) before
-launching the target application.
-
-## Connecting to Claude
-
-### Claude Desktop
-
-Add to your `claude_desktop_config.json`:
-
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "qtmcp": {
-      "command": "qtmcp",
-      "args": ["serve", "--mode", "native", "--target", "C:\\path\\to\\your-app.exe"]
-    }
-  }
-}
-```
-
-If Qt isn't deployed alongside the target, add `--qt-path`:
-```json
-{
-  "mcpServers": {
-    "qtmcp": {
-      "command": "qtmcp",
-      "args": [
-        "serve", "--mode", "native",
-        "--target", "C:\\path\\to\\your-app.exe",
-        "--qt-path", "C:\\Qt\\6.8.0\\msvc2022_64\\bin"
-      ]
-    }
-  }
-}
-```
-
-### Claude Code
-
-```bash
-claude mcp add --transport stdio qtmcp -- qtmcp serve --mode native --ws-url ws://localhost:9222
-```
-
-### Verifying the Connection
-
-1. Start your Qt application with the probe loaded
-2. Check that the probe started: look for `[QtMCP] Probe initialized` in stderr
-3. Connect to Claude and ask it to list available tools
-4. Try a simple command: "Take a screenshot of the Qt application"
+This prepends the path to `LD_LIBRARY_PATH` (Linux) or `PATH` (Windows) when
+the `qtmcp_launch_app` tool starts a target application.
 
 ## Choosing an API Mode
 
@@ -297,7 +284,7 @@ Full Qt object tree introspection. Use this for:
 - Programmatic UI control
 
 ```bash
-qtmcp serve --mode native --target /path/to/app
+qtmcp serve --mode native
 ```
 
 ### Computer Use Mode (`--mode cu`)
@@ -307,7 +294,7 @@ Screenshot-based interaction using pixel coordinates. Use this for:
 - Games or canvas-based UIs
 
 ```bash
-qtmcp serve --mode cu --target /path/to/app
+qtmcp serve --mode cu
 ```
 
 ### Chrome Mode (`--mode chrome`)
@@ -317,14 +304,7 @@ Accessibility tree with element references. Use this for:
 - When you want Claude to "see" the UI like a web page
 
 ```bash
-qtmcp serve --mode chrome --target /path/to/app
-```
-
-### All Modes (`--mode all`)
-Exposes tools from all three modes. Useful for experimentation.
-
-```bash
-qtmcp serve --mode all --target /path/to/app
+qtmcp serve --mode chrome
 ```
 
 ## Next Steps

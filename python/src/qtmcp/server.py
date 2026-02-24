@@ -7,6 +7,7 @@ import logging
 import os
 import platform
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import AsyncIterator
 
 from fastmcp import FastMCP
@@ -17,11 +18,39 @@ from qtmcp.event_recorder import EventRecorder
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Server configuration — set once at startup, read by tools
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ServerConfig:
+    """Settings passed from CLI args, available to MCP tools."""
+
+    mode: str = "native"
+    qt_path: str | None = None
+    launcher_path: str | None = None
+    qt_version: str | None = None
+    default_port: int = 9222
+    connect_timeout: float = 30.0
+    discovery_port: int = 9221
+
+    # Processes launched by the launch tool, tracked for cleanup
+    managed_processes: list = field(default_factory=list)
+
+
+_config = ServerConfig()
+
 # Module-level state so resources/tools can access the connection and discovery
 _probe: ProbeConnection | None = None
 _discovery: DiscoveryListener | None = None
 _recorder: EventRecorder = EventRecorder()
 _mode: str = "native"
+
+
+def get_config() -> ServerConfig:
+    """Get the current server configuration."""
+    return _config
 
 
 def get_probe() -> ProbeConnection | None:
@@ -33,11 +62,13 @@ def require_probe() -> ProbeConnection:
     """Get the current probe connection. Raises ProbeError if not connected.
 
     Tools should call this to get a connected probe; the error message
-    guides Claude to use qtmcp_list_probes / qtmcp_connect_probe.
+    guides Claude to use qtmcp_launch_app, qtmcp_list_probes, or
+    qtmcp_connect_probe.
     """
     if _probe is None or not _probe.is_connected:
         raise ProbeError(
-            "No probe connected. Use qtmcp_list_probes to see available probes, "
+            "No probe connected. Use qtmcp_launch_app to launch a Qt application "
+            "with the probe, or qtmcp_list_probes to see already-running probes, "
             "then qtmcp_connect_probe to connect to one."
         )
     return _probe
@@ -85,7 +116,7 @@ async def disconnect_probe() -> None:
         _probe = None
 
 
-def _build_launch_env(qt_path: str | None) -> dict[str, str] | None:
+def build_launch_env(qt_path: str | None) -> dict[str, str] | None:
     """Build an environment dict with Qt library paths prepended.
 
     Returns None (inherit current env) when no qt_path is given.
@@ -113,11 +144,11 @@ def _build_launch_env(qt_path: str | None) -> dict[str, str] | None:
     return env
 
 
-async def _wait_for_probe_ready(
+async def wait_for_probe_ready(
     ws_url: str,
     timeout: float,
-    discovery: DiscoveryListener | None,
-    process: asyncio.subprocess.Process | None,
+    discovery: DiscoveryListener | None = None,
+    process: asyncio.subprocess.Process | None = None,
 ) -> None:
     """Wait for the probe to become connectable using retry with backoff.
 
@@ -194,8 +225,6 @@ async def _wait_for_probe_ready(
 
 def create_server(
     mode: str,
-    ws_url: str | None = None,
-    target: str | None = None,
     port: int = 9222,
     launcher_path: str | None = None,
     discovery_port: int = 9221,
@@ -206,104 +235,52 @@ def create_server(
 ) -> FastMCP:
     """Create a FastMCP server for the given mode.
 
+    The server starts with only the discovery listener active.
+    No application is launched and no probe connection is made at startup.
+    Use the qtmcp_launch_app or qtmcp_inject_probe tools to start an
+    application and connect to its probe.
+
     Args:
         mode: API mode - "native", "cu", or "chrome".
-        ws_url: Optional WebSocket URL to auto-connect on startup.
-        target: Optional path to Qt application exe to auto-launch.
-        port: Port for auto-launched probe.
+        port: Default WebSocket port for probes (default: 9222).
         launcher_path: Optional path to qtmcp-launch executable.
         discovery_port: UDP port for probe discovery (default: 9221).
         discovery_enabled: Whether to start the discovery listener.
         qt_version: Optional Qt version for probe auto-detection (e.g. "5.15").
         qt_path: Optional path to Qt lib/bin dir, prepended to library search path.
-        connect_timeout: Max seconds to wait for probe connection on startup.
+        connect_timeout: Max seconds to wait for probe connection (default: 30).
 
     Returns:
         Configured FastMCP instance ready to run.
     """
-    global _mode
+    global _mode, _config
     _mode = mode
+    _config = ServerConfig(
+        mode=mode,
+        qt_path=qt_path,
+        launcher_path=launcher_path,
+        qt_version=qt_version,
+        default_port=port,
+        connect_timeout=connect_timeout,
+        discovery_port=discovery_port,
+    )
 
     @asynccontextmanager
     async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
-        global _probe, _discovery
-        process = None
+        global _discovery
 
         try:
-            # Start discovery listener
+            # Start discovery listener — the only startup action.
+            # Tools handle launching apps and connecting to probes.
             if discovery_enabled:
                 _discovery = DiscoveryListener(port=discovery_port)
                 await _discovery.start()
+                logger.info("QtMCP server ready (mode=%s). Use qtmcp_launch_app "
+                            "or qtmcp_connect_probe to connect to a Qt application.", mode)
+            else:
+                logger.info("QtMCP server ready (mode=%s, discovery disabled).", mode)
 
-            # Auto-launch target if specified
-            actual_ws_url = ws_url
-            if target is not None:
-                from qtmcp.download import get_launcher_filename
-
-                launcher = (
-                    launcher_path
-                    or os.environ.get("QTMCP_LAUNCHER")
-                    or get_launcher_filename()
-                )
-                logger.info(
-                    "Launching target %s via %s on port %d", target, launcher, port
-                )
-                launch_args = [
-                    launcher,
-                    target,
-                    "--port",
-                    str(port),
-                ]
-                if qt_version:
-                    launch_args.extend(["--qt-version", qt_version])
-
-                # Build environment with Qt path if provided
-                launch_env = _build_launch_env(qt_path)
-
-                try:
-                    process = await asyncio.create_subprocess_exec(
-                        *launch_args,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
-                        env=launch_env,
-                    )
-                except FileNotFoundError:
-                    raise FileNotFoundError(
-                        f"Launcher not found: {launcher!r}. "
-                        "Install with: qtmcp download-tools --qt-version <VERSION>"
-                    )
-                except OSError as e:
-                    raise OSError(
-                        f"Could not start launcher {launcher!r}: {e}. "
-                        "Install with: qtmcp download-tools --qt-version <VERSION>"
-                    ) from e
-                actual_ws_url = f"ws://localhost:{port}"
-
-            # Auto-connect with retry when a URL is available
-            if actual_ws_url is not None:
-                try:
-                    await _wait_for_probe_ready(
-                        actual_ws_url,
-                        timeout=connect_timeout,
-                        discovery=_discovery if target is not None else None,
-                        process=process,
-                    )
-                except ConnectionError as e:
-                    logger.warning(
-                        "Could not auto-connect to %s: %s. "
-                        "Use qtmcp_list_probes and qtmcp_connect_probe to connect later.",
-                        actual_ws_url,
-                        e,
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "Could not auto-connect to %s: %s. "
-                        "Use qtmcp_list_probes and qtmcp_connect_probe to connect later.",
-                        actual_ws_url,
-                        e,
-                    )
-
-            yield {"probe": _probe, "discovery": _discovery}
+            yield {"discovery": _discovery}
 
         finally:
             # Stop recording if active
@@ -321,13 +298,17 @@ def create_server(
                 await _discovery.stop()
                 _discovery = None
 
-            # Terminate launched process
-            if process is not None:
-                process.terminate()
+            # Terminate any processes launched by tools
+            for process in _config.managed_processes:
                 try:
+                    process.terminate()
                     await asyncio.wait_for(process.wait(), timeout=5.0)
-                except asyncio.TimeoutError:
-                    process.kill()
+                except (asyncio.TimeoutError, ProcessLookupError):
+                    try:
+                        process.kill()
+                    except ProcessLookupError:
+                        pass
+            _config.managed_processes.clear()
 
     mcp = FastMCP(f"QtMCP {mode.title()}", lifespan=lifespan)
 
@@ -335,6 +316,11 @@ def create_server(
     from qtmcp.tools.discovery_tools import register_discovery_tools
 
     register_discovery_tools(mcp)
+
+    # Register lifecycle tools (launch / inject — always available)
+    from qtmcp.tools.lifecycle_tools import register_lifecycle_tools
+
+    register_lifecycle_tools(mcp)
 
     # Register mode-specific tools
     if mode == "native":

@@ -10,19 +10,10 @@ import sys
 
 def cmd_serve(args: argparse.Namespace) -> int:
     """Run the MCP server."""
-    # ws_url is None unless explicitly provided or a target is specified
-    ws_url = None
-    if args.target:
-        ws_url = f"ws://localhost:{args.port}"
-    elif args.ws_url:
-        ws_url = args.ws_url
-
     from qtmcp.server import create_server
 
     server = create_server(
         mode=args.mode,
-        ws_url=ws_url,
-        target=args.target,
         port=args.port,
         launcher_path=args.launcher_path,
         discovery_port=args.discovery_port,
@@ -92,7 +83,11 @@ def create_parser() -> argparse.ArgumentParser:
     serve_parser = subparsers.add_parser(
         "serve",
         help="Run the MCP server",
-        description="Start the MCP server to control Qt applications via the QtMCP probe.",
+        description=(
+            "Start the MCP server. The server starts immediately without "
+            "launching any application. Use the qtmcp_launch_app or "
+            "qtmcp_inject_probe tools to connect to a Qt application."
+        ),
     )
     serve_parser.add_argument(
         "--mode",
@@ -101,20 +96,10 @@ def create_parser() -> argparse.ArgumentParser:
         help="API mode to expose (native, cu, or chrome)",
     )
     serve_parser.add_argument(
-        "--ws-url",
-        default=os.environ.get("QTMCP_WS_URL"),
-        help="WebSocket URL of the QtMCP probe (auto-connect on startup)",
-    )
-    serve_parser.add_argument(
-        "--target",
-        default=None,
-        help="Path to Qt application exe to auto-launch",
-    )
-    serve_parser.add_argument(
         "--port",
         type=int,
         default=int(os.environ.get("QTMCP_PORT", "9222")),
-        help="Port for auto-launched probe (default: 9222)",
+        help="Default probe WebSocket port (default: 9222)",
     )
     serve_parser.add_argument(
         "--launcher-path",
@@ -144,22 +129,17 @@ def create_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help=(
             "Path to Qt installation lib/bin directory. "
-            "Added to LD_LIBRARY_PATH (Linux) or PATH (Windows) before "
-            "launching the target. Can also be set via QTMCP_QT_PATH env var."
+            "Added to LD_LIBRARY_PATH (Linux) or PATH (Windows) when "
+            "launching targets via qtmcp_launch_app. "
+            "Can also be set via QTMCP_QT_PATH env var."
         ),
-    )
-    serve_parser.add_argument(
-        "--arch",
-        default=None,
-        choices=["x64", "x86"],
-        help="Target architecture (default: x64). Must match target app bitness.",
     )
     serve_parser.add_argument(
         "--connect-timeout",
         type=float,
         default=float(os.environ.get("QTMCP_CONNECT_TIMEOUT", "30")),
         metavar="SECONDS",
-        help="Max seconds to wait for probe connection on startup (default: 30)",
+        help="Max seconds to wait for probe connection (default: 30)",
     )
     serve_parser.set_defaults(func=cmd_serve)
 

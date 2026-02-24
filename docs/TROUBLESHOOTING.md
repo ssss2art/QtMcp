@@ -38,7 +38,7 @@ qtmcp download-probe --qt-version 5.15-patched
 The `qtmcp.dll` must be discoverable by Windows DLL search order.
 
 **Solutions:**
-1. Use `qtmcp serve --target` which handles paths automatically
+1. Use `qtmcp_launch_app` which handles paths automatically
 2. Put the probe DLL in the same directory as the target app
 3. Add the probe directory to PATH
 
@@ -83,32 +83,31 @@ Look for:
 ## Startup / Connection Timing
 
 ### Symptoms
-- MCP server starts but tools return "No probe connected"
-- Inconsistent startup — sometimes works, sometimes doesn't
-- "Timed out waiting for probe" errors
+- Tools return "No probe connected"
+- "Timed out waiting for probe" errors after calling `qtmcp_launch_app`
 
 ### Understanding the Startup Sequence
 
-When using `--target`, the MCP server:
-1. Starts the discovery listener (UDP)
-2. Launches the target via the launcher
-3. Waits for the probe to announce itself via UDP discovery
-4. Retries WebSocket connection with exponential backoff (up to `--connect-timeout` seconds, default 30)
+The MCP server starts immediately without launching any application.
+When Claude calls `qtmcp_launch_app`, the tool:
+1. Launches the target via the launcher (with probe injection)
+2. Waits for the probe to announce itself via UDP discovery
+3. Retries WebSocket connection with exponential backoff (up to `--connect-timeout` seconds, default 30)
 
 ### Solutions
 
-**Increase the timeout** if the app is slow to start:
+**Increase the timeout** if the app is slow to start (set at server level):
 ```bash
-qtmcp serve --mode native --target /path/to/app --connect-timeout 60
+qtmcp serve --mode native --connect-timeout 60
 ```
 
 **Specify Qt path** if Qt libs aren't alongside the target:
 ```bash
 # Linux
-qtmcp serve --mode native --target /path/to/app --qt-path /opt/Qt/6.8.0/gcc_64/lib
+qtmcp serve --mode native --qt-path /opt/Qt/6.8.0/gcc_64/lib
 
 # Windows
-qtmcp serve --mode native --target C:\app.exe --qt-path C:\Qt\6.8.0\msvc2022_64\bin
+qtmcp serve --mode native --qt-path C:\Qt\6.8.0\msvc2022_64\bin
 ```
 
 **Check probe stderr output** for initialization messages:
@@ -143,8 +142,8 @@ netstat -ano | findstr 9222
 # Set via environment variable before launching app
 QTMCP_PORT=9999 ./your-app
 
-# Connect to the new port
-qtmcp serve --ws-url ws://localhost:9999
+# Then ask Claude to connect to the new port:
+# qtmcp_connect_probe(ws_url="ws://localhost:9999")
 ```
 
 #### Firewall Blocking WebSocket
@@ -159,16 +158,16 @@ On Linux, check iptables/nftables/firewalld rules.
 
 #### Wrong WebSocket URL
 
-Ensure the URL matches:
-```bash
-# Default URL
-qtmcp serve --ws-url ws://localhost:9222
+Ensure the URL matches when connecting manually:
+```
+# Default URL — ask Claude to run:
+qtmcp_connect_probe(ws_url="ws://localhost:9222")
 
 # If using a different port
-qtmcp serve --ws-url ws://localhost:9999
+qtmcp_connect_probe(ws_url="ws://localhost:9999")
 
 # If connecting from a different machine
-qtmcp serve --ws-url ws://192.168.1.100:9222
+qtmcp_connect_probe(ws_url="ws://192.168.1.100:9222")
 ```
 
 #### Probe on Different Host
@@ -192,7 +191,7 @@ By default, the probe binds to `localhost` only. For remote connections, this is
   "mcpServers": {
     "qtmcp": {
       "command": "qtmcp",
-      "args": ["serve", "--mode", "native", "--target", "/path/to/app"]
+      "args": ["serve", "--mode", "native"]
     }
   }
 }
@@ -212,7 +211,7 @@ claude mcp list
 
 Before connecting Claude, confirm the probe works:
 
-1. Start the app with probe: `qtmcp serve --mode native --target /path/to/app`
+1. Start the app with probe: `qtmcp-launch /path/to/app --detach`
 2. Check for `[QtMCP] Probe initialized` in output
 3. In another terminal, test WebSocket: `wscat -c ws://localhost:9222`
 
@@ -273,7 +272,7 @@ https://aka.ms/vs/17/release/vc_redist.x64.exe
 
 #### Qt DLLs Not Found
 
-If using a standalone probe (not via `qtmcp serve --target`), Qt DLLs must be available.
+If using a standalone probe, Qt DLLs must be available.
 
 **Solutions:**
 1. Run `windeployqt` on the probe DLL
@@ -301,8 +300,8 @@ Some applications clear `LD_PRELOAD` or use `setuid`. This can prevent probe loa
 
 If the probe can't find Qt libraries:
 ```bash
-# Option 1: Use --qt-path (recommended when using qtmcp serve)
-qtmcp serve --mode native --target ./your-app --qt-path /path/to/Qt/6.8.0/gcc_64/lib
+# Option 1: Use --qt-path on the serve command (applies to all launch tool calls)
+qtmcp serve --mode native --qt-path /path/to/Qt/6.8.0/gcc_64/lib
 
 # Option 2: Set LD_LIBRARY_PATH manually
 export LD_LIBRARY_PATH=/path/to/Qt/6.8.0/gcc_64/lib:$LD_LIBRARY_PATH
