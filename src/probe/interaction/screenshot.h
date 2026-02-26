@@ -7,6 +7,8 @@
 #include <QRect>
 #include <QWidget>
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 namespace qtmcp {
 
 /// @brief Screenshot capture utility (UI-03).
@@ -26,7 +28,7 @@ namespace qtmcp {
 ///   // Capture a region
 ///   QByteArray png = Screenshot::captureRegion(widget, QRect(0, 0, 100, 100));
 /// @endcode
-class Screenshot {
+class QTMCP_EXPORT Screenshot {
  public:
   /// @brief Capture a widget and its children.
   /// @param widget Widget to capture

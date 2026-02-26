@@ -7,6 +7,8 @@
 #include <QObject>
 #include <QString>
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 namespace qtmcp {
 
 /// @brief Generate a hierarchical ID for a QObject.
@@ -21,7 +23,7 @@ namespace qtmcp {
 ///
 /// @param obj The object to generate an ID for.
 /// @return The hierarchical ID string (e.g., "mainWindow/central/submitBtn").
-QString generateObjectId(QObject* obj);
+QTMCP_EXPORT QString generateObjectId(QObject* obj);
 
 /// @brief Find an object by its hierarchical ID.
 ///
@@ -31,7 +33,7 @@ QString generateObjectId(QObject* obj);
 /// @param id The hierarchical ID (e.g., "mainWindow/central/submitBtn").
 /// @param root Starting point for search (nullptr = search all top-level objects).
 /// @return The object, or nullptr if not found.
-QObject* findByObjectId(const QString& id, QObject* root = nullptr);
+QTMCP_EXPORT QObject* findByObjectId(const QString& id, QObject* root = nullptr);
 
 /// @brief Serialize an object tree to JSON.
 ///
@@ -42,7 +44,7 @@ QObject* findByObjectId(const QString& id, QObject* root = nullptr);
 /// @param root Root object to serialize (nullptr = all top-level objects).
 /// @param maxDepth Maximum depth to recurse (-1 = unlimited).
 /// @return JSON object representing the tree.
-QJsonObject serializeObjectTree(QObject* root, int maxDepth = -1);
+QTMCP_EXPORT QJsonObject serializeObjectTree(QObject* root, int maxDepth = -1);
 
 /// @brief Serialize a single object's basic info (no children).
 ///
@@ -51,7 +53,7 @@ QJsonObject serializeObjectTree(QObject* root, int maxDepth = -1);
 ///
 /// @param obj The object to serialize.
 /// @return JSON object with id, className, objectName, etc.
-QJsonObject serializeObjectInfo(QObject* obj);
+QTMCP_EXPORT QJsonObject serializeObjectInfo(QObject* obj);
 
 /// @brief Generate a single ID segment for an object.
 ///
@@ -63,6 +65,6 @@ QJsonObject serializeObjectInfo(QObject* obj);
 ///
 /// @param obj The object to generate a segment for.
 /// @return The ID segment string.
-QString generateIdSegment(QObject* obj);
+QTMCP_EXPORT QString generateIdSegment(QObject* obj);
 
 }  // namespace qtmcp

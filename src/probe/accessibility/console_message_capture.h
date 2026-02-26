@@ -8,6 +8,8 @@
 #include <QString>
 #include <QtGlobal>
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 namespace qtmcp {
 
 /// @brief Captured console message with metadata.
@@ -32,7 +34,7 @@ struct ConsoleMessage {
 ///   ConsoleMessageCapture::instance()->install();
 ///   // ... later ...
 ///   auto msgs = ConsoleMessageCapture::instance()->messages("error", true, 50);
-class ConsoleMessageCapture {
+class QTMCP_EXPORT ConsoleMessageCapture {
  public:
   /// @brief Maximum number of messages retained in the ring buffer.
   static constexpr int MAX_MESSAGES = 1000;

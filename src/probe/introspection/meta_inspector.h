@@ -11,6 +11,8 @@
 #include <QObject>
 #include <QStringList>
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 namespace qtmcp {
 
 /// @brief Utility class for QMetaObject introspection with JSON output.
@@ -22,7 +24,7 @@ namespace qtmcp {
 ///   - listSignals(): List all signals (OBJ-10)
 ///
 /// All methods return JSON-friendly output suitable for MCP protocol.
-class MetaInspector {
+class QTMCP_EXPORT MetaInspector {
  public:
   /// @brief Get detailed object info (OBJ-04).
   ///

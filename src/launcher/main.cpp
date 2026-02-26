@@ -146,8 +146,8 @@ int main(int argc, char* argv[]) {
   // Parse and validate port
   bool portOk = false;
   int portValue = parser.value(portOption).toInt(&portOk);
-  if (!portOk || portValue <= 0 || portValue > 65535) {
-    fprintf(stderr, "Error: Invalid port value '%s' (must be 1-65535)\n",
+  if (!portOk || portValue < 0 || portValue > 65535) {
+    fprintf(stderr, "Error: Invalid port value '%s' (must be 0-65535)\n",
             qPrintable(parser.value(portOption)));
     return 1;
   }

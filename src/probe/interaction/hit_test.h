@@ -7,6 +7,8 @@
 #include <QPoint>
 #include <QWidget>
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 namespace qtmcp {
 
 /// @brief Widget geometry and hit testing utilities (UI-04, UI-05).
@@ -28,7 +30,7 @@ namespace qtmcp {
 ///   // Find deepest child at local position
 ///   QWidget* child = HitTest::childAt(parent, QPoint(50, 50));
 /// @endcode
-class HitTest {
+class QTMCP_EXPORT HitTest {
  public:
   /// @brief Get widget geometry in local and global coordinates (UI-04).
   /// @param widget Widget to query

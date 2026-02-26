@@ -85,13 +85,6 @@ target_compile_definitions(qtmcp_probe PRIVATE
     QTMCP_PROBE_LIBRARY
 )
 
-# Windows: export all symbols for DLL
-if(WIN32)
-    set_target_properties(qtmcp_probe PROPERTIES
-        WINDOWS_EXPORT_ALL_SYMBOLS ON
-    )
-endif()
-
 # Include directories
 target_include_directories(qtmcp_probe
     PUBLIC

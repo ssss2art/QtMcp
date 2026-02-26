@@ -7,6 +7,8 @@
 #include <QString>
 #include <QWidget>
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 namespace qtmcp {
 
 /// @brief Mouse and keyboard input simulation using QTest functions.
@@ -28,7 +30,7 @@ namespace qtmcp {
 ///   // Send key combination
 ///   InputSimulator::sendKeySequence(widget, "Ctrl+S");
 /// @endcode
-class InputSimulator {
+class QTMCP_EXPORT InputSimulator {
  public:
   /// Mouse button types
   enum class MouseButton { Left, Right, Middle };

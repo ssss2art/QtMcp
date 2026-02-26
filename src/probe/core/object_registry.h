@@ -145,12 +145,12 @@ class QTMCP_EXPORT ObjectRegistry : public QObject {
 ///
 /// Must be called AFTER QCoreApplication exists.
 /// Should be called from Probe::initialize().
-void installObjectHooks();
+QTMCP_EXPORT void installObjectHooks();
 
 /// @brief Uninstall Qt object lifecycle hooks.
 ///
 /// Restores previous hooks (or nullptr if there were none).
 /// Should be called from Probe::shutdown().
-void uninstallObjectHooks();
+QTMCP_EXPORT void uninstallObjectHooks();
 
 }  // namespace qtmcp

@@ -38,6 +38,11 @@ bool WebSocketServer::start() {
     return false;
   }
 
+  // When port 0 was requested, read back the OS-assigned ephemeral port
+  if (m_port == 0) {
+    m_port = m_server->serverPort();
+  }
+
   // Print startup message to stderr as specified in CONTEXT.md
   fprintf(stderr, "QtMCP listening on ws://0.0.0.0:%u\n", static_cast<unsigned>(m_port));
   fflush(stderr);

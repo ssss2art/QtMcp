@@ -7,6 +7,8 @@
 #include <QString>
 #include <Qt>
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 namespace qtmcp {
 
 /// @brief Result of parsing a key combination string.
@@ -30,7 +32,7 @@ struct KeyCombo {
 ///   KeyCombo combo = KeyNameMapper::parseKeyCombo("ctrl+shift+s");
 ///   // combo.key == Qt::Key_S, combo.modifiers == Ctrl|Shift
 /// @endcode
-class KeyNameMapper {
+class QTMCP_EXPORT KeyNameMapper {
  public:
   /// @brief Resolve a single key name to Qt::Key.
   /// @param name Chrome/xdotool key name (case-insensitive)

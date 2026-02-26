@@ -8,6 +8,8 @@
 #include <QJsonValue>
 #include <QVariant>
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 namespace qtmcp {
 
 /// @brief Convert QVariant to JSON value.
@@ -27,7 +29,7 @@ namespace qtmcp {
 ///
 /// @param value The QVariant to convert.
 /// @return JSON representation of the value.
-QJsonValue variantToJson(const QVariant& value);
+QTMCP_EXPORT QJsonValue variantToJson(const QVariant& value);
 
 /// @brief Convert JSON value to QVariant.
 ///
@@ -38,12 +40,12 @@ QJsonValue variantToJson(const QVariant& value);
 /// @param targetTypeId Optional target type ID for explicit conversion.
 ///                     Use QMetaType::UnknownType to infer from JSON type.
 /// @return QVariant containing the converted value.
-QVariant jsonToVariant(const QJsonValue& value, int targetTypeId = QMetaType::UnknownType);
+QTMCP_EXPORT QVariant jsonToVariant(const QJsonValue& value, int targetTypeId = QMetaType::UnknownType);
 
 /// @brief Get a human-readable type name for a QVariant.
 ///
 /// @param value The QVariant to get the type name for.
 /// @return The type name string (e.g., "QString", "QPoint", "int").
-QString variantTypeName(const QVariant& value);
+QTMCP_EXPORT QString variantTypeName(const QVariant& value);
 
 }  // namespace qtmcp

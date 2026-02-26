@@ -76,7 +76,7 @@ void Probe::readConfiguration() {
   if (!portEnv.isEmpty()) {
     bool ok = false;
     int envPort = portEnv.toInt(&ok);
-    if (ok && envPort > 0 && envPort <= 65535) {
+    if (ok && envPort >= 0 && envPort <= 65535) {
       m_port = static_cast<quint16>(envPort);
     }
   }
@@ -153,6 +153,12 @@ bool Probe::initialize() {
     m_initialized = false;
     return false;
   }
+
+  // Sync actual port (may differ from requested if port 0 was used)
+  m_port = m_server->port();
+
+  // Ensure child processes auto-assign their own port to avoid conflicts
+  qputenv("QTMCP_PORT", "0");
 
   m_running = true;
 
@@ -313,9 +319,7 @@ void Probe::setPort(quint16 port) {
     LOG_WARN("[QtMCP] Cannot change port after initialization");
     return;
   }
-  if (port > 0) {
-    m_port = port;
-  }
+  m_port = port;
 }
 
 quint16 Probe::port() const {
