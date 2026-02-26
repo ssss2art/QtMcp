@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(QtMCP
-    VERSION 0.3.0
+    VERSION 0.3.1
     DESCRIPTION "Qt application introspection and automation library with MCP integration"
     LANGUAGES CXX
 )
@@ -67,8 +67,26 @@ if(Qt6_FOUND)
             PATHS "${QT_ROOT_DIR}" "${Qt6Core_DIR}/../../.."
             PATH_SUFFIXES "include/QtCore/${Qt6_VERSION}/QtCore"
         )
+        # Fallback: scan for any version subdirectory (handles cmake version ≠ header version)
+        if(NOT _qt6_private_include)
+            file(GLOB _qt6_private_version_dirs "${Qt6Core_DIR}/../../../include/QtCore/6.*")
+            foreach(_vdir ${_qt6_private_version_dirs})
+                if(EXISTS "${_vdir}/QtCore/private/qhooks_p.h")
+                    set(_qt6_private_include "${_vdir}/QtCore")
+                    break()
+                endif()
+            endforeach()
+        endif()
         if(_qt6_private_include)
             message(STATUS "Found Qt6 private headers at: ${_qt6_private_include}")
+            # Create synthetic Qt6::CorePrivate target so downstream targets can link it.
+            get_filename_component(_qt6_private_parent "${_qt6_private_include}" DIRECTORY)
+            if(NOT TARGET Qt6::CorePrivate)
+                add_library(Qt6::CorePrivate INTERFACE IMPORTED)
+                set_target_properties(Qt6::CorePrivate PROPERTIES
+                    INTERFACE_INCLUDE_DIRECTORIES "${_qt6_private_include};${_qt6_private_parent}"
+                )
+            endif()
         else()
             message(FATAL_ERROR "Qt6::CorePrivate not found. Private headers are required for the probe.")
         endif()
@@ -102,8 +120,28 @@ else()
             PATHS "${Qt5Core_DIR}/../../.."
             PATH_SUFFIXES "include/QtCore/${Qt5_VERSION}/QtCore"
         )
+        # Fallback: scan for any version subdirectory (handles cmake version ≠ header version)
+        if(NOT _qt5_private_include)
+            file(GLOB _qt5_private_version_dirs "${Qt5Core_DIR}/../../../include/QtCore/5.*")
+            foreach(_vdir ${_qt5_private_version_dirs})
+                if(EXISTS "${_vdir}/QtCore/private/qhooks_p.h")
+                    set(_qt5_private_include "${_vdir}/QtCore")
+                    break()
+                endif()
+            endforeach()
+        endif()
         if(_qt5_private_include)
             message(STATUS "Found Qt5 private headers at: ${_qt5_private_include}")
+            # Create synthetic Qt5::CorePrivate target so downstream targets can link it.
+            # Include both the QtCore subdir (for "private/qhooks_p.h") and its parent
+            # (for "QtCore/private/qglobal_p.h" referenced inside Qt private headers).
+            get_filename_component(_qt5_private_parent "${_qt5_private_include}" DIRECTORY)
+            if(NOT TARGET Qt5::CorePrivate)
+                add_library(Qt5::CorePrivate INTERFACE IMPORTED)
+                set_target_properties(Qt5::CorePrivate PROPERTIES
+                    INTERFACE_INCLUDE_DIRECTORIES "${_qt5_private_include};${_qt5_private_parent}"
+                )
+            endif()
         else()
             message(FATAL_ERROR "Qt5::CorePrivate not found. Private headers are required for the probe.")
         endif()

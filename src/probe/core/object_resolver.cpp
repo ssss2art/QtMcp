@@ -23,7 +23,7 @@ QObject* ObjectResolver::resolve(const QString& id) {
   int numericId = -1;
 
   if (id.startsWith(QLatin1Char('#'))) {
-    numericId = QStringView(id).mid(1).toInt(&isNumeric);
+    numericId = id.mid(1).toInt(&isNumeric);
   } else {
     numericId = id.toInt(&isNumeric);
   }
