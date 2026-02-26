@@ -27,9 +27,8 @@
 #define NOMINMAX
 #endif
 #include <Windows.h>
-#include <detours.h>
-
 #include <cstdio>
+#include <detours.h>
 
 // Declared in probe_init_windows.cpp — returns the absolute path to this DLL.
 extern "C" __declspec(dllimport) const wchar_t* qtmcpGetProbeDllPath();
@@ -53,10 +52,9 @@ BOOL WINAPI Hooked_CreateProcessW(LPCWSTR lpApplicationName, LPWSTR lpCommandLin
   // Force CREATE_SUSPENDED so we can inject before the child runs
   dwCreationFlags |= CREATE_SUSPENDED;
 
-  BOOL result =
-      Real_CreateProcessW(lpApplicationName, lpCommandLine, lpProcessAttributes,
-                          lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment,
-                          lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
+  BOOL result = Real_CreateProcessW(
+      lpApplicationName, lpCommandLine, lpProcessAttributes, lpThreadAttributes, bInheritHandles,
+      dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo, lpProcessInformation);
 
   if (!result) {
     return FALSE;

@@ -131,8 +131,7 @@ qint64 launchWithProbe(const LaunchOptions& options) {
 
   // 4. Inject probe DLL (LoadLibraryW + qtmcpProbeInit via shared utility)
   std::wstring dllPath = options.probePath.toStdWString();
-  if (!qtmcp::injectProbeDll(processHandle.get(), pi.dwProcessId, dllPath.c_str(),
-                             options.quiet)) {
+  if (!qtmcp::injectProbeDll(processHandle.get(), pi.dwProcessId, dllPath.c_str(), options.quiet)) {
     TerminateProcess(processHandle.get(), 1);
     return -1;
   }

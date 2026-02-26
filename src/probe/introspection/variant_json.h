@@ -3,12 +3,12 @@
 
 #pragma once
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QVariant>
-
-#include "core/probe.h"  // For QTMCP_EXPORT
 
 namespace qtmcp {
 
@@ -40,7 +40,8 @@ QTMCP_EXPORT QJsonValue variantToJson(const QVariant& value);
 /// @param targetTypeId Optional target type ID for explicit conversion.
 ///                     Use QMetaType::UnknownType to infer from JSON type.
 /// @return QVariant containing the converted value.
-QTMCP_EXPORT QVariant jsonToVariant(const QJsonValue& value, int targetTypeId = QMetaType::UnknownType);
+QTMCP_EXPORT QVariant jsonToVariant(const QJsonValue& value,
+                                    int targetTypeId = QMetaType::UnknownType);
 
 /// @brief Get a human-readable type name for a QVariant.
 ///

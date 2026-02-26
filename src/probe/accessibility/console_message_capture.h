@@ -3,12 +3,12 @@
 
 #pragma once
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 #include <QList>
 #include <QMutex>
 #include <QString>
 #include <QtGlobal>
-
-#include "core/probe.h"  // For QTMCP_EXPORT
 
 namespace qtmcp {
 

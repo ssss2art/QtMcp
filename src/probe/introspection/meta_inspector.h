@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 #include <stdexcept>
 
 #include <QJsonArray>
@@ -10,8 +12,6 @@
 #include <QJsonValue>
 #include <QObject>
 #include <QStringList>
-
-#include "core/probe.h"  // For QTMCP_EXPORT
 
 namespace qtmcp {
 

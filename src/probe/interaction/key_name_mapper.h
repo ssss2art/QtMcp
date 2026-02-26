@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 #include <QHash>
 #include <QString>
 #include <Qt>
-
-#include "core/probe.h"  // For QTMCP_EXPORT
 
 namespace qtmcp {
 

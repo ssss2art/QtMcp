@@ -61,8 +61,8 @@ bool injectProbeDll(HANDLE hProcess, DWORD processId, const wchar_t* dllPath, bo
   size_t dllPathSize = (dllPathStr.size() + 1) * sizeof(wchar_t);
 
   // Allocate memory in target process for DLL path
-  void* remoteMem = VirtualAllocEx(hProcess, nullptr, dllPathSize,
-                                   MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+  void* remoteMem =
+      VirtualAllocEx(hProcess, nullptr, dllPathSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
   if (!remoteMem) {
     if (!quiet) {
       printWindowsError("VirtualAllocEx failed", GetLastError());
@@ -71,14 +71,14 @@ bool injectProbeDll(HANDLE hProcess, DWORD processId, const wchar_t* dllPath, bo
   }
 
   if (!quiet) {
-    fprintf(stderr, "[injector] Allocated %zu bytes in PID %lu at %p\n",
-            dllPathSize, static_cast<unsigned long>(processId), remoteMem);
+    fprintf(stderr, "[injector] Allocated %zu bytes in PID %lu at %p\n", dllPathSize,
+            static_cast<unsigned long>(processId), remoteMem);
   }
 
   // Write DLL path to target process memory
   SIZE_T bytesWritten = 0;
-  BOOL writeResult = WriteProcessMemory(hProcess, remoteMem, dllPathStr.c_str(),
-                                        dllPathSize, &bytesWritten);
+  BOOL writeResult =
+      WriteProcessMemory(hProcess, remoteMem, dllPathStr.c_str(), dllPathSize, &bytesWritten);
   if (!writeResult || bytesWritten != dllPathSize) {
     if (!quiet) {
       printWindowsError("WriteProcessMemory failed", GetLastError());
@@ -116,8 +116,8 @@ bool injectProbeDll(HANDLE hProcess, DWORD processId, const wchar_t* dllPath, bo
   }
 
   // Create remote thread to call LoadLibraryW with DLL path
-  HandleGuard remoteThread(CreateRemoteThread(hProcess, nullptr, 0, loadLibraryW, remoteMem,
-                                              0, nullptr));
+  HandleGuard remoteThread(
+      CreateRemoteThread(hProcess, nullptr, 0, loadLibraryW, remoteMem, 0, nullptr));
   if (!remoteThread.valid()) {
     if (!quiet) {
       printWindowsError("CreateRemoteThread failed", GetLastError());
@@ -217,8 +217,7 @@ bool injectProbeDll(HANDLE hProcess, DWORD processId, const wchar_t* dllPath, bo
   }
 
   // Call qtmcpProbeInit via CreateRemoteThread
-  HandleGuard initThread(
-      CreateRemoteThread(hProcess, nullptr, 0, remoteFunc, nullptr, 0, nullptr));
+  HandleGuard initThread(CreateRemoteThread(hProcess, nullptr, 0, remoteFunc, nullptr, 0, nullptr));
 
   if (!initThread.valid()) {
     if (!quiet) {

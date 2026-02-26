@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "core/probe.h"  // For QTMCP_EXPORT
+
 #include <QByteArray>
 #include <QRect>
 #include <QWidget>
-
-#include "core/probe.h"  // For QTMCP_EXPORT
 
 namespace qtmcp {
 
