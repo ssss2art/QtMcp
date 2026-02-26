@@ -24,6 +24,7 @@ class MainWindow : public QMainWindow {
   void OnSubmitClicked();
   void OnClearClicked();
   void OnSliderChanged(int value);
+  void OnSpawnChildClicked();
 
  private:
   Ui::MainWindow* ui_;

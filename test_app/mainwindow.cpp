@@ -3,6 +3,10 @@
 
 #include "mainwindow.h"
 
+#include <QCoreApplication>
+#include <QProcess>
+#include <QPushButton>
+
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui_(new Ui::MainWindow) {
@@ -12,6 +16,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui_(new Ui::MainW
   connect(ui_->submitButton, &QPushButton::clicked, this, &MainWindow::OnSubmitClicked);
   connect(ui_->clearButton, &QPushButton::clicked, this, &MainWindow::OnClearClicked);
   connect(ui_->slider, &QSlider::valueChanged, this, &MainWindow::OnSliderChanged);
+
+  // Add "Spawn Child Process" button next to Submit/Clear
+  auto* spawnButton = new QPushButton(QStringLiteral("Spawn Child Process"), this);
+  spawnButton->setObjectName(QStringLiteral("spawnChildButton"));
+  ui_->buttonLayout->insertWidget(2, spawnButton);
+  connect(spawnButton, &QPushButton::clicked, this, &MainWindow::OnSpawnChildClicked);
 
   // Initialize status bar
   statusBar()->showMessage("Ready");
@@ -44,4 +54,18 @@ void MainWindow::OnClearClicked() {
 
 void MainWindow::OnSliderChanged(int value) {
   ui_->sliderValueLabel->setText(QString::number(value));
+}
+
+void MainWindow::OnSpawnChildClicked() {
+  QString exe = QCoreApplication::applicationFilePath();
+  QStringList args = {QStringLiteral("--child")};
+
+  qint64 pid = 0;
+  bool ok = QProcess::startDetached(exe, args, QString(), &pid);
+
+  if (ok) {
+    statusBar()->showMessage(QString("Spawned child process (PID %1)").arg(pid), 5000);
+  } else {
+    statusBar()->showMessage("Failed to spawn child process", 5000);
+  }
 }

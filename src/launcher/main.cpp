@@ -119,6 +119,11 @@ int main(int argc, char* argv[]) {
       QStringLiteral("version"));
   parser.addOption(qtVersionOption);
 
+  QCommandLineOption injectChildrenOption(
+      QStringLiteral("inject-children"),
+      QStringLiteral("Automatically inject probe into child processes"));
+  parser.addOption(injectChildrenOption);
+
   // Positional arguments: target executable and its arguments
   parser.addPositionalArgument(QStringLiteral("target"),
                                QStringLiteral("Target executable to launch"));
@@ -142,6 +147,7 @@ int main(int argc, char* argv[]) {
   options.targetArgs = positionalArgs;  // Remaining args go to target
   options.detach = parser.isSet(detachOption);
   options.quiet = parser.isSet(quietOption);
+  options.injectChildren = parser.isSet(injectChildrenOption);
 
   // Parse and validate port
   bool portOk = false;
@@ -208,8 +214,9 @@ int main(int argc, char* argv[]) {
   if (!options.quiet) {
     fprintf(stderr, "[qtmcp-launch] Target: %s\n", qPrintable(options.targetExecutable));
     fprintf(stderr, "[qtmcp-launch] Probe: %s\n", qPrintable(options.probePath));
-    fprintf(stderr, "[qtmcp-launch] Port: %u, Detach: %s\n", static_cast<unsigned>(options.port),
-            options.detach ? "yes" : "no");
+    fprintf(stderr, "[qtmcp-launch] Port: %u, Detach: %s, Inject children: %s\n",
+            static_cast<unsigned>(options.port), options.detach ? "yes" : "no",
+            options.injectChildren ? "yes" : "no");
   }
 
   // Launch with probe injection

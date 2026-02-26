@@ -204,8 +204,39 @@ elseif(MSVC)
     )
 endif()
 
+# Microsoft Detours (Windows only) - for CreateProcessW hooking in probe
+if(WIN32)
+    include(FetchContent)
+    FetchContent_Declare(
+        detours
+        GIT_REPOSITORY https://github.com/microsoft/Detours.git
+        GIT_TAG        v4.0.1
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(detours)
+
+    # Detours doesn't ship a CMakeLists.txt, so we build it ourselves
+    add_library(detours STATIC
+        ${detours_SOURCE_DIR}/src/detours.cpp
+        ${detours_SOURCE_DIR}/src/modules.cpp
+        ${detours_SOURCE_DIR}/src/disasm.cpp
+        ${detours_SOURCE_DIR}/src/image.cpp
+        ${detours_SOURCE_DIR}/src/creatwth.cpp
+    )
+    target_include_directories(detours PUBLIC ${detours_SOURCE_DIR}/src)
+    # Suppress warnings in Detours sources that trigger /W4 /WX.
+    # /permissive is needed because Detours uses goto that skips initialisers (C2362).
+    target_compile_options(detours PRIVATE /wd4100 /wd4456 /wd4706 /W3 /permissive)
+    # Detours needs _WIN32_WINNT for proper API level
+    target_compile_definitions(detours PRIVATE _WIN32_WINNT=0x0601)
+endif()
+
 # Add subdirectories
 add_subdirectory(src/probe)
+
+if(WIN32)
+    add_subdirectory(src/shared)
+endif()
 
 if(WIN32 OR (UNIX AND NOT APPLE))
     add_subdirectory(src/launcher)

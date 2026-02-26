@@ -89,6 +89,11 @@ qint64 launchWithProbe(const LaunchOptions& options) {
     // Set environment variables
     setenv("QTMCP_PORT", qPrintable(QString::number(options.port)), 1);
 
+    // Enable child process injection if requested
+    if (options.injectChildren) {
+      setenv("QTMCP_INJECT_CHILDREN", "1", 1);
+    }
+
     // Set LD_PRELOAD
     const char* existingPreload = getenv("LD_PRELOAD");
     if (existingPreload && existingPreload[0] != '\0') {

@@ -60,7 +60,13 @@ set(PROBE_HEADERS
 
 # Platform-specific initialization entry points
 if(WIN32)
-    list(APPEND PROBE_SOURCES core/probe_init_windows.cpp)
+    list(APPEND PROBE_SOURCES
+        core/probe_init_windows.cpp
+        core/child_injector_windows.cpp
+    )
+    list(APPEND PROBE_HEADERS
+        core/child_injector_windows.h
+    )
 elseif(UNIX AND NOT APPLE)
     list(APPEND PROBE_SOURCES core/probe_init_linux.cpp)
 endif()
@@ -126,6 +132,11 @@ else()
         target_link_libraries(qtmcp_probe PUBLIC Qt5::Qml Qt5::Quick)
         target_compile_definitions(qtmcp_probe PUBLIC QTMCP_HAS_QML)
     endif()
+endif()
+
+# Windows: link shared injection utilities and Detours for child-process hooking
+if(WIN32)
+    target_link_libraries(qtmcp_probe PRIVATE qtmcp_shared detours)
 endif()
 
 # Platform-specific configurations

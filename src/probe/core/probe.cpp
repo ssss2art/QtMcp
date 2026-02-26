@@ -32,6 +32,10 @@
 #include "transport/discovery_broadcaster.h"
 #include "transport/websocket_server.h"
 
+#ifdef Q_OS_WIN
+#include "core/child_injector_windows.h"
+#endif
+
 #include <QDir>
 #include <QFile>
 #include <QGuiApplication>
@@ -159,6 +163,13 @@ bool Probe::initialize() {
 
   // Ensure child processes auto-assign their own port to avoid conflicts
   qputenv("QTMCP_PORT", "0");
+
+#ifdef Q_OS_WIN
+  // If child injection is requested, hook CreateProcessW so children get the probe
+  if (qgetenv("QTMCP_INJECT_CHILDREN") == "1") {
+    installChildProcessHook();
+  }
+#endif
 
   m_running = true;
 
@@ -292,6 +303,11 @@ void Probe::shutdown() {
 
   LOG_INFO("[QtMCP] Probe shutting down...");
   fprintf(stderr, "[QtMCP] Probe shutting down\n");
+
+#ifdef Q_OS_WIN
+  // Remove the CreateProcessW hook before tearing down anything else
+  uninstallChildProcessHook();
+#endif
 
   // Uninstall object hooks first (before any Qt objects are destroyed)
   uninstallObjectHooks();

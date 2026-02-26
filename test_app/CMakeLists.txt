@@ -3,10 +3,12 @@
 set(TEST_APP_SOURCES
     main.cpp
     mainwindow.cpp
+    childwindow.cpp
 )
 
 set(TEST_APP_HEADERS
     mainwindow.h
+    childwindow.h
 )
 
 set(TEST_APP_UI

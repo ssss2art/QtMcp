@@ -35,9 +35,9 @@ else()
     )
 endif()
 
-# Windows: link Psapi for EnumProcessModules / GetModuleBaseNameW
+# Windows: link shared injection utilities (provides Psapi transitively)
 if(WIN32)
-    target_link_libraries(qtmcp_launcher PRIVATE Psapi)
+    target_link_libraries(qtmcp_launcher PRIVATE qtmcp_shared)
 endif()
 
 set_target_properties(qtmcp_launcher PROPERTIES

@@ -14,8 +14,9 @@ struct LaunchOptions {
   QStringList targetArgs;    ///< Command line arguments for the target
   QString probePath;         ///< Path to the probe library (DLL/SO)
   quint16 port = 9222;       ///< WebSocket port for the probe server
-  bool detach = false;       ///< If true, run in background (don't wait)
-  bool quiet = false;        ///< If true, suppress startup messages
+  bool detach = false;           ///< If true, run in background (don't wait)
+  bool quiet = false;            ///< If true, suppress startup messages
+  bool injectChildren = false;   ///< If true, inject probe into child processes
 };
 
 /// @brief Launch a target application with the QtMCP probe injected.

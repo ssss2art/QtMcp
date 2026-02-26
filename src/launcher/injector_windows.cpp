@@ -18,8 +18,7 @@
 
 #ifdef Q_OS_WIN
 
-#include <QDir>
-#include <QFileInfo>
+#include "process_inject_windows.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -27,48 +26,10 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-// clang-format off
-#include <Windows.h>  // must precede Psapi.h (provides BOOL, DWORD, WINAPI)
-#include <Psapi.h>
-// clang-format on
+#include <Windows.h>
 #include <cstdio>
 
 namespace {
-
-/// @brief RAII wrapper for Windows HANDLE to ensure cleanup.
-class HandleGuard {
- public:
-  explicit HandleGuard(HANDLE h = nullptr) : m_handle(h) {}
-  ~HandleGuard() {
-    if (m_handle && m_handle != INVALID_HANDLE_VALUE) {
-      CloseHandle(m_handle);
-    }
-  }
-  HandleGuard(const HandleGuard&) = delete;
-  HandleGuard& operator=(const HandleGuard&) = delete;
-  HandleGuard(HandleGuard&& other) noexcept : m_handle(other.m_handle) { other.m_handle = nullptr; }
-  HandleGuard& operator=(HandleGuard&& other) noexcept {
-    if (this != &other) {
-      if (m_handle && m_handle != INVALID_HANDLE_VALUE) {
-        CloseHandle(m_handle);
-      }
-      m_handle = other.m_handle;
-      other.m_handle = nullptr;
-    }
-    return *this;
-  }
-
-  HANDLE get() const { return m_handle; }
-  HANDLE release() {
-    HANDLE h = m_handle;
-    m_handle = nullptr;
-    return h;
-  }
-  bool valid() const { return m_handle && m_handle != INVALID_HANDLE_VALUE; }
-
- private:
-  HANDLE m_handle;
-};
 
 /// @brief Build a command line string for CreateProcessW.
 /// @param executable The executable path.
@@ -100,48 +61,6 @@ std::wstring buildCommandLine(const QString& executable, const QStringList& args
   return cmdLine.toStdWString();
 }
 
-/// @brief Print a Windows error message.
-/// @param prefix Message prefix.
-/// @param errorCode The Windows error code (from GetLastError).
-void printWindowsError(const char* prefix, DWORD errorCode) {
-  wchar_t* msgBuf = nullptr;
-  FormatMessageW(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-      nullptr, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      reinterpret_cast<LPWSTR>(&msgBuf), 0, nullptr);
-
-  if (msgBuf) {
-    fprintf(stderr, "[injector] %s: %ls (error %lu)\n", prefix, msgBuf, errorCode);
-    LocalFree(msgBuf);
-  } else {
-    fprintf(stderr, "[injector] %s: error %lu\n", prefix, errorCode);
-  }
-}
-
-/// @brief Find a loaded module in a remote process by filename.
-/// @param process Handle to the remote process (PROCESS_QUERY_INFORMATION | PROCESS_VM_READ).
-/// @param moduleName The DLL filename to search for (e.g. L"qtmcp-probe.dll").
-/// @return The module base address in the remote process, or nullptr if not found.
-HMODULE findRemoteModule(HANDLE process, const wchar_t* moduleName) {
-  HMODULE modules[1024];
-  DWORD bytesNeeded = 0;
-
-  if (!EnumProcessModules(process, modules, sizeof(modules), &bytesNeeded)) {
-    return nullptr;
-  }
-
-  DWORD moduleCount = bytesNeeded / sizeof(HMODULE);
-  for (DWORD i = 0; i < moduleCount; ++i) {
-    wchar_t name[MAX_PATH];
-    if (GetModuleBaseNameW(process, modules[i], name, MAX_PATH)) {
-      if (_wcsicmp(name, moduleName) == 0) {
-        return modules[i];
-      }
-    }
-  }
-  return nullptr;
-}
-
 }  // namespace
 
 namespace qtmcp {
@@ -157,6 +76,11 @@ qint64 launchWithProbe(const LaunchOptions& options) {
       printWindowsError("Failed to set QTMCP_PORT", GetLastError());
     }
     // Continue anyway - probe has default port
+  }
+
+  // Enable child process injection if requested
+  if (options.injectChildren) {
+    SetEnvironmentVariableW(L"QTMCP_INJECT_CHILDREN", L"1");
   }
 
   // 2. Build command line
@@ -196,8 +120,8 @@ qint64 launchWithProbe(const LaunchOptions& options) {
   }
 
   // RAII guards for handles
-  HandleGuard processHandle(pi.hProcess);
-  HandleGuard threadHandle(pi.hThread);
+  qtmcp::HandleGuard processHandle(pi.hProcess);
+  qtmcp::HandleGuard threadHandle(pi.hThread);
   qint64 processId = static_cast<qint64>(pi.dwProcessId);
 
   if (!options.quiet) {
@@ -205,201 +129,15 @@ qint64 launchWithProbe(const LaunchOptions& options) {
             static_cast<long long>(processId));
   }
 
-  // 4. Allocate memory in target process for DLL path
+  // 4. Inject probe DLL (LoadLibraryW + qtmcpProbeInit via shared utility)
   std::wstring dllPath = options.probePath.toStdWString();
-  size_t dllPathSize = (dllPath.size() + 1) * sizeof(wchar_t);
-
-  void* remoteMem = VirtualAllocEx(processHandle.get(), nullptr, dllPathSize,
-                                   MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-  if (!remoteMem) {
-    if (!options.quiet) {
-      printWindowsError("VirtualAllocEx failed", GetLastError());
-    }
+  if (!qtmcp::injectProbeDll(processHandle.get(), pi.dwProcessId, dllPath.c_str(),
+                             options.quiet)) {
     TerminateProcess(processHandle.get(), 1);
     return -1;
   }
 
-  if (!options.quiet) {
-    fprintf(stderr, "[injector] Allocated %zu bytes in target at %p\n", dllPathSize, remoteMem);
-  }
-
-  // 5. Write DLL path to target process memory
-  SIZE_T bytesWritten = 0;
-  BOOL writeResult = WriteProcessMemory(processHandle.get(), remoteMem, dllPath.c_str(),
-                                        dllPathSize, &bytesWritten);
-
-  if (!writeResult || bytesWritten != dllPathSize) {
-    if (!options.quiet) {
-      printWindowsError("WriteProcessMemory failed", GetLastError());
-    }
-    VirtualFreeEx(processHandle.get(), remoteMem, 0, MEM_RELEASE);
-    TerminateProcess(processHandle.get(), 1);
-    return -1;
-  }
-
-  if (!options.quiet) {
-    fprintf(stderr, "[injector] Wrote DLL path: %ls\n", dllPath.c_str());
-  }
-
-  // 6. Get address of LoadLibraryW from kernel32.dll
-  // This works because kernel32.dll is mapped at the same address in all processes
-  // due to ASLR being applied at boot time, not per-process for system DLLs
-  HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
-  if (!kernel32) {
-    if (!options.quiet) {
-      printWindowsError("GetModuleHandleW(kernel32) failed", GetLastError());
-    }
-    VirtualFreeEx(processHandle.get(), remoteMem, 0, MEM_RELEASE);
-    TerminateProcess(processHandle.get(), 1);
-    return -1;
-  }
-
-  auto loadLibraryW =
-      reinterpret_cast<LPTHREAD_START_ROUTINE>(GetProcAddress(kernel32, "LoadLibraryW"));
-
-  if (!loadLibraryW) {
-    if (!options.quiet) {
-      printWindowsError("GetProcAddress(LoadLibraryW) failed", GetLastError());
-    }
-    VirtualFreeEx(processHandle.get(), remoteMem, 0, MEM_RELEASE);
-    TerminateProcess(processHandle.get(), 1);
-    return -1;
-  }
-
-  if (!options.quiet) {
-    fprintf(stderr, "[injector] LoadLibraryW at %p\n", reinterpret_cast<void*>(loadLibraryW));
-  }
-
-  // 7. Create remote thread to call LoadLibraryW with DLL path
-  HandleGuard remoteThread(CreateRemoteThread(processHandle.get(),
-                                              nullptr,       // Thread security attributes
-                                              0,             // Stack size (default)
-                                              loadLibraryW,  // Start address (LoadLibraryW)
-                                              remoteMem,     // Parameter (pointer to DLL path)
-                                              0,             // Creation flags (run immediately)
-                                              nullptr        // Thread ID (don't need it)
-                                              ));
-
-  if (!remoteThread.valid()) {
-    if (!options.quiet) {
-      printWindowsError("CreateRemoteThread failed", GetLastError());
-    }
-    VirtualFreeEx(processHandle.get(), remoteMem, 0, MEM_RELEASE);
-    TerminateProcess(processHandle.get(), 1);
-    return -1;
-  }
-
-  if (!options.quiet) {
-    fprintf(stderr, "[injector] Created remote thread for DLL injection\n");
-  }
-
-  // 8. Wait for injection thread to complete
-  DWORD waitResult = WaitForSingleObject(remoteThread.get(), 10000);  // 10 second timeout
-  if (waitResult != WAIT_OBJECT_0) {
-    if (!options.quiet) {
-      if (waitResult == WAIT_TIMEOUT) {
-        fprintf(stderr, "[injector] Injection thread timed out\n");
-      } else {
-        printWindowsError("WaitForSingleObject failed", GetLastError());
-      }
-    }
-    VirtualFreeEx(processHandle.get(), remoteMem, 0, MEM_RELEASE);
-    TerminateProcess(processHandle.get(), 1);
-    return -1;
-  }
-
-  // Check if LoadLibrary succeeded by getting thread exit code
-  DWORD exitCode = 0;
-  if (GetExitCodeThread(remoteThread.get(), &exitCode) && exitCode == 0) {
-    if (!options.quiet) {
-      fprintf(stderr,
-              "[injector] Warning: LoadLibraryW returned NULL (DLL load may have failed)\n");
-    }
-    // Continue anyway - the process might still work
-  }
-
-  if (!options.quiet) {
-    fprintf(stderr, "[injector] DLL injection completed\n");
-  }
-
-  // 9. Free the remote memory (no longer needed)
-  VirtualFreeEx(processHandle.get(), remoteMem, 0, MEM_RELEASE);
-
-  // --- Phase 2: Call exported qtmcpProbeInit in the remote process ---
-  // The probe DLL is now loaded, but Q_COREAPP_STARTUP_FUNCTION may not work
-  // reliably when injected into a suspended process. We explicitly call the
-  // probe's init entry point (GammaRay pattern) to ensure proper registration.
-  {
-    // 2a. Extract just the DLL filename from the full path
-    QFileInfo probeFileInfo(options.probePath);
-    std::wstring probeDllName = probeFileInfo.fileName().toStdWString();
-
-    // 2b. Find the probe module's base address in the remote process
-    HMODULE remoteProbeBase = findRemoteModule(processHandle.get(), probeDllName.c_str());
-    if (!remoteProbeBase) {
-      if (!options.quiet) {
-        fprintf(stderr, "[injector] Warning: Could not find %ls in remote process modules\n",
-                probeDllName.c_str());
-      }
-      // Fall through — Q_COREAPP_STARTUP_FUNCTION may still work
-    } else {
-      // 2c. Load the probe DLL locally WITHOUT running DllMain/constructors.
-      // DONT_RESOLVE_DLL_REFERENCES maps the binary for address calculation only.
-      HMODULE localProbe = LoadLibraryExW(dllPath.c_str(), nullptr, DONT_RESOLVE_DLL_REFERENCES);
-      if (!localProbe) {
-        if (!options.quiet) {
-          printWindowsError("LoadLibraryExW (local, no-init) failed", GetLastError());
-        }
-      } else {
-        // 2d. Get local address of the exported init function
-        auto localFunc =
-            reinterpret_cast<LPTHREAD_START_ROUTINE>(GetProcAddress(localProbe, "qtmcpProbeInit"));
-
-        if (!localFunc) {
-          if (!options.quiet) {
-            fprintf(stderr, "[injector] Warning: qtmcpProbeInit not found in probe DLL exports\n");
-          }
-        } else {
-          // 2e. Calculate the remote address via offset from base
-          auto offset =
-              reinterpret_cast<const char*>(localFunc) - reinterpret_cast<const char*>(localProbe);
-          auto remoteFunc = reinterpret_cast<LPTHREAD_START_ROUTINE>(
-              reinterpret_cast<const char*>(remoteProbeBase) + offset);
-
-          if (!options.quiet) {
-            fprintf(stderr, "[injector] Calling qtmcpProbeInit at remote address %p\n",
-                    reinterpret_cast<void*>(remoteFunc));
-          }
-
-          // 2f. Call qtmcpProbeInit via CreateRemoteThread
-          HandleGuard initThread(
-              CreateRemoteThread(processHandle.get(), nullptr, 0, remoteFunc, nullptr, 0, nullptr));
-
-          if (!initThread.valid()) {
-            if (!options.quiet) {
-              printWindowsError("CreateRemoteThread (init) failed", GetLastError());
-            }
-          } else {
-            DWORD initWait = WaitForSingleObject(initThread.get(), 10000);
-            if (initWait != WAIT_OBJECT_0) {
-              if (!options.quiet) {
-                fprintf(stderr,
-                        "[injector] Warning: qtmcpProbeInit thread did not complete in time\n");
-              }
-            } else if (!options.quiet) {
-              fprintf(stderr, "[injector] qtmcpProbeInit completed successfully\n");
-            }
-          }
-        }
-
-        // 2g. Free the local mapping
-        FreeLibrary(localProbe);
-      }
-    }
-  }
-
-  // 10. Resume the main thread
+  // 5. Resume the main thread
   DWORD suspendCount = ResumeThread(threadHandle.get());
   if (suspendCount == static_cast<DWORD>(-1)) {
     if (!options.quiet) {
@@ -413,7 +151,7 @@ qint64 launchWithProbe(const LaunchOptions& options) {
     fprintf(stderr, "[injector] Resumed main thread (suspend count was %lu)\n", suspendCount);
   }
 
-  // 11. Wait for process if not detaching
+  // 6. Wait for process if not detaching
   if (!options.detach) {
     if (!options.quiet) {
       fprintf(stderr, "[injector] Waiting for process to exit...\n");

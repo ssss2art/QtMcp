@@ -30,6 +30,11 @@ INIT_ONCE g_initOnce = INIT_ONCE_STATIC_INIT;
 // Flag indicating DLL was loaded. Only set in DllMain, read elsewhere.
 bool g_dllLoaded = false;
 
+// Absolute path to this DLL on disk.  Filled in DllMain (DLL_PROCESS_ATTACH).
+// GetModuleFileNameW is safe under the loader lock — it reads already-loaded
+// data from kernel32 without taking additional locks.
+wchar_t g_probeDllPath[MAX_PATH] = {};
+
 // InitOnce callback - this is called at most once, after DLL load completes.
 // SAFE to call Qt functions here.
 BOOL CALLBACK InitOnceCallback(PINIT_ONCE /*initOnce*/, PVOID /*param*/, PVOID* /*context*/) {
@@ -39,6 +44,13 @@ BOOL CALLBACK InitOnceCallback(PINIT_ONCE /*initOnce*/, PVOID /*param*/, PVOID* 
 }
 
 }  // namespace
+
+/// @brief Get the absolute path to the probe DLL.
+/// Filled during DLL_PROCESS_ATTACH; used by child_injector to know which
+/// DLL to inject into child processes.
+extern "C" __declspec(dllexport) const wchar_t* qtmcpGetProbeDllPath() {
+  return g_probeDllPath;
+}
 
 namespace qtmcp {
 
@@ -118,8 +130,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved) {
     case DLL_PROCESS_ATTACH:
       // Optimization: we don't need thread attach/detach notifications
       DisableThreadLibraryCalls(hModule);
-      // Mark that DLL is loaded - this is the ONLY work we do here
+      // Mark that DLL is loaded
       g_dllLoaded = true;
+      // Save our DLL path — needed by child_injector to inject children.
+      // GetModuleFileNameW is safe under the loader lock.
+      GetModuleFileNameW(hModule, g_probeDllPath, MAX_PATH);
       // DO NOT call InitializeProbe() or any Qt functions here!
       break;
 
