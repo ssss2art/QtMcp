@@ -6,25 +6,50 @@
 
 - **License**: MIT
 - **Language**: C++ with Qt Framework
-- **Status**: Early development stage
+- **Status**: Active development (v0.3.0)
 
 ## Repository Structure
 
 ```
 QtMcp/
-├── .gitignore          # C++ build artifact exclusions
-├── LICENSE             # MIT License
-├── README.md           # Project description
-├── CLAUDE.md           # This file - AI assistant guidelines
-├── src/                # Source files (to be created)
-│   ├── main.cpp        # Application entry point
-│   ├── server/         # MCP server implementation
-│   ├── handlers/       # Request handlers
-│   └── utils/          # Utility classes
-├── include/            # Public headers (to be created)
-├── tests/              # Unit tests (to be created)
-├── docs/               # Documentation (to be created)
-└── CMakeLists.txt      # Build configuration (to be created)
+├── CMakeLists.txt          # Top-level build configuration
+├── CLAUDE.md               # This file - AI assistant guidelines
+├── README.md               # Project description
+├── LICENSE                 # MIT License
+├── src/
+│   ├── probe/              # Probe shared library (DLL/SO injected into target apps)
+│   │   ├── CMakeLists.txt
+│   │   ├── core/           # Probe lifecycle, object registry, hooks
+│   │   │   ├── probe.h/cpp
+│   │   │   ├── probe_init_windows.cpp   # DllMain, qtmcpProbeInit export
+│   │   │   ├── child_injector_windows.h/cpp  # Detours CreateProcessW hook
+│   │   │   ├── object_registry.h/cpp
+│   │   │   └── object_resolver.h/cpp
+│   │   ├── introspection/  # Object inspection, signals, events, QML
+│   │   ├── interaction/    # Input simulation, screenshots, hit testing
+│   │   ├── transport/      # WebSocket server, JSON-RPC, UDP discovery
+│   │   ├── api/            # Native, Chrome, and Computer Use mode APIs
+│   │   └── accessibility/  # Accessibility tree walker, role mapper
+│   ├── launcher/           # Launcher executable (injects probe into target)
+│   │   ├── CMakeLists.txt
+│   │   ├── main.cpp        # CLI with --port, --detach, --inject-children
+│   │   ├── injector.h      # LaunchOptions struct
+│   │   ├── injector_windows.cpp  # CreateProcessW + shared injectProbeDll()
+│   │   └── injector_linux.cpp    # fork/exec + LD_PRELOAD
+│   ├── shared/             # Shared static library (Win32 injection utilities)
+│   │   ├── CMakeLists.txt
+│   │   ├── process_inject_windows.h   # HandleGuard, injectProbeDll() API
+│   │   └── process_inject_windows.cpp
+│   └── compat/             # Qt5/Qt6 compatibility helpers
+├── test_app/               # Test Qt application for E2E testing
+│   ├── main.cpp            # Supports --child mode for injection testing
+│   ├── mainwindow.h/cpp    # Main window with "Spawn Child Process" button
+│   ├── childwindow.h/cpp   # Simple child window (First Name / Last Name)
+│   └── mainwindow.ui
+├── tests/                  # Unit tests (Qt Test framework)
+├── docs/                   # User documentation
+├── cmake/                  # CMake package config and helpers
+└── python/                 # Python MCP server and CLI
 ```
 
 ## Build System
@@ -34,16 +59,14 @@ QtMcp/
 - **Qt 6.x** framework (Qt 5.15+ may also work)
 - C++17 or later standard
 
-### Build Commands (once implemented)
+### Build Commands
 ```bash
 # CMake build
-mkdir build && cd build
-cmake ..
-cmake --build .
+cmake -B build -DQTMCP_QT_DIR=/path/to/Qt/6.x/msvc2022_64
+cmake --build build --config Release
 
-# Or with qmake
-qmake QtMcp.pro
-make
+# Run tests
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 ## Development Conventions

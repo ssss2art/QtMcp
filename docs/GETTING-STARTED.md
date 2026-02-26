@@ -112,13 +112,18 @@ For more control, use the launcher directly:
 
 **Windows:**
 ```cmd
-qtmcp-launch.exe your-app.exe --app-args arg1 arg2
+qtmcp-launch.exe your-app.exe
 ```
 
 **Linux:**
 ```bash
 # LD_PRELOAD-based injection
 LD_PRELOAD=/path/to/libqtmcp.so ./your-app arg1 arg2
+```
+
+To automatically inject the probe into child processes spawned by the target:
+```bash
+qtmcp-launch.exe --port 0 --inject-children your-app.exe
 ```
 
 Then start the MCP server separately:
@@ -195,8 +200,10 @@ The probe reads these environment variables at startup:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `QTMCP_PORT` | `9222` | WebSocket server port |
+| `QTMCP_PORT` | `9222` | WebSocket server port (use `0` for auto-assignment) |
 | `QTMCP_MODE` | `all` | API mode: `native`, `chrome`, `computer_use`, or `all` |
+| `QTMCP_INJECT_CHILDREN` | unset | Set to `1` to inject probe into child processes |
+| `QTMCP_ENABLED` | unset | Set to `0` to disable the probe |
 
 Example:
 ```bash

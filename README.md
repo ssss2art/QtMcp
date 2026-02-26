@@ -74,6 +74,7 @@ See [docs/BUILDING.md](docs/BUILDING.md) for detailed build instructions.
 - **53 MCP tools** for Qt introspection and automation
 - **Works with Qt 5.15 and Qt 6.x** applications
 - **Zero modification** to target applications required
+- **Child process injection** - `--inject-children` automatically injects the probe into child processes (Windows: Detours hook on CreateProcessW; Linux: LD_PRELOAD propagation)
 - **Cross-platform** - Windows and Linux (macOS planned)
 
 ## Connecting to Claude
