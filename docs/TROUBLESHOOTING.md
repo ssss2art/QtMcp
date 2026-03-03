@@ -246,9 +246,67 @@ If using a standalone probe (not via `qtmcp serve --target`), Qt DLLs must be av
 
 #### UAC/Elevation Issues
 
-If the target app requires elevation, run the launcher as administrator:
+If the target app requires elevation (runs as administrator), the launcher must also be elevated for injection to succeed.
+
+**Recommended: Use an admin terminal with `--elevated`**
+
+Open an Administrator PowerShell, set environment variables, and run directly:
+
 ```powershell
-Start-Process -Verb RunAs qtmcp-launch.exe your-app.exe
+$env:QT_PLUGIN_PATH = "C:\Qt\5.15.1\msvc2019_64\plugins"
+$env:PATH = "C:\path\to\build\bin\Release;C:\Qt\5.15.1\msvc2019_64\bin;" + $env:PATH
+.\qtmcp-launcher.exe --elevated --inject-children --port 0 .\your-app.exe
+```
+
+This gives you full visibility into injection logs and errors.
+
+**Alternative: Use `--run-as-admin` for auto-elevation**
+```cmd
+qtmcp-launch.exe --run-as-admin your-app.exe
+```
+
+This triggers a UAC prompt automatically. If you cancel the UAC prompt, the launcher exits with code 1 and prints an error message. Note that the elevated process runs in a transient `cmd.exe` window — injection logs are not visible.
+
+**If UAC prompt does not appear:**
+- The launcher may already be elevated (running from an admin terminal)
+- UAC may be disabled in Windows settings
+- Group Policy may be suppressing the prompt
+
+#### DLL Injection Fails (`LoadLibraryW returned NULL`)
+
+This is the most common issue when launching elevated. The probe DLL is injected into the suspended target process via `CreateRemoteThread` + `LoadLibraryW`. If the probe's dependencies (Qt DLLs) cannot be found by the target process's DLL search order, `LoadLibraryW` returns NULL and the probe silently fails to load.
+
+**Symptoms:**
+- Launcher output shows `Warning: LoadLibraryW returned NULL (DLL load may have failed)`
+- `Warning: Could not find qtmcp-probe-qt5.15.dll in remote process modules`
+- Target app starts but no probe is active (no WebSocket listener, no UDP discovery)
+- Process exit code `0xC0000139` (`STATUS_ENTRYPOINT_NOT_FOUND`) if the app crashes
+
+**Solution: Ensure Qt DLLs are on PATH**
+
+The suspended process inherits `PATH` from its parent. Add both the probe directory and the Qt `bin` directory:
+
+```powershell
+# PowerShell (admin terminal)
+$env:PATH = "E:\path\to\build\bin\Release;C:\Qt\5.15.1\msvc2019_64\bin;" + $env:PATH
+.\qtmcp-launcher.exe --elevated --port 0 .\your-app.exe
+```
+
+```cmd
+:: cmd.exe (admin terminal)
+set PATH=E:\path\to\build\bin\Release;C:\Qt\5.15.1\msvc2019_64\bin;%PATH%
+qtmcp-launcher.exe --elevated --port 0 your-app.exe
+```
+
+**Why this happens:**
+When `LoadLibraryW` loads the probe DLL in the remote process, it resolves the probe's import table (Qt5Core.dll, Qt5Network.dll, etc.) using the standard Windows DLL search order. If the process was created suspended and hasn't initialized its own search paths yet, only `PATH` and the executable's directory are searched. If Qt DLLs aren't in either location, the load fails.
+
+**Environment variables and `--run-as-admin` elevation:**
+The launcher automatically forwards `PATH`, `QT_PLUGIN_PATH`, `QT_QPA_PLATFORM_PLUGIN_PATH`, and all `QTMCP_*` variables across the UAC boundary. Ensure these are set **before** running the launcher:
+```cmd
+set QT_PLUGIN_PATH=C:\Qt\5.15.1\msvc2019_64\plugins
+set PATH=C:\Qt\5.15.1\msvc2019_64\bin;%PATH%
+qtmcp-launch.exe --run-as-admin your-app.exe
 ```
 
 ### Linux
@@ -317,6 +375,20 @@ Common causes:
 - Qt version mismatch between probe and app
 - Missing dependencies
 - Incompatible compiler flags (debug vs release)
+
+#### Qt 5.15.1 Private Headers Not Found
+
+When building against Qt 5.15.1, CMake may fail to find private headers if the directory structure doesn't match expectations.
+
+**Verify private headers exist:**
+```bash
+ls /path/to/Qt/5.15.1/gcc_64/include/QtCore/5.15.1/QtCore/private/qhooks_p.h
+```
+
+If the version subdirectory doesn't match (e.g., headers are under `5.15.0` instead of `5.15.1`), the CMake fallback scanner should handle this automatically. If not, set the Qt path explicitly:
+```bash
+cmake -B build -DQTMCP_QT_DIR=/path/to/Qt/5.15.1/gcc_64
+```
 
 ## Getting Help
 

@@ -96,24 +96,38 @@ The simplest approach - let `qtmcp` handle probe injection automatically:
 # Windows
 qtmcp serve --mode native --target "C:\path\to\your-app.exe"
 
+# With explicit Qt path (if auto-detection fails)
+qtmcp serve --mode native --target "C:\path\to\your-app.exe" --qt-dir "C:\Qt\5.15.1\msvc2019_64"
+
 # Linux
 qtmcp serve --mode native --target /path/to/your-app
 ```
 
 This automatically:
 1. Locates the correct probe for your platform
-2. Sets up environment variables
+2. Detects the Qt installation and sets up `PATH` / `QT_PLUGIN_PATH` (or use `--qt-dir` to specify)
 3. Launches the application with the probe loaded
 4. Starts the MCP server
 
 ### Method 2: Using `qtmcp-launch` Directly
 
-For more control, use the launcher directly:
+For more control, use the launcher directly.
+
+The launcher auto-detects your Qt installation and sets `PATH` and `QT_PLUGIN_PATH` automatically. If auto-detection fails, use `--qt-dir` to point at your Qt installation:
 
 **Windows:**
-```cmd
+```powershell
+# Auto-detect Qt (works when built from source — uses build-time Qt prefix)
 qtmcp-launch.exe your-app.exe
+
+# Explicit Qt path (if auto-detect fails)
+qtmcp-launch.exe --qt-dir C:\Qt\5.15.1\msvc2019_64 your-app.exe
+
+# --qt-dir is smart — you can point at bin/, plugins/, or the prefix itself
+qtmcp-launch.exe --qt-dir C:\Qt\5.15.1\msvc2019_64\bin your-app.exe
 ```
+
+You can also set `QT_PLUGIN_PATH` manually if you prefer — the launcher respects existing env vars and won't override them.
 
 **Linux:**
 ```bash
@@ -124,6 +138,51 @@ LD_PRELOAD=/path/to/libqtmcp.so ./your-app arg1 arg2
 To automatically inject the probe into child processes spawned by the target:
 ```bash
 qtmcp-launch.exe --port 0 --inject-children your-app.exe
+```
+
+#### Pre-flight Diagnostics
+
+If the probe DLL can't load (missing Qt DLLs), the launcher catches this **before** injection and prints an actionable error:
+
+```
+[injector] ERROR: Probe DLL failed pre-flight dependency check.
+[injector]   Cause: The specified module could not be found. (error 126)
+[injector] This usually means Qt runtime DLLs are not on PATH.
+[injector] Fix: specify your Qt installation:
+[injector]   qtmcp-launcher.exe --qt-dir C:\Qt\6.8.0\msvc2022_64 your-app.exe
+```
+
+#### Launching Elevated (Administrator) Apps
+
+There are two ways to launch with admin privileges:
+
+**Option A: From an already-elevated terminal (Recommended)**
+
+Open an Administrator PowerShell or Command Prompt and use `--elevated`:
+
+```powershell
+# Launch with --elevated (tells the launcher it's already running as admin)
+.\qtmcp-launcher.exe --elevated --inject-children --port 0 .\your-app.exe
+```
+
+This is the recommended approach because:
+- All launcher output (injection logs, errors) is visible in your terminal
+- No transient `cmd.exe` window that closes immediately
+- Qt auto-detection works the same as non-elevated launches
+
+**Option B: Using `--run-as-admin` (auto-elevation via UAC)**
+
+```cmd
+qtmcp-launch.exe --run-as-admin --port 9222 MyAdminApp.exe
+```
+
+This triggers a Windows UAC prompt. Once approved, the launcher re-launches itself elevated via `ShellExecuteEx` + `cmd.exe`. The elevated `cmd.exe` window closes when the launcher exits, so **injection logs are not visible**.
+
+The launcher automatically forwards `PATH`, `QT_PLUGIN_PATH`, and all `QTMCP_*` environment variables across the UAC elevation boundary. The `--qt-dir` flag is also forwarded, and the build-time Qt prefix is compiled into the launcher, so Qt auto-detection works across elevation too.
+
+On Linux, use `sudo` instead:
+```bash
+sudo qtmcp-launch --port 9222 /path/to/admin-app
 ```
 
 Then start the MCP server separately:

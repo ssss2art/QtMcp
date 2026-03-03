@@ -72,9 +72,10 @@ See [docs/BUILDING.md](docs/BUILDING.md) for detailed build instructions.
   - **Computer Use** - Screenshot-based interaction (Anthropic API compatible)
   - **Chrome** - Accessibility tree with refs (Claude in Chrome compatible)
 - **53 MCP tools** for Qt introspection and automation
-- **Works with Qt 5.15 and Qt 6.x** applications
+- **Works with Qt 5.15.1+ and Qt 6.5+** applications
 - **Zero modification** to target applications required
 - **Child process injection** - `--inject-children` automatically injects the probe into child processes (Windows: Detours hook on CreateProcessW; Linux: LD_PRELOAD propagation)
+- **Admin elevation** - `--run-as-admin` launches target apps with administrator privileges on Windows (auto-elevates via UAC)
 - **Cross-platform** - Windows and Linux (macOS planned)
 
 ## Connecting to Claude

@@ -71,6 +71,8 @@ The project includes predefined presets for common configurations.
 | `release` | Linux | Release | Optimized Linux build |
 | `windows-debug` | Windows | Debug | Development build with tests |
 | `windows-release` | Windows | Release | Optimized Windows build |
+| `qt5-release` | Linux | Release | Qt 5.15.x targeted build |
+| `qt5-windows-release` | Windows | Release | Qt 5.15.x targeted build |
 
 Presets are platform-conditional -- only the presets for your current OS will appear.
 
@@ -182,6 +184,18 @@ On Windows with multi-config generators:
 ctest --test-dir build --output-on-failure -C Release
 ```
 
+### Running Admin Tests
+
+The `test_admin_injection` test verifies probe injection into elevated processes. It auto-skips when not running as administrator.
+
+```bash
+# Run only admin tests (from elevated terminal)
+ctest --test-dir build -C Release -L admin --output-on-failure
+
+# Exclude admin tests
+ctest --test-dir build -C Release -LE admin --output-on-failure
+```
+
 ## Installation
 
 ```bash
@@ -237,6 +251,30 @@ cmake --build build-qt6
 # Build for Qt 5.15
 cmake -B build-qt5 -DCMAKE_PREFIX_PATH=/path/to/Qt/5.15.2/gcc_64
 cmake --build build-qt5
+```
+
+### Building for Qt 5.15.1
+
+Use the dedicated Qt 5 presets to build against Qt 5.15.1 locally:
+
+**Windows:**
+```powershell
+cmake --preset qt5-windows-release -DQTMCP_QT_DIR="C:\Qt\5.15.1\msvc2019_64"
+cmake --build --preset qt5-windows-release
+ctest --preset qt5-windows-release
+```
+
+**Linux:**
+```bash
+cmake --preset qt5-release -DQTMCP_QT_DIR=/opt/Qt/5.15.1/gcc_64
+cmake --build --preset qt5-release
+ctest --preset qt5-release
+```
+
+Qt 5.15.1 is available from the [Qt Archive](https://download.qt.io/archive/qt/5.15/5.15.1/) or via [aqtinstall](https://github.com/miurahr/aqtinstall):
+```bash
+pip install aqtinstall
+aqt install-qt linux desktop 5.15.1
 ```
 
 ## Troubleshooting Build Issues
