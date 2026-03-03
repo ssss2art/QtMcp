@@ -28,8 +28,8 @@ bool hasQtPrefixLayout(const QDir& d) {
   if (!binDir.exists())
     return false;
 
-  QStringList coreMatches =
-      binDir.entryList({QStringLiteral("Qt*Core.dll"), QStringLiteral("Qt*Core*.dll")}, QDir::Files);
+  QStringList coreMatches = binDir.entryList(
+      {QStringLiteral("Qt*Core.dll"), QStringLiteral("Qt*Core*.dll")}, QDir::Files);
   if (coreMatches.isEmpty())
     return false;
 
@@ -76,8 +76,8 @@ QString resolveQtPrefix(const QString& dir) {
   }
 
   // User pointed at plugins/platforms/ (has qwindows.dll)?
-  if (QFileInfo::exists(d.filePath(QStringLiteral("qwindows.dll")))
-      || QFileInfo::exists(d.filePath(QStringLiteral("qwindowsd.dll")))) {
+  if (QFileInfo::exists(d.filePath(QStringLiteral("qwindows.dll"))) ||
+      QFileInfo::exists(d.filePath(QStringLiteral("qwindowsd.dll")))) {
     QDir grandparent(d);
     if (grandparent.cdUp() && grandparent.cdUp() && hasQtPrefixLayout(grandparent))
       return grandparent.absolutePath();
@@ -141,8 +141,8 @@ QString qtPrefixFromPlatformsDir(const QString& directory) {
   if (!dir.exists())
     return QString();
 
-  if (QFileInfo::exists(dir.filePath(QStringLiteral("platforms/qwindows.dll")))
-      || QFileInfo::exists(dir.filePath(QStringLiteral("platforms/qwindowsd.dll")))) {
+  if (QFileInfo::exists(dir.filePath(QStringLiteral("platforms/qwindows.dll"))) ||
+      QFileInfo::exists(dir.filePath(QStringLiteral("platforms/qwindowsd.dll")))) {
     return dir.absolutePath();
   }
 
@@ -188,8 +188,7 @@ void applyEnvironment(const QString& binPath, const QString& pluginsPath) {
 
 namespace qtmcp {
 
-QtEnvironmentResult ensureQtEnvironment(const QString& qtDir,
-                                        const QString& targetExe,
+QtEnvironmentResult ensureQtEnvironment(const QString& qtDir, const QString& targetExe,
                                         bool quiet) {
   QtEnvironmentResult result;
 
@@ -217,7 +216,8 @@ QtEnvironmentResult ensureQtEnvironment(const QString& qtDir,
     result.source = QStringLiteral("existing environment variables");
     result.applied = false;
     if (!quiet) {
-      fprintf(stderr, "[qtmcp-launch] Qt environment already configured via existing QT_PLUGIN_PATH\n");
+      fprintf(stderr,
+              "[qtmcp-launch] Qt environment already configured via existing QT_PLUGIN_PATH\n");
     }
     return result;
   }

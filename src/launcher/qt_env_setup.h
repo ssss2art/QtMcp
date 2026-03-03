@@ -35,8 +35,6 @@ struct QtEnvironmentResult {
 /// @param targetExe     Absolute path to the target executable.
 /// @param quiet         Suppress informational log messages.
 /// @return Result struct describing what was found and applied.
-QtEnvironmentResult ensureQtEnvironment(const QString& qtDir,
-                                        const QString& targetExe,
-                                        bool quiet);
+QtEnvironmentResult ensureQtEnvironment(const QString& qtDir, const QString& targetExe, bool quiet);
 
 }  // namespace qtmcp

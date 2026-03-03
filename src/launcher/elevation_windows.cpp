@@ -15,9 +15,8 @@
 #define NOMINMAX
 #endif
 #include <Windows.h>
-#include <shellapi.h>
-
 #include <cstdio>
+#include <shellapi.h>
 
 namespace qtmcp {
 
@@ -60,15 +59,15 @@ int relaunchElevated(const QString& executable, const QStringList& args) {
 
   // Collect environment variables to forward
   QStringList envSetCmds;
-  const char* envVarsToForward[] = {"PATH", "QT_PLUGIN_PATH", "QT_QPA_PLATFORM_PLUGIN_PATH",
-                                     "QTMCP_PORT", "QTMCP_MODE", "QTMCP_INJECT_CHILDREN",
-                                     "QTMCP_ENABLED", "QTMCP_DISCOVERY_PORT"};
+  const char* envVarsToForward[] = {
+      "PATH",          "QT_PLUGIN_PATH",      "QT_QPA_PLATFORM_PLUGIN_PATH",
+      "QTMCP_PORT",    "QTMCP_MODE",          "QTMCP_INJECT_CHILDREN",
+      "QTMCP_ENABLED", "QTMCP_DISCOVERY_PORT"};
   for (const char* varName : envVarsToForward) {
     QString val = QString::fromLocal8Bit(qgetenv(varName));
     if (!val.isEmpty()) {
       // Escape any special cmd characters in the value
-      envSetCmds.append(QStringLiteral("set \"%1=%2\"").arg(
-          QString::fromLatin1(varName), val));
+      envSetCmds.append(QStringLiteral("set \"%1=%2\"").arg(QString::fromLatin1(varName), val));
     }
   }
 
@@ -83,8 +82,8 @@ int relaunchElevated(const QString& executable, const QStringList& args) {
   if (envSetCmds.isEmpty()) {
     cmdLine = QStringLiteral("/c %1").arg(launcherCmd);
   } else {
-    cmdLine = QStringLiteral("/c \"%1 && %2\"").arg(
-        envSetCmds.join(QStringLiteral(" && ")), launcherCmd);
+    cmdLine =
+        QStringLiteral("/c \"%1 && %2\"").arg(envSetCmds.join(QStringLiteral(" && ")), launcherCmd);
   }
 
   // Elevate cmd.exe which will set env vars then run the launcher
