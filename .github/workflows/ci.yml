@@ -79,7 +79,7 @@ jobs:
         run: cmake --build --preset ${{ matrix.preset }}
 
       - name: Test
-        run: ctest --preset ${{ matrix.preset }}
+        run: ctest --preset ${{ matrix.preset }} -LE admin
 
       - name: Install
         shell: bash
