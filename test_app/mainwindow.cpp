@@ -12,6 +12,11 @@
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui_(new Ui::MainWindow) {
   ui_->setupUi(this);
 
+  // Set explicit object names for form fields
+  ui_->nameEdit->setObjectName(QStringLiteral("nameEdit"));
+  ui_->emailEdit->setObjectName(QStringLiteral("emailEdit"));
+  ui_->messageEdit->setObjectName(QStringLiteral("messageEdit"));
+
   // Connect signals
   connect(ui_->submitButton, &QPushButton::clicked, this, &MainWindow::OnSubmitClicked);
   connect(ui_->clearButton, &QPushButton::clicked, this, &MainWindow::OnClearClicked);
