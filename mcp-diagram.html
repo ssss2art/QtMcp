@@ -1,0 +1,2374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How MCP Servers Work</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0b0f;
+    --surface: #111318;
+    --border: #1e2230;
+    --border-bright: #2d3348;
+    --text: #e8eaf0;
+    --muted: #6b7291;
+    --accent: #5b8fff;
+    --accent-dim: rgba(91,143,255,0.12);
+    --green: #3ddc84;
+    --green-dim: rgba(61,220,132,0.12);
+    --amber: #ffb547;
+    --amber-dim: rgba(255,181,71,0.12);
+    --purple: #c084fc;
+    --purple-dim: rgba(192,132,252,0.12);
+    --red: #ff6b6b;
+    --red-dim: rgba(255,107,107,0.1);
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34,211,238,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    padding: 40px 24px 60px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    margin-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px;
+  }
+
+  .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 400;
+  }
+
+  /* Architecture diagram */
+  .arch {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 48px;
+    min-height: 240px;
+  }
+
+  .arch-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .arch-node:nth-child(1) { animation-delay: 0.05s; }
+  .arch-node:nth-child(3) { animation-delay: 0.15s; }
+  .arch-node:nth-child(5) { animation-delay: 0.25s; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .node-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-bottom: 4px;
+  }
+
+  .node-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .node-desc {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .node-client { border-color: var(--accent); }
+  .node-client .node-icon { background: var(--accent-dim); }
+
+  .node-server { border-color: var(--green); }
+  .node-server .node-icon { background: var(--green-dim); }
+
+  .node-resource { border-color: var(--amber); }
+  .node-resource .node-icon { background: var(--amber-dim); }
+
+  /* Arrow connector */
+  .arch-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .arrow-line {
+    position: relative;
+    width: 100%;
+  }
+
+  .arrow-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .arrow-svg {
+    width: 60px;
+    height: 32px;
+  }
+
+  /* Protocol badge */
+  .protocol-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    animation: fadeUp 0.5s 0.3s ease both;
+  }
+
+  .protocol-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .badge-blue { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(91,143,255,0.2); }
+  .badge-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(61,220,132,0.2); }
+  .badge-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,181,71,0.2); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(192,132,252,0.2); }
+
+  /* Section heading */
+  h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Message part groups */
+  .msg-part {
+    margin-bottom: 40px;
+  }
+
+  .msg-part-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .part-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    flex-shrink: 0;
+  }
+
+  .part-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .part-desc {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-left: auto;
+    text-align: right;
+    max-width: 340px;
+    line-height: 1.4;
+  }
+
+  /* Message cards grid */
+  .messages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .msg-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .msg-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .msg-card:nth-child(1) { animation-delay: 0.1s; }
+  .msg-card:nth-child(2) { animation-delay: 0.15s; }
+
+  .msg-card[data-type="request"]:hover { border-color: var(--accent); }
+  .msg-card[data-type="response"]:hover { border-color: var(--green); }
+  .msg-card[data-type="notification"]:hover { border-color: var(--amber); }
+  .msg-card[data-type="prompt"]:hover { border-color: var(--purple); }
+
+  .msg-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .msg-method {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .msg-body {
+    padding: 14px 16px;
+  }
+
+  .msg-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  pre {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    line-height: 1.65;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: auto;
+    color: #c9d1e9;
+  }
+
+  .kw  { color: var(--accent); }
+  .str { color: var(--green); }
+  .num { color: var(--amber); }
+  .key { color: var(--purple); }
+  .cm  { color: var(--muted); font-style: italic; }
+
+  /* Flow diagram */
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 48px;
+    animation: fadeUp 0.5s 0.4s ease both;
+  }
+
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+
+  .flow-step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 16px;
+    position: relative;
+  }
+
+  .flow-step:not(:last-child) .step-line {
+    position: absolute;
+    left: 23px;
+    top: 40px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .step-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+
+  .step-content {
+    padding: 8px 0 28px;
+  }
+
+  .step-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .step-detail {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Transports section */
+  .transports {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+
+  .transport-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .transport-card:nth-child(1) { animation-delay: 0.1s; }
+  .transport-card:nth-child(2) { animation-delay: 0.2s; }
+
+  .transport-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .transport-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Capabilities */
+  .caps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  @media (max-width: 640px) {
+    .arch {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+    .arch-arrow { flex-direction: row; padding: 8px 0; }
+    .arrow-svg { transform: rotate(90deg); }
+    .caps { grid-template-columns: 1fr; }
+    .messages-grid { grid-template-columns: 1fr; }
+  }
+
+  .cap-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .cap-card:nth-child(1) { animation-delay: 0.1s; }
+  .cap-card:nth-child(2) { animation-delay: 0.17s; }
+  .cap-card:nth-child(3) { animation-delay: 0.24s; }
+
+  .cap-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  .cap-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+
+  .cap-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Footer note */
+  .foot {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 2px solid var(--border-bright);
+    margin: 64px 0 48px;
+  }
+
+  /* ── Probe Internals Diagram ── */
+
+  .probe-blueprint {
+    background: var(--surface);
+    border: 2px solid var(--border-bright);
+    border-radius: 16px;
+    padding: 0;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: visible;
+  }
+
+  .bp-label {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  /* Qt App outer shell */
+  .qt-app-shell {
+    border: 1.5px dashed var(--amber);
+    border-radius: 14px;
+    margin: 16px;
+    padding: 0;
+    position: relative;
+  }
+  .qt-app-shell-label {
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--amber);
+    background: var(--surface);
+    padding: 0 8px;
+  }
+
+  /* Probe container — unique cyan border */
+  .probe-container {
+    border: 1.5px solid var(--cyan);
+    border-radius: 12px;
+    margin: 20px 14px 14px;
+    padding: 16px 14px 14px;
+    position: relative;
+    background: rgba(34,211,238,0.02);
+  }
+  .probe-container-label {
+    position: absolute;
+    top: -10px;
+    left: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    background: var(--surface);
+    padding: 0 8px;
+    font-weight: 600;
+  }
+
+  /* ── Expandable layer sections ── */
+  .probe-layer {
+    margin-bottom: 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .probe-layer:last-child { margin-bottom: 0; }
+  .probe-layer:hover { border-color: var(--border-bright); }
+  .probe-layer.expanded { border-color: var(--border-bright); }
+
+  /* Clickable header bar */
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(0,0,0,0.2);
+    transition: background 0.2s;
+  }
+  .layer-header:hover { background: rgba(0,0,0,0.35); }
+  .layer-chevron {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+  }
+  .probe-layer.expanded .layer-chevron { transform: rotate(90deg); }
+  .layer-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .layer-summary {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.2s;
+  }
+  .probe-layer.expanded .layer-summary { opacity: 0; }
+
+  /* Expandable content */
+  .layer-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease, padding 0.25s ease;
+    padding: 0 14px;
+  }
+  .probe-layer.expanded .layer-body {
+    max-height: 600px;
+    padding: 10px 14px 14px;
+  }
+
+  .probe-layer-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .probe-comp {
+    flex: 1;
+    min-width: 130px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    transition: border-color 0.2s, opacity 0.3s ease;
+  }
+  .probe-comp:hover { border-color: var(--border-bright); }
+  .probe-comp-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .probe-comp-desc {
+    font-size: 10.5px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .probe-comp .mini-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  /* Connector arrows between layers */
+  .probe-connectors {
+    display: flex;
+    justify-content: space-around;
+    padding: 2px 20px;
+    margin: 0;
+  }
+  .probe-conn-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .probe-conn-arrow svg { width: 24px; height: 18px; }
+  .probe-conn-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  /* Connector between expandable layers (inside probe-container) */
+  .layer-connector {
+    display: flex;
+    justify-content: center;
+    padding: 1px 0;
+  }
+  .layer-connector svg { width: 20px; height: 14px; }
+
+  /* Qt runtime hooks row */
+  .qt-hooks-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px 14px;
+    flex-wrap: wrap;
+  }
+  .qt-hook-chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,181,71,0.25);
+    background: var(--amber-dim);
+    color: var(--amber);
+    font-weight: 500;
+  }
+
+  /* External I/O boxes */
+  .probe-io-row {
+    display: flex;
+    gap: 10px;
+    padding: 0 14px 14px;
+    flex-wrap: wrap;
+  }
+  .probe-io-box {
+    flex: 1;
+    min-width: 180px;
+    background: rgba(0,0,0,0.2);
+    border: 1px dashed var(--border-bright);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .probe-io-box .io-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .probe-io-box .io-text {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .probe-io-box .io-text strong {
+    color: var(--text);
+    font-size: 12px;
+    display: block;
+    margin-bottom: 1px;
+  }
+
+  /* Data flow sequences */
+  .flow-sequences {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  @media (max-width: 700px) { .flow-sequences { grid-template-columns: 1fr; } }
+
+  .flow-seq {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    animation: fadeUp 0.5s ease both;
+  }
+  .flow-seq-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .flow-seq-title .seq-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+
+  .seq-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+  .seq-step {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 10px;
+    position: relative;
+  }
+  .seq-step:not(:last-child) .seq-line {
+    position: absolute;
+    left: 13px;
+    top: 24px;
+    bottom: 0;
+    width: 1.5px;
+  }
+  .seq-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    z-index: 1;
+    border: 1.5px solid;
+  }
+  .seq-text {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.5;
+    padding: 2px 0 14px;
+  }
+  .seq-text code {
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+  }
+
+  /* QtMcp 4-node architecture */
+  .arch-4 {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 48px;
+    min-height: 220px;
+  }
+  .arch-4 .arch-node:nth-child(1) { animation-delay: 0.05s; }
+  .arch-4 .arch-node:nth-child(3) { animation-delay: 0.15s; }
+  .arch-4 .arch-node:nth-child(5) { animation-delay: 0.25s; }
+  .arch-4 .arch-node:nth-child(7) { animation-delay: 0.35s; }
+
+  .node-probe { border-color: var(--purple); }
+  .node-probe .node-icon { background: var(--purple-dim); }
+
+  @media (max-width: 800px) {
+    .arch-4 {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+    .arch-4 .arch-arrow { flex-direction: row; padding: 8px 0; }
+    .arch-4 .arch-arrow .arrow-svg { transform: rotate(90deg); }
+  }
+
+  /* Mode tabs */
+  .mode-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .mode-tab {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.04em;
+  }
+  .mode-tab:hover { border-color: var(--border-bright); color: var(--text); }
+  .mode-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .mode-tab[data-mode="native"].active { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+  .mode-tab[data-mode="cu"].active { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+  .mode-tab[data-mode="chrome"].active { border-color: var(--purple); color: var(--purple); background: var(--purple-dim); }
+
+  /* Tool group */
+  .tool-group { margin-bottom: 32px; }
+  .tool-group-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-left: 2px;
+  }
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+  .tool-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.2s, transform 0.2s;
+    animation: fadeUp 0.4s ease both;
+  }
+  .tool-card:hover { transform: translateY(-1px); border-color: var(--border-bright); }
+  .tool-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tool-desc {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .tool-params {
+    margin-top: 6px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .param-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .param-tag.required { color: var(--text); border-color: var(--border-bright); }
+
+  /* Mode pane visibility */
+  .mode-pane { display: none; }
+  .mode-pane.active { display: block; }
+
+  /* Stats row */
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+    animation: fadeUp 0.5s ease both;
+  }
+  .stat-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Injection diagram */
+  .inject-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  @media (max-width: 640px) { .inject-grid { grid-template-columns: 1fr; } }
+  .inject-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    animation: fadeUp 0.5s ease both;
+  }
+  .inject-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inject-card .step-list {
+    list-style: none;
+    padding: 0;
+    counter-reset: inject-step;
+  }
+  .inject-card .step-list li {
+    counter-increment: inject-step;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+    padding-left: 22px;
+    position: relative;
+  }
+  .inject-card .step-list li::before {
+    content: counter(inject-step);
+    position: absolute;
+    left: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--border-bright);
+    width: 16px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="label">Protocol Reference</div>
+    <h1>How MCP Servers Work</h1>
+    <p class="subtitle">Model Context Protocol — connecting AI models to external tools and data sources over a standardized JSON-RPC interface</p>
+  </div>
+
+  <!-- Architecture -->
+  <h2>Architecture</h2>
+  <div class="arch">
+
+    <!-- Host / Client -->
+    <div class="arch-node node-client">
+      <div class="node-icon">🖥️</div>
+      <div class="node-title">Host Application</div>
+      <div class="node-desc">Claude Code, Claude Desktop, or any app embedding an LLM. Creates and manages MCP clients. Decides which servers to connect to.</div>
+      <div style="margin-top:auto; display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="badge badge-blue">MCP Client</span>
+      </div>
+    </div>
+
+    <!-- Arrow 1 -->
+    <div class="arch-arrow">
+      <span class="arrow-label">JSON-RPC 2.0</span>
+      <svg class="arrow-svg" viewBox="0 0 60 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="4" y1="12" x2="48" y2="12" stroke="#5b8fff" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="44,7 52,12 44,17" stroke="#5b8fff" stroke-width="1.5" fill="none"/>
+        <line x1="56" y1="20" x2="12" y2="20" stroke="#3ddc84" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="16,15 8,20 16,25" stroke="#3ddc84" stroke-width="1.5" fill="none"/>
+      </svg>
+      <span class="arrow-label">stdio / SSE</span>
+    </div>
+
+    <!-- MCP Server -->
+    <div class="arch-node node-server">
+      <div class="node-icon">⚙️</div>
+      <div class="node-title">MCP Server</div>
+      <div class="node-desc">Lightweight process exposing capabilities — tools, resources, and prompts — through the standardized MCP protocol.</div>
+      <div style="margin-top:auto; display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="badge badge-green">Tools</span>
+        <span class="badge badge-green">Resources</span>
+        <span class="badge badge-green">Prompts</span>
+      </div>
+    </div>
+
+    <!-- Arrow 2 -->
+    <div class="arch-arrow">
+      <span class="arrow-label">native API</span>
+      <svg class="arrow-svg" viewBox="0 0 60 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="4" y1="12" x2="48" y2="12" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="44,7 52,12 44,17" stroke="#ffb547" stroke-width="1.5" fill="none"/>
+        <line x1="56" y1="20" x2="12" y2="20" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="16,15 8,20 16,25" stroke="#ffb547" stroke-width="1.5" fill="none"/>
+      </svg>
+      <span class="arrow-label">SDK / HTTP</span>
+    </div>
+
+    <!-- External Resource -->
+    <div class="arch-node node-resource">
+      <div class="node-icon">🗄️</div>
+      <div class="node-title">External Resources</div>
+      <div class="node-desc">Databases, APIs, filesystems, or services the server wraps. Includes GitHub, Postgres, Slack, browser automation, etc.</div>
+      <div style="margin-top:auto; display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="badge badge-amber">Files</span>
+        <span class="badge badge-amber">APIs</span>
+        <span class="badge badge-amber">DBs</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Protocol strip -->
+  <div class="protocol-strip">
+    <span class="protocol-title">Transport Options →</span>
+    <span class="badge badge-blue">stdio (subprocess)</span>
+    <span class="badge badge-blue">SSE (HTTP stream)</span>
+    <span class="badge badge-green">JSON-RPC 2.0</span>
+    <span class="badge badge-amber">request / response / notification</span>
+    <span class="badge badge-purple">stateful sessions</span>
+  </div>
+
+  <!-- Server capabilities -->
+  <h2>Server Capabilities</h2>
+  <div class="caps">
+    <div class="cap-card">
+      <div class="cap-icon">🔧</div>
+      <div class="cap-name">Tools</div>
+      <div class="cap-desc">Functions the model can call — run a shell command, query a DB, call a REST API, write a file. Each tool has a name, description, and JSON Schema for input validation.</div>
+    </div>
+    <div class="cap-card">
+      <div class="cap-icon">📄</div>
+      <div class="cap-name">Resources</div>
+      <div class="cap-desc">Read-only data sources the model can reference — files, database rows, API responses. Identified by URI, streamed as text or binary.</div>
+    </div>
+    <div class="cap-card" style="border-color:var(--purple)">
+      <div class="cap-icon">💬</div>
+      <div class="cap-name">Prompts</div>
+      <div class="cap-desc">Server-defined reusable prompt templates with typed arguments. Unlike tools (which <em>do</em> things) or resources (which <em>expose</em> data), prompts are pre-written instructions the server injects into the conversation — e.g. "summarise this issue", "review this diff". The server fills in argument values and returns ready-to-use messages for the model.</div>
+    </div>
+  </div>
+
+  <!-- Message examples -->
+  <h2>Message Examples</h2>
+
+  <!-- Part 1: Initialize -->
+  <div class="msg-part">
+    <div class="msg-part-header">
+      <span class="part-title">Initialization</span>
+      <span class="part-desc">Session startup — both sides declare who they are and what they support before any work begins.</span>
+    </div>
+    <div class="messages-grid">
+
+      <div class="msg-card" data-type="request">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--accent)">initialize</span>
+          <span class="badge badge-blue">Request →</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Client opens a session, declares protocol version and its own capabilities.</div>
+          <pre><span class="cm">// Client → Server</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"id"</span>: <span class="num">1</span>,
+  <span class="key">"method"</span>: <span class="str">"initialize"</span>,
+  <span class="key">"params"</span>: {
+    <span class="key">"protocolVersion"</span>: <span class="str">"2024-11-05"</span>,
+    <span class="key">"clientInfo"</span>: {
+      <span class="key">"name"</span>: <span class="str">"claude-code"</span>,
+      <span class="key">"version"</span>: <span class="str">"1.0.0"</span>
+    },
+    <span class="key">"capabilities"</span>: {
+      <span class="key">"sampling"</span>: {}
+    }
+  }
+}</pre>
+        </div>
+      </div>
+
+      <div class="msg-card" data-type="notification">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--amber)">initialized</span>
+          <span class="badge badge-amber">Notification ←</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Server confirms initialization. No <code>id</code> field — notifications never get a reply.</div>
+          <pre><span class="cm">// Server → Client (no reply needed)</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"method"</span>: <span class="str">"notifications/initialized"</span>
+}
+
+<span class="cm">// Server advertises what it supports</span>
+<span class="cm">// in the initialize response:</span>
+{
+  <span class="key">"capabilities"</span>: {
+    <span class="key">"tools"</span>: { <span class="key">"listChanged"</span>: <span class="kw">true</span> },
+    <span class="key">"resources"</span>: {},
+    <span class="key">"prompts"</span>: {}
+  }
+}</pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Part 2: Tools -->
+  <div class="msg-part">
+    <div class="msg-part-header">
+      <span class="part-title">Tools</span>
+      <span class="part-desc">Discover available functions, then invoke one. The model drives the call; the server executes it.</span>
+    </div>
+    <div class="messages-grid">
+
+      <div class="msg-card" data-type="request">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--accent)">tools/list</span>
+          <span class="badge badge-blue">Request →</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Client asks what tools the server exposes. Server returns schemas Claude can use to call them.</div>
+          <pre><span class="cm">// Client → Server</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"id"</span>: <span class="num">2</span>,
+  <span class="key">"method"</span>: <span class="str">"tools/list"</span>
+}
+
+<span class="cm">// Server → Client</span>
+{
+  <span class="key">"result"</span>: {
+    <span class="key">"tools"</span>: [{
+      <span class="key">"name"</span>: <span class="str">"query_database"</span>,
+      <span class="key">"description"</span>: <span class="str">"Run a SQL query"</span>,
+      <span class="key">"inputSchema"</span>: {
+        <span class="key">"type"</span>: <span class="str">"object"</span>,
+        <span class="key">"properties"</span>: {
+          <span class="key">"sql"</span>: { <span class="key">"type"</span>: <span class="str">"string"</span> }
+        }
+      }
+    }]
+  }
+}</pre>
+        </div>
+      </div>
+
+      <div class="msg-card" data-type="request">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--accent)">tools/call</span>
+          <span class="badge badge-blue">Request →</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Model decides to call a tool. Client forwards the call to the server and returns the result to the model.</div>
+          <pre><span class="cm">// Client → Server</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"id"</span>: <span class="num">3</span>,
+  <span class="key">"method"</span>: <span class="str">"tools/call"</span>,
+  <span class="key">"params"</span>: {
+    <span class="key">"name"</span>: <span class="str">"query_database"</span>,
+    <span class="key">"arguments"</span>: {
+      <span class="key">"sql"</span>: <span class="str">"SELECT * FROM users LIMIT 5"</span>
+    }
+  }
+}
+
+<span class="cm">// Server → Client</span>
+{
+  <span class="key">"result"</span>: {
+    <span class="key">"content"</span>: [{
+      <span class="key">"type"</span>: <span class="str">"text"</span>,
+      <span class="key">"text"</span>: <span class="str">"id | name\n1  | Alice\n2  | Bob"</span>
+    }],
+    <span class="key">"isError"</span>: <span class="kw">false</span>
+  }
+}</pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Part 3: Resources -->
+  <div class="msg-part">
+    <div class="msg-part-header">
+      <span class="part-title">Resources</span>
+      <span class="part-desc">Read-only data the model can pull into context — files, database snapshots, API responses — addressed by URI.</span>
+    </div>
+    <div class="messages-grid">
+
+      <div class="msg-card" data-type="response">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--green)">resources/list</span>
+          <span class="badge badge-green">Request →</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Client asks what resources are available. Server returns URIs with MIME types so the model knows what it can read.</div>
+          <pre><span class="cm">// Client → Server</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"id"</span>: <span class="num">4</span>,
+  <span class="key">"method"</span>: <span class="str">"resources/list"</span>
+}
+
+<span class="cm">// Server → Client</span>
+{
+  <span class="key">"result"</span>: {
+    <span class="key">"resources"</span>: [{
+      <span class="key">"uri"</span>: <span class="str">"file:///project/README.md"</span>,
+      <span class="key">"name"</span>: <span class="str">"README"</span>,
+      <span class="key">"mimeType"</span>: <span class="str">"text/markdown"</span>
+    }, {
+      <span class="key">"uri"</span>: <span class="str">"db://users/schema"</span>,
+      <span class="key">"name"</span>: <span class="str">"Users table schema"</span>,
+      <span class="key">"mimeType"</span>: <span class="str">"application/json"</span>
+    }]
+  }
+}</pre>
+        </div>
+      </div>
+
+      <div class="msg-card" data-type="response">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--green)">resources/read</span>
+          <span class="badge badge-green">Response ←</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Client fetches a resource by URI. Server streams the content back as text or binary.</div>
+          <pre><span class="cm">// Client → Server</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"id"</span>: <span class="num">5</span>,
+  <span class="key">"method"</span>: <span class="str">"resources/read"</span>,
+  <span class="key">"params"</span>: {
+    <span class="key">"uri"</span>: <span class="str">"file:///project/README.md"</span>
+  }
+}
+
+<span class="cm">// Server → Client</span>
+{
+  <span class="key">"result"</span>: {
+    <span class="key">"contents"</span>: [{
+      <span class="key">"uri"</span>: <span class="str">"file:///project/README.md"</span>,
+      <span class="key">"mimeType"</span>: <span class="str">"text/markdown"</span>,
+      <span class="key">"text"</span>: <span class="str">"# My Project\n..."</span>
+    }]
+  }
+}</pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Part 4: Prompts -->
+  <div class="msg-part">
+    <div class="msg-part-header">
+      <span class="part-title">Prompts</span>
+      <span class="part-desc">Server-owned instruction templates. The server authors the wording; the client just supplies arguments and gets back ready-to-use messages.</span>
+    </div>
+    <div class="messages-grid">
+
+      <div class="msg-card" data-type="prompt">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--purple)">prompts/list</span>
+          <span class="badge badge-purple">Request →</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Client asks what reusable prompt templates the server offers. Each prompt declares its typed arguments.</div>
+          <pre><span class="cm">// Client → Server</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"id"</span>: <span class="num">6</span>,
+  <span class="key">"method"</span>: <span class="str">"prompts/list"</span>
+}
+
+<span class="cm">// Server → Client</span>
+{
+  <span class="key">"result"</span>: {
+    <span class="key">"prompts"</span>: [{
+      <span class="key">"name"</span>: <span class="str">"summarize_issue"</span>,
+      <span class="key">"description"</span>: <span class="str">"Summarise a GitHub issue"</span>,
+      <span class="key">"arguments"</span>: [{
+        <span class="key">"name"</span>: <span class="str">"issue_number"</span>,
+        <span class="key">"description"</span>: <span class="str">"Issue # to fetch"</span>,
+        <span class="key">"required"</span>: <span class="kw">true</span>
+      }]
+    }]
+  }
+}</pre>
+        </div>
+      </div>
+
+      <div class="msg-card" data-type="prompt">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--purple)">prompts/get</span>
+          <span class="badge badge-purple">Response ←</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Client retrieves a filled-in template. Server injects the argument values and returns ready-to-use messages for the model.</div>
+          <pre><span class="cm">// Client → Server</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"id"</span>: <span class="num">7</span>,
+  <span class="key">"method"</span>: <span class="str">"prompts/get"</span>,
+  <span class="key">"params"</span>: {
+    <span class="key">"name"</span>: <span class="str">"summarize_issue"</span>,
+    <span class="key">"arguments"</span>: {
+      <span class="key">"issue_number"</span>: <span class="str">"42"</span>
+    }
+  }
+}
+
+<span class="cm">// Server → Client</span>
+{
+  <span class="key">"result"</span>: {
+    <span class="key">"messages"</span>: [{
+      <span class="key">"role"</span>: <span class="str">"user"</span>,
+      <span class="key">"content"</span>: {
+        <span class="key">"type"</span>: <span class="str">"text"</span>,
+        <span class="key">"text"</span>: <span class="str">"Summarise issue #42: ..."</span>
+      }
+    }]
+  }
+}</pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Part 5: Progress / Notifications -->
+  <div class="msg-part">
+    <div class="msg-part-header">
+      <span class="part-title">Progress &amp; Notifications</span>
+      <span class="part-desc">Fire-and-forget messages — no <code>id</code>, no reply expected. Used for progress, logs, and change events.</span>
+    </div>
+    <div class="messages-grid">
+
+      <div class="msg-card" data-type="notification">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--amber)">notifications/progress</span>
+          <span class="badge badge-amber">Notification ←</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Server reports progress on a long-running operation that was started with a <code>progressToken</code>.</div>
+          <pre><span class="cm">// Server → Client</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"method"</span>: <span class="str">"notifications/progress"</span>,
+  <span class="key">"params"</span>: {
+    <span class="key">"progressToken"</span>: <span class="str">"op-42"</span>,
+    <span class="key">"progress"</span>: <span class="num">60</span>,
+    <span class="key">"total"</span>: <span class="num">100</span>
+  }
+}
+
+<span class="cm">// Server → Client (log line)</span>
+{
+  <span class="key">"method"</span>: <span class="str">"notifications/message"</span>,
+  <span class="key">"params"</span>: {
+    <span class="key">"level"</span>: <span class="str">"info"</span>,
+    <span class="key">"data"</span>: <span class="str">"Processing row 600/1000"</span>
+  }
+}</pre>
+        </div>
+      </div>
+
+      <div class="msg-card" data-type="notification">
+        <div class="msg-header">
+          <span class="msg-method" style="color:var(--amber)">notifications/resources/updated</span>
+          <span class="badge badge-amber">Notification ←</span>
+        </div>
+        <div class="msg-body">
+          <div class="msg-desc">Server tells the client that a resource has changed so the client can re-read it or invalidate its cache.</div>
+          <pre><span class="cm">// Server → Client (resource changed)</span>
+{
+  <span class="key">"jsonrpc"</span>: <span class="str">"2.0"</span>,
+  <span class="key">"method"</span>: <span class="str">"notifications/resources/updated"</span>,
+  <span class="key">"params"</span>: {
+    <span class="key">"uri"</span>: <span class="str">"file:///project/README.md"</span>
+  }
+}
+
+<span class="cm">// Server → Client (tool list changed)</span>
+{
+  <span class="key">"method"</span>: <span class="str">"notifications/tools/list_changed"</span>
+}
+
+<span class="cm">// No id field on any notification —</span>
+<span class="cm">// sender never waits for a reply.</span></pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- Lifecycle flow -->
+  <h2>Session Lifecycle</h2>
+  <div class="flow">
+    <div class="flow-steps">
+
+      <div class="flow-step">
+        <div class="step-line"></div>
+        <div class="step-num" style="background:var(--accent-dim);color:var(--accent);border:1px solid rgba(91,143,255,0.3)">1</div>
+        <div class="step-content">
+          <div class="step-title">Connect</div>
+          <div class="step-detail">Host spawns the server as a subprocess (stdio) or connects to a remote URL (SSE). A persistent, stateful channel is established.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-line"></div>
+        <div class="step-num" style="background:var(--accent-dim);color:var(--accent);border:1px solid rgba(91,143,255,0.3)">2</div>
+        <div class="step-content">
+          <div class="step-title">Negotiate capabilities</div>
+          <div class="step-detail"><code>initialize</code> → <code>initialized</code> handshake. Both sides declare protocol version and what they support (tools, resources, prompts, sampling).</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-line"></div>
+        <div class="step-num" style="background:var(--green-dim);color:var(--green);border:1px solid rgba(61,220,132,0.3)">3</div>
+        <div class="step-content">
+          <div class="step-title">Discover</div>
+          <div class="step-detail">Client calls <code>tools/list</code>, <code>resources/list</code>, and <code>prompts/list</code>. Results are injected into the model's context so it knows what's available.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-line"></div>
+        <div class="step-num" style="background:var(--green-dim);color:var(--green);border:1px solid rgba(61,220,132,0.3)">4</div>
+        <div class="step-content">
+          <div class="step-title">Execute</div>
+          <div class="step-detail">Model decides to call a tool. Client sends <code>tools/call</code>. Server executes against the real resource and returns content. Model receives the result and continues reasoning.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-line"></div>
+        <div class="step-num" style="background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,181,71,0.3)">5</div>
+        <div class="step-content">
+          <div class="step-title">Notify</div>
+          <div class="step-detail">Either side fires one-way <code>notifications/*</code> messages — progress, logs, resource changes. No reply expected or sent.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num" style="background:var(--red-dim);color:var(--red);border:1px solid rgba(255,107,107,0.3)">6</div>
+        <div class="step-content">
+          <div class="step-title">Shutdown</div>
+          <div class="step-detail">Client sends <code>shutdown</code> request. Server cleans up and exits. For stdio servers, the host can also simply close the pipe.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- QtMcp Section                              -->
+  <!-- ═══════════════════════════════════════════ -->
+  <hr class="divider">
+
+  <div class="header" style="border-bottom:none; padding-bottom:0; margin-bottom:32px;">
+    <div class="label" style="color:var(--green)">QtMcp — Qt Application Bridge</div>
+    <h1 style="font-size:clamp(22px,3.2vw,34px)">How QtMcp Connects to Qt Apps</h1>
+    <p class="subtitle">Zero source-code modification. A probe DLL is injected into any Qt application, exposing its entire widget tree, properties, signals, and UI over MCP.</p>
+  </div>
+
+  <!-- QtMcp Architecture: 4-node -->
+  <h2>QtMcp Architecture</h2>
+  <div class="arch-4">
+
+    <!-- Claude / MCP Client -->
+    <div class="arch-node node-client">
+      <div class="node-icon">🤖</div>
+      <div class="node-title">AI Client</div>
+      <div class="node-desc">Claude Code, Claude Desktop, or any MCP-compatible host. Discovers tools, calls them, and receives results.</div>
+      <div style="margin-top:auto; display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="badge badge-blue">MCP Client</span>
+      </div>
+    </div>
+
+    <!-- Arrow: stdio/SSE -->
+    <div class="arch-arrow">
+      <span class="arrow-label">MCP</span>
+      <svg class="arrow-svg" viewBox="0 0 60 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="4" y1="12" x2="48" y2="12" stroke="#5b8fff" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="44,7 52,12 44,17" stroke="#5b8fff" stroke-width="1.5" fill="none"/>
+        <line x1="56" y1="20" x2="12" y2="20" stroke="#3ddc84" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="16,15 8,20 16,25" stroke="#3ddc84" stroke-width="1.5" fill="none"/>
+      </svg>
+      <span class="arrow-label">stdio / SSE</span>
+    </div>
+
+    <!-- MCP Server (Python) -->
+    <div class="arch-node node-server">
+      <div class="node-icon">⚙️</div>
+      <div class="node-title">QtMcp Server</div>
+      <div class="node-desc">Python FastMCP bridge. Registers tools that wrap probe JSON-RPC methods. Handles UDP discovery of probes on the network.</div>
+      <div style="margin-top:auto; display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="badge badge-green">58 Tools</span>
+        <span class="badge badge-green">1 Resource</span>
+      </div>
+    </div>
+
+    <!-- Arrow: WebSocket -->
+    <div class="arch-arrow">
+      <span class="arrow-label">JSON-RPC</span>
+      <svg class="arrow-svg" viewBox="0 0 60 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="4" y1="12" x2="48" y2="12" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="44,7 52,12 44,17" stroke="#c084fc" stroke-width="1.5" fill="none"/>
+        <line x1="56" y1="20" x2="12" y2="20" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="16,15 8,20 16,25" stroke="#c084fc" stroke-width="1.5" fill="none"/>
+      </svg>
+      <span class="arrow-label">WebSocket</span>
+    </div>
+
+    <!-- Probe (inside Qt App) -->
+    <div class="arch-node node-probe">
+      <div class="node-icon">🔬</div>
+      <div class="node-title">Probe (in Qt App)</div>
+      <div class="node-desc">C++ DLL injected into any Qt process. Hooks into QObject lifecycle, runs a WebSocket server, and exposes the entire Qt runtime.</div>
+      <div style="margin-top:auto; display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="badge badge-purple">DLL / SO</span>
+        <span class="badge badge-purple">Port 9222</span>
+      </div>
+    </div>
+
+    <!-- Arrow: Qt internals -->
+    <div class="arch-arrow">
+      <span class="arrow-label">Qt hooks</span>
+      <svg class="arrow-svg" viewBox="0 0 60 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="4" y1="12" x2="48" y2="12" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="44,7 52,12 44,17" stroke="#ffb547" stroke-width="1.5" fill="none"/>
+        <line x1="56" y1="20" x2="12" y2="20" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polyline points="16,15 8,20 16,25" stroke="#ffb547" stroke-width="1.5" fill="none"/>
+      </svg>
+      <span class="arrow-label">QMetaObject</span>
+    </div>
+
+    <!-- Qt Application -->
+    <div class="arch-node node-resource">
+      <div class="node-icon">🖼️</div>
+      <div class="node-title">Qt Application</div>
+      <div class="node-desc">Any unmodified Qt 5/6 application. Widget tree, properties, signals, models, QML — all accessible through the probe.</div>
+      <div style="margin-top:auto; display:flex; gap:6px; flex-wrap:wrap;">
+        <span class="badge badge-amber">Widgets</span>
+        <span class="badge badge-amber">Models</span>
+        <span class="badge badge-amber">QML</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Injection methods -->
+  <h2>Probe Injection</h2>
+  <div class="inject-grid">
+    <div class="inject-card" style="border-color:var(--accent)">
+      <h3><span class="badge badge-blue" style="font-size:10px">Windows</span> DLL Injection</h3>
+      <ol class="step-list">
+        <li><code>qtmcp-launcher.exe</code> sets up DLL search path</li>
+        <li>Launches target app with <code>qtmcp.dll</code> in load path</li>
+        <li><code>DllMain</code> auto-initializes the probe</li>
+        <li>WebSocket server starts on port 9222</li>
+        <li>Optional: <code>--inject-children</code> hooks <code>CreateProcessW</code> via Detours</li>
+      </ol>
+    </div>
+    <div class="inject-card" style="border-color:var(--green)">
+      <h3><span class="badge badge-green" style="font-size:10px">Linux</span> LD_PRELOAD</h3>
+      <ol class="step-list">
+        <li><code>LD_PRELOAD=libqtmcp.so ./myapp</code></li>
+        <li>Shared library loaded before app starts</li>
+        <li>Defers init until <code>QCoreApplication</code> exists</li>
+        <li>WebSocket server starts on port 9222</li>
+        <li><code>LD_PRELOAD</code> auto-propagates to child processes</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- Probe Internals Section                    -->
+  <!-- ═══════════════════════════════════════════ -->
+
+  <div class="header" style="border-bottom:none; padding-bottom:0; margin-bottom:32px;">
+    <div class="label" style="color:var(--purple)">Probe Deep Dive</div>
+    <h1 style="font-size:clamp(22px,3.2vw,34px)">Inside the Qt Application</h1>
+    <p class="subtitle">The probe is a C++ shared library injected into any Qt process. It hooks into Qt's private object lifecycle, installs introspection layers, and serves everything over a WebSocket.</p>
+  </div>
+
+  <h2>Probe Component Architecture</h2>
+
+  <div class="probe-blueprint">
+    <span class="bp-label">Runtime Layout — click layers to expand</span>
+
+    <div class="qt-app-shell">
+      <span class="qt-app-shell-label">Qt Application Process</span>
+
+      <!-- Qt Runtime hooks -->
+      <div class="qt-hooks-row" style="padding-top:20px;">
+        <div class="qt-hook-chip">qtHookData[AddQObject]</div>
+        <div class="qt-hook-chip">qtHookData[RemoveQObject]</div>
+        <div class="qt-hook-chip">QCoreApplication::eventFilter</div>
+        <div class="qt-hook-chip">QMetaObject system</div>
+        <div class="qt-hook-chip">QAccessible interfaces</div>
+      </div>
+
+      <!-- Connector arrows: hooks → probe -->
+      <div class="probe-connectors">
+        <div class="probe-conn-arrow">
+          <svg viewBox="0 0 24 18" fill="none"><line x1="12" y1="2" x2="12" y2="14" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="3 2"/><polyline points="8,10 12,16 16,10" stroke="#ffb547" stroke-width="1.5" fill="none"/></svg>
+          <span class="probe-conn-label">hooks fire</span>
+        </div>
+        <div class="probe-conn-arrow">
+          <svg viewBox="0 0 24 18" fill="none"><line x1="12" y1="2" x2="12" y2="14" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="3 2"/><polyline points="8,10 12,16 16,10" stroke="#ffb547" stroke-width="1.5" fill="none"/></svg>
+          <span class="probe-conn-label">events pass</span>
+        </div>
+        <div class="probe-conn-arrow">
+          <svg viewBox="0 0 24 18" fill="none"><line x1="12" y1="2" x2="12" y2="14" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="3 2"/><polyline points="8,10 12,16 16,10" stroke="#ffb547" stroke-width="1.5" fill="none"/></svg>
+          <span class="probe-conn-label">introspect</span>
+        </div>
+        <div class="probe-conn-arrow">
+          <svg viewBox="0 0 24 18" fill="none"><line x1="12" y1="2" x2="12" y2="14" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="3 2"/><polyline points="8,10 12,16 16,10" stroke="#ffb547" stroke-width="1.5" fill="none"/></svg>
+          <span class="probe-conn-label">a11y tree</span>
+        </div>
+      </div>
+
+      <!-- Probe interior — cyan border -->
+      <div class="probe-container">
+        <span class="probe-container-label">qtmcp.dll / libqtmcp.so — Probe</span>
+
+        <!-- Layer 1: Core (collapsed by default) -->
+        <div class="probe-layer" onclick="toggleLayer(this)">
+          <div class="layer-header">
+            <span class="layer-chevron">&#9656;</span>
+            <span class="layer-title" style="color:var(--purple)">Core — Object Tracking</span>
+            <span class="layer-summary">ObjectRegistry &middot; ObjectResolver &middot; SymbolicNameMap</span>
+          </div>
+          <div class="layer-body">
+            <div class="probe-layer-row">
+              <div class="probe-comp" style="border-color:rgba(192,132,252,0.3)">
+                <div class="probe-comp-name" style="color:var(--purple)">ObjectRegistry</div>
+                <div class="probe-comp-desc">Tracks every QObject via lifecycle hooks. Maintains <code>QObject* &#8596; hierarchicalId</code> maps. Generates IDs like <code>MainWindow/central/btn</code>. Uses <code>QRecursiveMutex</code> for thread safety.</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(192,132,252,0.3)">
+                <div class="probe-comp-name" style="color:var(--purple)">ObjectResolver</div>
+                <div class="probe-comp-desc">Three-tier ID resolution: <span class="mini-badge" style="background:var(--accent-dim);color:var(--accent)">#N numeric</span> &#8594; <span class="mini-badge" style="background:var(--green-dim);color:var(--green)">symbolic</span> &#8594; <span class="mini-badge" style="background:var(--purple-dim);color:var(--purple)">hierarchical</span>. First match wins. Numeric IDs cleared on client disconnect.</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(192,132,252,0.3)">
+                <div class="probe-comp-name" style="color:var(--purple)">SymbolicNameMap</div>
+                <div class="probe-comp-desc">Friendly name aliases. Register <code>"submit"</code> &#8594; <code>"MainWindow/.../QPushButton"</code>. Persists to JSON. Auto-loads from env or default file.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connector: Core → Introspection -->
+        <div class="layer-connector">
+          <svg viewBox="0 0 20 14" fill="none"><line x1="10" y1="1" x2="10" y2="11" stroke="var(--border-bright)" stroke-width="1.5"/><polyline points="7,8 10,13 13,8" stroke="var(--border-bright)" stroke-width="1.5" fill="none"/></svg>
+        </div>
+
+        <!-- Layer 2: Introspection (collapsed by default) -->
+        <div class="probe-layer" onclick="toggleLayer(this)">
+          <div class="layer-header">
+            <span class="layer-chevron">&#9656;</span>
+            <span class="layer-title" style="color:var(--accent)">Introspection — Reading &amp; Observing</span>
+            <span class="layer-summary">MetaInspector &middot; SignalMonitor &middot; EventCapture &middot; A11yTreeWalker &middot; +2</span>
+          </div>
+          <div class="layer-body">
+            <div class="probe-layer-row">
+              <div class="probe-comp" style="border-color:rgba(91,143,255,0.3)">
+                <div class="probe-comp-name" style="color:var(--accent)">MetaInspector</div>
+                <div class="probe-comp-desc">Reads <code>QMetaObject</code> for properties, methods, signals, class hierarchy. Invokes slots and reads/writes property values.</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(91,143,255,0.3)">
+                <div class="probe-comp-name" style="color:var(--accent)">SignalMonitor</div>
+                <div class="probe-comp-desc">Dynamic signal subscriptions via <code>SignalRelay</code> helper objects. Connects to any signal at runtime and pushes emission notifications.</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(91,143,255,0.3)">
+                <div class="probe-comp-name" style="color:var(--accent)">EventCapture</div>
+                <div class="probe-comp-desc">Global event filter on <code>QCoreApplication</code>. Captures mouse, keyboard, focus, window events and pushes them as notifications.</div>
+              </div>
+            </div>
+            <div class="probe-layer-row" style="margin-top:8px;">
+              <div class="probe-comp" style="border-color:rgba(91,143,255,0.3)">
+                <div class="probe-comp-name" style="color:var(--accent)">A11yTreeWalker</div>
+                <div class="probe-comp-desc">Builds accessibility tree with numbered refs for Chrome mode. Maps Qt accessibility roles to Chrome-compatible roles.</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(91,143,255,0.3)">
+                <div class="probe-comp-name" style="color:var(--accent)">ModelNavigator</div>
+                <div class="probe-comp-desc">Inspects <code>QAbstractItemModel</code> instances — row/column counts, role names, paginated data fetching.</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(91,143,255,0.3)">
+                <div class="probe-comp-name" style="color:var(--accent)">QmlInspector</div>
+                <div class="probe-comp-desc">Extracts QML metadata: component id, source file path, QML type name. Bridges the QML/C++ boundary.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connector: Introspection → API -->
+        <div class="layer-connector">
+          <svg viewBox="0 0 20 14" fill="none"><line x1="10" y1="1" x2="10" y2="11" stroke="var(--border-bright)" stroke-width="1.5"/><polyline points="7,8 10,13 13,8" stroke="var(--border-bright)" stroke-width="1.5" fill="none"/></svg>
+        </div>
+
+        <!-- Layer 3: API Modes (collapsed by default) -->
+        <div class="probe-layer" onclick="toggleLayer(this)">
+          <div class="layer-header">
+            <span class="layer-chevron">&#9656;</span>
+            <span class="layer-title" style="color:var(--green)">API Modes — Method Registration</span>
+            <span class="layer-summary">NativeModeApi (33) &middot; ComputerUseApi (13) &middot; ChromeModeApi (8)</span>
+          </div>
+          <div class="layer-body">
+            <div class="probe-layer-row">
+              <div class="probe-comp" style="border-color:rgba(61,220,132,0.3)">
+                <div class="probe-comp-name" style="color:var(--green)">NativeModeApi <span class="mini-badge" style="background:var(--green-dim);color:var(--green)">qt.*</span></div>
+                <div class="probe-comp-desc">33 methods. Full object introspection, property read/write, method invoke, signal subscribe, UI interaction, model/QML access.</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(255,181,71,0.3)">
+                <div class="probe-comp-name" style="color:var(--amber)">ComputerUseApi <span class="mini-badge" style="background:var(--amber-dim);color:var(--amber)">cu.*</span></div>
+                <div class="probe-comp-desc">13 methods. Screenshot + coordinate-based mouse/keyboard. No object IDs needed — pure screen interaction.</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(192,132,252,0.3)">
+                <div class="probe-comp-name" style="color:var(--purple)">ChromeModeApi <span class="mini-badge" style="background:var(--purple-dim);color:var(--purple)">chr.*</span></div>
+                <div class="probe-comp-desc">8 methods. Accessibility tree with ephemeral numbered refs. Click, form input, navigate by ref ID.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connector: API → Transport -->
+        <div class="layer-connector">
+          <svg viewBox="0 0 20 14" fill="none"><line x1="10" y1="1" x2="10" y2="11" stroke="var(--border-bright)" stroke-width="1.5"/><polyline points="7,8 10,13 13,8" stroke="var(--border-bright)" stroke-width="1.5" fill="none"/></svg>
+        </div>
+
+        <!-- Layer 4: Transport (collapsed by default) -->
+        <div class="probe-layer" onclick="toggleLayer(this)">
+          <div class="layer-header">
+            <span class="layer-chevron">&#9656;</span>
+            <span class="layer-title" style="color:var(--accent)">Transport — Wire Protocol</span>
+            <span class="layer-summary">JsonRpcHandler &middot; WebSocketServer :9222 &middot; DiscoveryBroadcaster :9221</span>
+          </div>
+          <div class="layer-body">
+            <div class="probe-layer-row">
+              <div class="probe-comp" style="border-color:rgba(91,143,255,0.4); flex:2">
+                <div class="probe-comp-name" style="color:var(--accent)">JsonRpcHandler</div>
+                <div class="probe-comp-desc">Parses JSON-RPC 2.0 messages. Routes <code>method</code> to registered handler lambdas. Formats responses and structured errors (<code>-32601</code> method not found, etc.).</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(91,143,255,0.4); flex:2">
+                <div class="probe-comp-name" style="color:var(--accent)">WebSocketServer</div>
+                <div class="probe-comp-desc">Single-client WebSocket on port 9222. Receives requests, delegates to JsonRpcHandler, sends responses. Also pushes unsolicited notifications (signals, events, lifecycle).</div>
+              </div>
+              <div class="probe-comp" style="border-color:rgba(255,181,71,0.3); flex:1">
+                <div class="probe-comp-name" style="color:var(--amber)">DiscoveryBroadcaster</div>
+                <div class="probe-comp-desc">UDP beacon every 5s on port 9221. Announces PID, port, mode, Qt version.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- External I/O -->
+    <div class="probe-io-row">
+      <div class="probe-io-box" style="border-color:rgba(91,143,255,0.3)">
+        <div class="io-icon">🔌</div>
+        <div class="io-text"><strong>WebSocket In</strong><code>ws://localhost:9222</code> — MCP Server or any JSON-RPC client connects here</div>
+      </div>
+      <div class="probe-io-box" style="border-color:rgba(61,220,132,0.3)">
+        <div class="io-icon">📡</div>
+        <div class="io-text"><strong>Push Notifications</strong>Signal emissions, object lifecycle, captured events — sent as JSON-RPC notifications (no <code>id</code>)</div>
+      </div>
+      <div class="probe-io-box" style="border-color:rgba(255,181,71,0.3)">
+        <div class="io-icon">📢</div>
+        <div class="io-text"><strong>UDP Discovery</strong>Broadcast on <code>255.255.255.255:9221</code> — probe announces itself every 5 seconds</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Stats -->
+  <h2>QtMcp at a Glance</h2>
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--green)">58</div>
+      <div class="stat-label">MCP Tools</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--amber)">3</div>
+      <div class="stat-label">API Modes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--purple)">1</div>
+      <div class="stat-label">Resource</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--accent)">0</div>
+      <div class="stat-label">Prompts</div>
+    </div>
+  </div>
+
+  <!-- Mode protocol strip -->
+  <div class="protocol-strip" style="margin-bottom:24px;">
+    <span class="protocol-title">API Modes →</span>
+    <span class="badge badge-green">Native (33 tools)</span>
+    <span class="badge badge-amber">Computer Use (13 tools)</span>
+    <span class="badge badge-purple">Chrome (8 tools)</span>
+    <span class="badge badge-blue">Discovery (4 tools)</span>
+  </div>
+
+  <!-- Tool Browser -->
+  <h2>QtMcp Tool Reference</h2>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="discovery" onclick="switchMode('discovery')">Discovery</button>
+    <button class="mode-tab" data-mode="native" onclick="switchMode('native')">Native</button>
+    <button class="mode-tab" data-mode="cu" onclick="switchMode('cu')">Computer Use</button>
+    <button class="mode-tab" data-mode="chrome" onclick="switchMode('chrome')">Chrome</button>
+  </div>
+
+  <!-- Discovery Tools -->
+  <div class="mode-pane active" id="pane-discovery">
+    <div class="tool-group">
+      <div class="tool-group-title">Probe Management — Always Available</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--accent)">qtmcp_list_probes</div>
+          <div class="tool-desc">Discover QtMcp probes via UDP broadcast. Returns app name, PID, Qt version, WebSocket URL, and uptime.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--accent)">qtmcp_connect_probe</div>
+          <div class="tool-desc">Connect to a specific probe by WebSocket URL.</div>
+          <div class="tool-params"><span class="param-tag required">ws_url</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--accent)">qtmcp_disconnect_probe</div>
+          <div class="tool-desc">Disconnect from the currently connected probe.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--accent)">qtmcp_probe_status</div>
+          <div class="tool-desc">Get connection state, discovery status, and number of discovered probes.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Resource</div>
+      <div class="tool-grid">
+        <div class="tool-card" style="border-color:var(--green)">
+          <div class="tool-name" style="color:var(--green)">qtmcp://status</div>
+          <div class="tool-desc">JSON resource exposing current connection state: <code>connected</code>, <code>ws_url</code>, <code>mode</code>, <code>discovery_active</code>, <code>discovered_probes</code>.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Recording — Native Mode</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--accent)">qtmcp_start_recording</div>
+          <div class="tool-desc">Start recording signals on specific objects. Captures lifecycle events and signal emissions.</div>
+          <div class="tool-params"><span class="param-tag required">targets</span><span class="param-tag">include_lifecycle</span><span class="param-tag">capture_events</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--accent)">qtmcp_stop_recording</div>
+          <div class="tool-desc">Stop recording and return the full event log.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--accent)">qtmcp_recording_status</div>
+          <div class="tool-desc">Check if recording is active and get current event count.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Native Mode Tools -->
+  <div class="mode-pane" id="pane-native">
+
+    <div class="tool-group">
+      <div class="tool-group-title">System</div>
+      <div class="tool-grid">
+        <div class="tool-card"><div class="tool-name" style="color:var(--green)">qt_ping</div><div class="tool-desc">Check connectivity and measure event-loop latency.</div></div>
+        <div class="tool-card"><div class="tool-name" style="color:var(--green)">qt_version</div><div class="tool-desc">Return probe version and deprecation notices.</div></div>
+        <div class="tool-card"><div class="tool-name" style="color:var(--green)">qt_modes</div><div class="tool-desc">List available API modes on this probe.</div></div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Object Discovery</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_objects_find</div>
+          <div class="tool-desc">Find QObjects by <code>objectName</code>.</div>
+          <div class="tool-params"><span class="param-tag required">name</span><span class="param-tag">root</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_objects_findByClass</div>
+          <div class="tool-desc">Find all instances of a given class name.</div>
+          <div class="tool-params"><span class="param-tag required">className</span><span class="param-tag">root</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_objects_tree</div>
+          <div class="tool-desc">Get the full QObject hierarchy tree.</div>
+          <div class="tool-params"><span class="param-tag">root</span><span class="param-tag">maxDepth</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_objects_info</div>
+          <div class="tool-desc">Get basic info: class, parent, children.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_objects_inspect</div>
+          <div class="tool-desc">Deep inspect — info + properties + methods + signals combined.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_objects_query</div>
+          <div class="tool-desc">Rich query by class name and property values.</div>
+          <div class="tool-params"><span class="param-tag">className</span><span class="param-tag">properties</span><span class="param-tag">root</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Properties</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_properties_list</div>
+          <div class="tool-desc">List all properties on an object.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_properties_get</div>
+          <div class="tool-desc">Get a single property value.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span><span class="param-tag required">name</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_properties_set</div>
+          <div class="tool-desc">Set a property value on an object.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span><span class="param-tag required">name</span><span class="param-tag required">value</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Methods</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_methods_list</div>
+          <div class="tool-desc">List all invokable methods and slots.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_methods_invoke</div>
+          <div class="tool-desc">Invoke a method or slot with arguments.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span><span class="param-tag required">method</span><span class="param-tag">args</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Signals</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_signals_list</div>
+          <div class="tool-desc">List all signals on an object.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_signals_subscribe</div>
+          <div class="tool-desc">Subscribe to a signal. Returns a subscriptionId for push notifications.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span><span class="param-tag required">signal</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_signals_unsubscribe</div>
+          <div class="tool-desc">Unsubscribe from a signal by subscription ID.</div>
+          <div class="tool-params"><span class="param-tag required">subscriptionId</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_signals_setLifecycle</div>
+          <div class="tool-desc">Enable or disable object lifecycle notifications (create/destroy).</div>
+          <div class="tool-params"><span class="param-tag required">enabled</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">UI Interaction</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_ui_click</div>
+          <div class="tool-desc">Click a widget by object ID.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span><span class="param-tag">button</span><span class="param-tag">position</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_ui_sendKeys</div>
+          <div class="tool-desc">Send text input or key combination to a widget.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span><span class="param-tag">text</span><span class="param-tag">sequence</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_ui_screenshot</div>
+          <div class="tool-desc">Capture a widget or window as base64 PNG.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span><span class="param-tag">fullWindow</span><span class="param-tag">region</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_ui_geometry</div>
+          <div class="tool-desc">Get position and size of a widget.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_ui_hitTest</div>
+          <div class="tool-desc">Find the widget at screen coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Event Capture</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_events_startCapture</div>
+          <div class="tool-desc">Install a global event filter to capture mouse, keyboard, and focus events.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_events_stopCapture</div>
+          <div class="tool-desc">Remove the global event filter and return captured events.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Named Objects</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_names_register</div>
+          <div class="tool-desc">Register a friendly name for an object path.</div>
+          <div class="tool-params"><span class="param-tag required">name</span><span class="param-tag required">path</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_names_unregister</div>
+          <div class="tool-desc">Unregister a friendly name.</div>
+          <div class="tool-params"><span class="param-tag required">name</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_names_list</div>
+          <div class="tool-desc">List all registered friendly names.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_names_validate</div>
+          <div class="tool-desc">Check that all registered names still resolve to live objects.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_names_load</div>
+          <div class="tool-desc">Load name mappings from a JSON file.</div>
+          <div class="tool-params"><span class="param-tag required">filePath</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Model / View Introspection</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_models_list</div>
+          <div class="tool-desc">List all QAbstractItemModel instances in the application.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_models_info</div>
+          <div class="tool-desc">Get model metadata: row count, column count, role names.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_models_data</div>
+          <div class="tool-desc">Fetch model data with pagination and role filtering.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span><span class="param-tag">row</span><span class="param-tag">column</span><span class="param-tag">role</span><span class="param-tag">offset</span><span class="param-tag">limit</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">QML</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--green)">qt_qml_inspect</div>
+          <div class="tool-desc">Get QML-specific metadata: component id, source file, QML type name.</div>
+          <div class="tool-params"><span class="param-tag required">objectId</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Computer Use Mode Tools -->
+  <div class="mode-pane" id="pane-cu">
+
+    <div class="tool-group">
+      <div class="tool-group-title">Screenshot</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_screenshot</div>
+          <div class="tool-desc">Capture full window or region as PNG base64. Coordinate-based — no object IDs needed.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Mouse Actions</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_leftClick</div>
+          <div class="tool-desc">Left-click at coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span><span class="param-tag">screenAbsolute</span><span class="param-tag">delay_ms</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_rightClick</div>
+          <div class="tool-desc">Right-click at coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_doubleClick</div>
+          <div class="tool-desc">Double-click at coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_middleClick</div>
+          <div class="tool-desc">Middle-click at coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_mouseMove</div>
+          <div class="tool-desc">Move cursor to coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_mouseDrag</div>
+          <div class="tool-desc">Drag from start to end coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">startX</span><span class="param-tag required">startY</span><span class="param-tag required">endX</span><span class="param-tag required">endY</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_mouseDown</div>
+          <div class="tool-desc">Press mouse button at coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span><span class="param-tag">button</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_mouseUp</div>
+          <div class="tool-desc">Release mouse button at coordinates.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span><span class="param-tag">button</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Keyboard</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_type</div>
+          <div class="tool-desc">Type text at the currently focused widget.</div>
+          <div class="tool-params"><span class="param-tag required">text</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_key</div>
+          <div class="tool-desc">Send a key combination (e.g., <code>ctrl+s</code>, <code>alt+f4</code>).</div>
+          <div class="tool-params"><span class="param-tag required">key</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Scroll &amp; Query</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_scroll</div>
+          <div class="tool-desc">Scroll at coordinates in a given direction.</div>
+          <div class="tool-params"><span class="param-tag required">x</span><span class="param-tag required">y</span><span class="param-tag required">direction</span><span class="param-tag">amount</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--amber)">cu_cursorPosition</div>
+          <div class="tool-desc">Get the current cursor position.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Chrome Mode Tools -->
+  <div class="mode-pane" id="pane-chrome">
+
+    <div class="tool-group">
+      <div class="tool-group-title">Accessibility Tree</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--purple)">chr_readPage</div>
+          <div class="tool-desc">Read the accessibility tree with numbered refs. Refs are ephemeral — rebuilt on each call.</div>
+          <div class="tool-params"><span class="param-tag">filter</span><span class="param-tag">maxDepth</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--purple)">chr_getPageText</div>
+          <div class="tool-desc">Extract all visible text from the application window.</div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--purple)">chr_find</div>
+          <div class="tool-desc">Find elements matching a natural-language query (substring matching).</div>
+          <div class="tool-params"><span class="param-tag required">query</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--purple)">chr_tabsContext</div>
+          <div class="tool-desc">List all visible top-level windows.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Interaction</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--purple)">chr_click</div>
+          <div class="tool-desc">Click an element by ref ID. Tries accessibility action first, falls back to mouse click.</div>
+          <div class="tool-params"><span class="param-tag required">ref</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--purple)">chr_formInput</div>
+          <div class="tool-desc">Set form value by ref. Supports combobox, checkbox, text input, spinbox.</div>
+          <div class="tool-params"><span class="param-tag required">ref</span><span class="param-tag required">value</span></div>
+        </div>
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--purple)">chr_navigate</div>
+          <div class="tool-desc">Activate or navigate to an element, or run back/forward.</div>
+          <div class="tool-params"><span class="param-tag required">ref</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="tool-group-title">Console</div>
+      <div class="tool-grid">
+        <div class="tool-card">
+          <div class="tool-name" style="color:var(--purple)">chr_readConsoleMessages</div>
+          <div class="tool-desc">Read <code>qDebug</code>/<code>qWarning</code> messages from the application console.</div>
+          <div class="tool-params"><span class="param-tag">limit</span><span class="param-tag">pattern</span><span class="param-tag">clear</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Config strip -->
+  <h2>Configuration</h2>
+  <div class="protocol-strip" style="flex-direction:column; align-items:flex-start; gap:10px;">
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <span class="protocol-title" style="min-width:100px">Env Vars →</span>
+      <span class="badge badge-blue">QTMCP_PORT=9222</span>
+      <span class="badge badge-green">QTMCP_MODE=native|computer_use|chrome|all</span>
+      <span class="badge badge-amber">QTMCP_ENABLED=0|1</span>
+      <span class="badge badge-purple">QTMCP_BIND=127.0.0.1</span>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <span class="protocol-title" style="min-width:100px">Ports →</span>
+      <span class="badge badge-blue">WebSocket: 9222</span>
+      <span class="badge badge-amber">UDP Discovery: 9221</span>
+    </div>
+  </div>
+
+  <!-- Footers -->
+  <div class="foot" style="margin-top:48px;">
+    <span>📎</span>
+    <span>Spec: <strong style="color:var(--text)">modelcontextprotocol.io</strong> · All messages are JSON-RPC 2.0 · Requests have <code>id</code>, notifications do not · Protocol version: <strong style="color:var(--text)">2024-11-05</strong></span>
+  </div>
+  <div class="foot" style="border:none; padding-top:8px;">
+    <span>🔬</span>
+    <span>QtMcp: <strong style="color:var(--text)">58 tools</strong> · <strong style="color:var(--text)">3 API modes</strong> · <strong style="color:var(--text)">1 resource</strong> · Zero source-code modification · Works with any Qt 5/6 application</span>
+  </div>
+
+</div>
+
+<script>
+function switchMode(mode) {
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.mode-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.mode-tab[data-mode="${mode}"]`).classList.add('active');
+  document.getElementById(`pane-${mode}`).classList.add('active');
+}
+
+function toggleLayer(el) {
+  el.classList.toggle('expanded');
+}
+</script>
+
+</body>
+</html>
