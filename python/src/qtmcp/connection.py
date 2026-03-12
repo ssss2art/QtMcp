@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import warnings
 from collections.abc import Callable
 
 from websockets.asyncio.client import connect
@@ -44,7 +45,7 @@ class ProbeConnection:
         self._pending: dict[int, asyncio.Future] = {}
         self._recv_task: asyncio.Task | None = None
         self._connected = False
-        self._notification_handler: Callable[[str, dict], None] | None = None
+        self._notification_handlers: list[Callable[[str, dict], None]] = []
 
     @property
     def is_connected(self) -> bool:
@@ -59,11 +60,29 @@ class ProbeConnection:
     def on_notification(self, handler: Callable[[str, dict], None] | None) -> None:
         """Register or unregister a callback for JSON-RPC notifications.
 
-        The handler receives (method, params) for each notification message
-        from the probe (messages with a ``method`` field but no ``id``).
-        Pass ``None`` to unregister.
+        .. deprecated:: Use add_notification_handler / remove_notification_handler.
+            This method clears ALL existing handlers before setting the new one.
         """
-        self._notification_handler = handler
+        warnings.warn(
+            "on_notification() is deprecated. Use add_notification_handler() / "
+            "remove_notification_handler() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self._notification_handlers.clear()
+        if handler is not None:
+            self._notification_handlers.append(handler)
+
+    def add_notification_handler(self, handler: Callable[[str, dict], None]) -> None:
+        """Add a notification handler. Multiple handlers can coexist."""
+        self._notification_handlers.append(handler)
+
+    def remove_notification_handler(self, handler: Callable[[str, dict], None]) -> None:
+        """Remove a previously added notification handler. No-op if not found."""
+        try:
+            self._notification_handlers.remove(handler)
+        except ValueError:
+            pass
 
     async def connect(self) -> None:
         """Establish the WebSocket connection and start receiving."""
@@ -148,12 +167,15 @@ class ProbeConnection:
                 if msg_id is None or msg_id not in self._pending:
                     # JSON-RPC notification (no id, has method)
                     method = msg.get("method")
-                    if method and self._notification_handler:
-                        try:
-                            self._notification_handler(method, msg.get("params", {}))
-                        except Exception:
-                            logger.debug("Notification handler error", exc_info=True)
-                    else:
+                    if method and self._notification_handlers:
+                        for handler in list(self._notification_handlers):
+                            try:
+                                handler(method, msg.get("params", {}))
+                            except Exception:
+                                logger.debug(
+                                    "Notification handler error", exc_info=True
+                                )
+                    elif not method:
                         logger.debug("Ignoring message with id=%s", msg_id)
                     continue
 
