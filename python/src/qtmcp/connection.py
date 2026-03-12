@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import warnings
 from collections.abc import Callable
 
@@ -46,6 +47,8 @@ class ProbeConnection:
         self._recv_task: asyncio.Task | None = None
         self._connected = False
         self._notification_handlers: list[Callable[[str, dict], None]] = []
+        self._call_observers: list[Callable] = []
+        self._send_observers: list[Callable] = []
 
     @property
     def is_connected(self) -> bool:
@@ -83,6 +86,46 @@ class ProbeConnection:
             self._notification_handlers.remove(handler)
         except ValueError:
             pass
+
+    def add_call_observer(self, observer: Callable) -> None:
+        """Add a call observer. Called with (request, result_or_exc, duration_ms) after completion."""
+        self._call_observers.append(observer)
+
+    def remove_call_observer(self, observer: Callable) -> None:
+        """Remove a call observer. No-op if not found."""
+        try:
+            self._call_observers.remove(observer)
+        except ValueError:
+            pass
+
+    def add_send_observer(self, observer: Callable) -> None:
+        """Add a send observer. Called with (request) when a request is sent."""
+        self._send_observers.append(observer)
+
+    def remove_send_observer(self, observer: Callable) -> None:
+        """Remove a send observer. No-op if not found."""
+        try:
+            self._send_observers.remove(observer)
+        except ValueError:
+            pass
+
+    def _notify_call_observers(
+        self, request: dict, result_or_exc: dict | Exception, duration_ms: float
+    ) -> None:
+        """Notify all call observers safely."""
+        for observer in list(self._call_observers):
+            try:
+                observer(request, result_or_exc, duration_ms)
+            except Exception:
+                logger.debug("Call observer error", exc_info=True)
+
+    def _notify_send_observers(self, request: dict) -> None:
+        """Notify all send observers safely."""
+        for observer in list(self._send_observers):
+            try:
+                observer(request)
+            except Exception:
+                logger.debug("Send observer error", exc_info=True)
 
     async def connect(self) -> None:
         """Establish the WebSocket connection and start receiving."""
@@ -145,13 +188,23 @@ class ProbeConnection:
         future: asyncio.Future = loop.create_future()
         self._pending[request_id] = future
 
+        t0 = time.monotonic()
         try:
             await self._ws.send(json.dumps(request))
             logger.debug("Sent request id=%d method=%s", request_id, method)
-            return await future
+            self._notify_send_observers(request)
+            result = await future
         except asyncio.CancelledError:
             self._pending.pop(request_id, None)
             raise
+        except Exception as exc:
+            duration_ms = (time.monotonic() - t0) * 1000
+            self._notify_call_observers(request, exc, duration_ms)
+            raise
+        else:
+            duration_ms = (time.monotonic() - t0) * 1000
+            self._notify_call_observers(request, result, duration_ms)
+            return result
 
     async def _recv_loop(self) -> None:
         """Background task that reads WebSocket messages and resolves futures."""
