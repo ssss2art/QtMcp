@@ -282,6 +282,7 @@ endif()
 
 if(QTPILOT_BUILD_TEST_APP)
     add_subdirectory(test_app)
+    install(TARGETS qtPilot_test_app RUNTIME DESTINATION bin)
 endif()
 
 if(QTPILOT_BUILD_TESTS)
