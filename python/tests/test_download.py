@@ -580,6 +580,33 @@ class TestAvailableVersions:
         assert isinstance(AVAILABLE_VERSIONS, frozenset)
 
 
+class TestGetTestappPath:
+    def test_returns_none_when_not_found(self, tmp_path):
+        """Returns None when test app doesn't exist."""
+        from qtpilot.download import get_testapp_path
+        assert get_testapp_path(output_dir=tmp_path, platform_name="windows") is None
+
+    def test_finds_windows_testapp(self, tmp_path):
+        """Finds qtPilot-test-app.exe in testapp/ subdirectory."""
+        from qtpilot.download import get_testapp_path
+        testapp_dir = tmp_path / "testapp"
+        testapp_dir.mkdir()
+        exe = testapp_dir / "qtPilot-test-app.exe"
+        exe.touch()
+        result = get_testapp_path(output_dir=tmp_path, platform_name="windows")
+        assert result == exe
+
+    def test_finds_linux_testapp(self, tmp_path):
+        """Finds qtPilot-test-app.sh wrapper in testapp/ subdirectory."""
+        from qtpilot.download import get_testapp_path
+        testapp_dir = tmp_path / "testapp"
+        testapp_dir.mkdir()
+        wrapper = testapp_dir / "qtPilot-test-app.sh"
+        wrapper.touch()
+        result = get_testapp_path(output_dir=tmp_path, platform_name="linux")
+        assert result == wrapper
+
+
 class TestArchitectureConstants:
     """Tests for architecture-related constants."""
 

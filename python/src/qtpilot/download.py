@@ -111,6 +111,29 @@ def get_launcher_filename(platform_name: str | None = None) -> str:
     return "qtPilot-launcher"
 
 
+def get_testapp_path(output_dir: Path | None = None, platform_name: str | None = None) -> Path | None:
+    """Find the bundled test app in the download directory.
+
+    Args:
+        output_dir: Directory where tools were extracted (default: cwd)
+        platform_name: Platform name (auto-detected if None)
+
+    Returns:
+        Path to test app executable/wrapper, or None if not found.
+    """
+    if output_dir is None:
+        output_dir = Path.cwd()
+    if platform_name is None:
+        platform_name = detect_platform()
+
+    if platform_name == "windows":
+        path = output_dir / "testapp" / "qtPilot-test-app.exe"
+    else:
+        path = output_dir / "testapp" / "qtPilot-test-app.sh"
+
+    return path if path.exists() else None
+
+
 def normalize_version(qt_version: str) -> str:
     """Normalize Qt version string.
 
