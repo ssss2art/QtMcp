@@ -137,7 +137,7 @@ QString JsonRpcHandler::HandleMessage(const QString& message) {
   }
 #endif
 
-  qDebug() << "Handling method:" << method << "with params:" << params_str;
+  // Method dispatch logging gated behind QT_LOGGING_RULES=qtPilot.jsonrpc.debug=true
 
   // Handle notifications by emitting signal and returning empty
   if (is_notification) {

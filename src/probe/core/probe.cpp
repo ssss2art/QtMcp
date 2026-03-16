@@ -244,7 +244,7 @@ bool Probe::initialize() {
               rpcNotification["jsonrpc"] = "2.0";
               rpcNotification["method"] = "qtpilot.signalEmitted";
               rpcNotification["params"] = notification;
-              m_server->sendMessage(
+              m_server->sendNotification(
                   QString::fromUtf8(QJsonDocument(rpcNotification).toJson(QJsonDocument::Compact)));
             }
           });
@@ -256,7 +256,7 @@ bool Probe::initialize() {
               rpcNotification["jsonrpc"] = "2.0";
               rpcNotification["method"] = "qtpilot.objectCreated";
               rpcNotification["params"] = notification;
-              m_server->sendMessage(
+              m_server->sendNotification(
                   QString::fromUtf8(QJsonDocument(rpcNotification).toJson(QJsonDocument::Compact)));
             }
           });
@@ -268,7 +268,7 @@ bool Probe::initialize() {
               rpcNotification["jsonrpc"] = "2.0";
               rpcNotification["method"] = "qtpilot.objectDestroyed";
               rpcNotification["params"] = notification;
-              m_server->sendMessage(
+              m_server->sendNotification(
                   QString::fromUtf8(QJsonDocument(rpcNotification).toJson(QJsonDocument::Compact)));
             }
           });
@@ -281,7 +281,7 @@ bool Probe::initialize() {
               rpcNotification["jsonrpc"] = "2.0";
               rpcNotification["method"] = "qtpilot.eventCaptured";
               rpcNotification["params"] = notification;
-              m_server->sendMessage(
+              m_server->sendNotification(
                   QString::fromUtf8(QJsonDocument(rpcNotification).toJson(QJsonDocument::Compact)));
             }
           });

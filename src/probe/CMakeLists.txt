@@ -14,6 +14,7 @@ set(PROBE_SOURCES
     interaction/screenshot.cpp
     interaction/hit_test.cpp
     transport/websocket_server.cpp
+    transport/notification_queue.cpp
     transport/jsonrpc_handler.cpp
     transport/discovery_broadcaster.cpp
     api/response_envelope.cpp
@@ -44,6 +45,7 @@ set(PROBE_HEADERS
     interaction/screenshot.h
     interaction/hit_test.h
     transport/websocket_server.h
+    transport/notification_queue.h
     transport/jsonrpc_handler.h
     transport/discovery_broadcaster.h
     api/error_codes.h

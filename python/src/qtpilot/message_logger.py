@@ -25,6 +25,8 @@ class MessageLogger:
         self._entry_count: int = 0
         self._buffer: deque[dict] = deque(maxlen=200)
         self._buffer_size: int = 200
+        self._flush_count: int = 0
+        self._flush_interval: int = 100
         self._attached_probe = None  # ProbeConnection | None
 
     @property
@@ -40,6 +42,7 @@ class MessageLogger:
         path: str | None = None,
         level: int = 2,
         buffer_size: int = 200,
+        flush_interval: int = 100,
     ) -> dict:
         """Start logging. If already active, stops first."""
         if self._active:
@@ -54,6 +57,8 @@ class MessageLogger:
         self._buffer_size = buffer_size
         self._buffer = deque(maxlen=buffer_size)
         self._entry_count = 0
+        self._flush_count = 0
+        self._flush_interval = flush_interval
         self._start_time = time.monotonic()
         self._file = open(path, "a", encoding="utf-8")
         self._active = True
@@ -75,6 +80,7 @@ class MessageLogger:
         entries = self._entry_count
 
         if self._file is not None:
+            self._file.flush()
             self._file.close()
             self._file = None
 
@@ -213,7 +219,10 @@ class MessageLogger:
         entry["ts"] = now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
         if self._file is not None:
             self._file.write(json.dumps(entry, default=str) + "\n")
-            self._file.flush()
+            self._flush_count += 1
+            if self._flush_count >= self._flush_interval:
+                self._file.flush()
+                self._flush_count = 0
         self._buffer.append(entry)
         self._entry_count += 1
 

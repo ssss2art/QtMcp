@@ -1,0 +1,84 @@
+// Copyright (c) 2024 qtPilot Contributors
+// SPDX-License-Identifier: MIT
+
+#include "transport/notification_queue.h"
+
+#include <QTimer>
+#include <QWebSocket>
+
+namespace qtPilot {
+
+NotificationQueue::NotificationQueue(QWebSocket* socket, int capacity, int batchSize,
+                                     QObject* parent)
+    : QObject(parent), m_socket(socket), m_capacity(capacity), m_batchSize(batchSize) {
+  // Override capacity from environment
+  QByteArray envCap = qgetenv("QTPILOT_QUEUE_CAPACITY");
+  if (!envCap.isEmpty()) {
+    bool ok = false;
+    int envVal = envCap.toInt(&ok);
+    if (ok && envVal > 0) {
+      m_capacity = envVal;
+    }
+  }
+
+  m_drainTimer = new QTimer(this);
+  m_drainTimer->setInterval(0);
+  connect(m_drainTimer, &QTimer::timeout, this, &NotificationQueue::drain);
+  m_drainTimer->start();
+}
+
+NotificationQueue::~NotificationQueue() = default;
+
+void NotificationQueue::enqueue(const QString& message) {
+  QMutexLocker lock(&m_mutex);
+  if (m_queue.size() >= m_capacity) {
+    m_queue.dequeue();  // drop oldest
+    ++m_dropCount;
+  }
+  m_queue.enqueue(message);
+}
+
+int NotificationQueue::dropCount() const {
+  QMutexLocker lock(&m_mutex);
+  return m_dropCount;
+}
+
+int NotificationQueue::queueSize() const {
+  QMutexLocker lock(&m_mutex);
+  return m_queue.size();
+}
+
+int NotificationQueue::capacity() const {
+  return m_capacity;
+}
+
+void NotificationQueue::drain() {
+  if (!m_socket) {
+    return;
+  }
+
+  // Backpressure: check bytes still pending in the socket write buffer
+  qint64 pending = m_socket->bytesToWrite();
+  if (m_paused) {
+    if (pending <= kLowWaterMark) {
+      m_paused = false;
+    } else {
+      return;  // still above low-water mark, skip this cycle
+    }
+  } else if (pending > kHighWaterMark) {
+    m_paused = true;
+    return;
+  }
+
+  // Drain up to batchSize messages
+  QMutexLocker lock(&m_mutex);
+  int count = qMin(m_batchSize, m_queue.size());
+  for (int i = 0; i < count; ++i) {
+    QString msg = m_queue.dequeue();
+    lock.unlock();
+    m_socket->sendTextMessage(msg);
+    lock.relock();
+  }
+}
+
+}  // namespace qtPilot

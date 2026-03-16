@@ -27,6 +27,7 @@ class QWebSocket;
 namespace qtPilot {
 
 class JsonRpcHandler;
+class NotificationQueue;
 
 /// @brief WebSocket server for JSON-RPC communication.
 ///
@@ -77,6 +78,14 @@ class QTPILOT_EXPORT WebSocketServer : public QObject {
   /// @return true if sent successfully, false if no client connected.
   bool sendMessage(const QString& message);
 
+  /// @brief Send a notification through the bounded queue.
+  /// @param message The JSON notification string.
+  void sendNotification(const QString& message);
+
+  /// @brief Get the notification queue (for diagnostics).
+  /// @return Pointer to the notification queue, or nullptr if no client.
+  NotificationQueue* notificationQueue() const;
+
  signals:
   /// @brief Emitted when a client connects.
   void clientConnected();
@@ -108,6 +117,7 @@ class QTPILOT_EXPORT WebSocketServer : public QObject {
   QWebSocket* m_activeClient = nullptr;
   JsonRpcHandler* m_rpcHandler = nullptr;
   quint16 m_port;
+  NotificationQueue* m_notificationQueue = nullptr;
 };
 
 }  // namespace qtPilot

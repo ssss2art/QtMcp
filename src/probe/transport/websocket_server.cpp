@@ -4,6 +4,7 @@
 #include "transport/websocket_server.h"
 
 #include "transport/jsonrpc_handler.h"
+#include "transport/notification_queue.h"
 
 #include <QDebug>
 #include <QWebSocket>
@@ -53,6 +54,8 @@ bool WebSocketServer::start() {
 void WebSocketServer::stop() {
   // Close active client connection if any
   if (m_activeClient) {
+    delete m_notificationQueue;
+    m_notificationQueue = nullptr;
     m_activeClient->close();
     m_activeClient->deleteLater();
     m_activeClient = nullptr;
@@ -84,9 +87,21 @@ bool WebSocketServer::sendMessage(const QString& message) {
   if (!m_activeClient) {
     return false;
   }
-  qDebug() << "[qtPilot] Sending notification:" << message;
-  m_activeClient->sendTextMessage(message);
-  return true;
+  qint64 sent = m_activeClient->sendTextMessage(message);
+  if (sent == 0) {
+    qWarning() << "[qtPilot] sendTextMessage returned 0, message may not have been sent";
+  }
+  return sent > 0;
+}
+
+void WebSocketServer::sendNotification(const QString& message) {
+  if (m_notificationQueue) {
+    m_notificationQueue->enqueue(message);
+  }
+}
+
+NotificationQueue* WebSocketServer::notificationQueue() const {
+  return m_notificationQueue;
 }
 
 void WebSocketServer::onNewConnection() {
@@ -107,6 +122,10 @@ void WebSocketServer::onNewConnection() {
 
   // Accept this client
   m_activeClient = socket;
+
+  // Create notification queue for this client
+  m_notificationQueue = new NotificationQueue(socket, 10000, 50, this);
+
   qInfo() << "[qtPilot] Client connected from" << socket->peerAddress().toString() << ":"
           << socket->peerPort();
 
@@ -137,6 +156,8 @@ void WebSocketServer::onTextMessage(const QString& message) {
 void WebSocketServer::onClientDisconnected() {
   if (m_activeClient) {
     qInfo() << "[qtPilot] Client disconnected";
+    delete m_notificationQueue;
+    m_notificationQueue = nullptr;
     m_activeClient->deleteLater();
     m_activeClient = nullptr;
     emit clientDisconnected();

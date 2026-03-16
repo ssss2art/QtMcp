@@ -49,6 +49,9 @@ class ProbeConnection:
         self._notification_handlers: list[Callable[[str, dict], None]] = []
         self._call_observers: list[Callable] = []
         self._send_observers: list[Callable] = []
+        self._notification_queue: asyncio.Queue = asyncio.Queue(maxsize=10000)
+        self._notification_task: asyncio.Task | None = None
+        self._notification_drops: int = 0
 
     @property
     def is_connected(self) -> bool:
@@ -138,6 +141,7 @@ class ProbeConnection:
         )
         self._connected = True
         self._recv_task = asyncio.create_task(self._recv_loop())
+        self._notification_task = asyncio.create_task(self._notification_dispatcher())
         logger.debug("Connected to probe at %s", self._ws_url)
 
     async def disconnect(self) -> None:
@@ -152,6 +156,14 @@ class ProbeConnection:
             except asyncio.CancelledError:
                 pass
             self._recv_task = None
+
+        if self._notification_task is not None:
+            self._notification_task.cancel()
+            try:
+                await self._notification_task
+            except asyncio.CancelledError:
+                pass
+            self._notification_task = None
 
         if self._ws is not None:
             await self._ws.close()
@@ -225,14 +237,13 @@ class ProbeConnection:
                 if msg_id is None or msg_id not in self._pending:
                     # JSON-RPC notification (no id, has method)
                     method = msg.get("method")
-                    if method and self._notification_handlers:
-                        for handler in list(self._notification_handlers):
-                            try:
-                                handler(method, msg.get("params", {}))
-                            except Exception:
-                                logger.debug(
-                                    "Notification handler error", exc_info=True
-                                )
+                    if method:
+                        try:
+                            self._notification_queue.put_nowait(
+                                (method, msg.get("params", {}))
+                            )
+                        except asyncio.QueueFull:
+                            self._notification_drops += 1
                     elif not method:
                         logger.debug("Ignoring message with id=%s", msg_id)
                     continue
@@ -248,8 +259,14 @@ class ProbeConnection:
 
         except asyncio.CancelledError:
             raise
-        except Exception:
-            logger.debug("WebSocket connection closed", exc_info=True)
+        except Exception as exc:
+            # Log close code/reason if available (websockets.ConnectionClosed)
+            close_code = getattr(getattr(exc, "rcvd", None), "code", None)
+            close_reason = getattr(getattr(exc, "rcvd", None), "reason", None)
+            logger.warning(
+                "WebSocket connection closed: %s (code=%s reason=%s)",
+                exc, close_code, close_reason,
+            )
         finally:
             self._connected = False
             # Cancel all remaining pending futures
@@ -257,3 +274,26 @@ class ProbeConnection:
                 if not future.done():
                     future.set_exception(ConnectionError("WebSocket closed"))
             self._pending.clear()
+
+    async def _notification_dispatcher(self) -> None:
+        """Background task that dispatches notifications from queue to handlers."""
+        try:
+            while True:
+                method, params = await self._notification_queue.get()
+                for handler in list(self._notification_handlers):
+                    try:
+                        handler(method, params)
+                    except Exception:
+                        logger.debug("Notification handler error", exc_info=True)
+        except asyncio.CancelledError:
+            pass
+
+    @property
+    def notification_drops(self) -> int:
+        """Number of notifications dropped due to full queue."""
+        return self._notification_drops
+
+    @property
+    def notification_queue_size(self) -> int:
+        """Current number of notifications waiting to be dispatched."""
+        return self._notification_queue.qsize()
