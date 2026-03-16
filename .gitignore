@@ -51,6 +51,8 @@ node_modules/
 __pycache__/
 *.pyc
 _version.py
+dist/
+*.egg-info/
 
 # Claude Code local config
 .claude/
