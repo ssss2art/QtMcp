@@ -147,11 +147,19 @@ void ObjectRegistry::registerObject(QObject* obj) {
   // Use QueuedConnection to ensure the signal is delivered asynchronously
   // Skip if no event loop (e.g., during shutdown)
   if (QCoreApplication::instance()) {
+    // Use QPointer to safely detect object destruction before the queued
+    // lambda runs. Raw pointer checks against m_objects are insufficient
+    // because memory addresses can be reused after deletion — a new object
+    // at the same address would pass the m_objects.contains() check.
+    QPointer<QObject> weak(obj);
     QMetaObject::invokeMethod(
         this,
-        [this, obj]() {
-          // Double-check object still exists before emitting
-          // (it could have been destroyed between hook and signal delivery)
+        [this, weak]() {
+          QObject* obj = weak.data();
+          if (!obj) {
+            return;  // Object was destroyed before this lambda ran
+          }
+          // Double-check object still exists in the registry
           {
             QMutexLocker lock(&m_mutex);
             if (!m_objects.contains(obj)) {
