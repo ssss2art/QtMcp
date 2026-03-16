@@ -40,6 +40,16 @@ qtPilot lets Claude and other AI assistants interact with any Qt desktop applica
 
 ## Quick Start
 
+### Try it now
+
+```bash
+pip install qtpilot
+qtpilot download-tools --qt-version 6.8
+qtpilot serve --demo
+```
+
+This downloads everything you need — probe, launcher, and a bundled test app with Qt runtime. Once running, Claude can interact with the test app. Try asking "Show me the widget tree" or "Fill out the form with my name."
+
 ### Option 1: pip install (Recommended)
 
 ```bash
@@ -100,6 +110,40 @@ Add to `claude_desktop_config.json`:
 ```bash
 claude mcp add --transport stdio qtpilot -- qtpilot serve --mode native --ws-url ws://localhost:9222
 ```
+
+## Examples
+
+Once connected, just ask Claude what you want to do with your Qt app:
+
+> "Show me the widget tree of this app"
+
+Uses native mode to walk the Qt object hierarchy — great for understanding an unfamiliar UI.
+
+> "Type 'John Doe' into the name field and click Submit"
+
+Claude finds the widget by name, clicks to focus, types the text, then clicks the button.
+
+> "What data is in the table?"
+
+Reads Qt model data directly — no screenshot parsing needed.
+
+> "Take a screenshot and tell me what you see"
+
+Uses computer use mode to capture the window and describe the UI visually.
+
+> "Find all the buttons on this page"
+
+Uses chrome mode's accessibility tree to locate interactive elements by role.
+
+### Try the full test suite
+
+qtPilot includes a Claude Code skill that runs a comprehensive 39-test E2E suite across all three modes, plus logging and recording. To run it against the included test app:
+
+```
+/test-mcp-modes
+```
+
+See [`.claude/skills/test-mcp-modes/SKILL.md`](.claude/skills/test-mcp-modes/SKILL.md) for details.
 
 ## Documentation
 
