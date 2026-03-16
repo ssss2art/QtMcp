@@ -445,15 +445,18 @@ void ObjectRegistry::scanExistingObjects(QObject* root) {
       // scanExistingObjects runs on the main thread during Probe::initialize(),
       // so we can connect directly without the queued indirection used by
       // registerObject().
-      connect(root, &QObject::objectNameChanged, this, [this, root]() {
-        QMutexLocker lk(&m_mutex);
-        if (!m_objects.contains(root)) {
-          return;
-        }
-        lk.unlock();
-        refreshObjectId(root);
-        refreshDescendantIds(root);
-      }, Qt::QueuedConnection);
+      connect(
+          root, &QObject::objectNameChanged, this,
+          [this, root]() {
+            QMutexLocker lk(&m_mutex);
+            if (!m_objects.contains(root)) {
+              return;
+            }
+            lk.unlock();
+            refreshObjectId(root);
+            refreshDescendantIds(root);
+          },
+          Qt::QueuedConnection);
 
       // Don't emit signal for pre-existing objects to avoid noise
       // during initialization

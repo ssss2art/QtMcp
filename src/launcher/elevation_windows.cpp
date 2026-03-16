@@ -60,9 +60,15 @@ int relaunchElevated(const QString& executable, const QStringList& args) {
   // Collect environment variables to forward
   QStringList envSetCmds;
   const char* envVarsToForward[] = {
-      "PATH",          "QT_PLUGIN_PATH",      "QT_QPA_PLATFORM_PLUGIN_PATH",
-      "QTPILOT_PORT",    "QTPILOT_MODE",          "QTPILOT_INJECT_CHILDREN",
-      "QTPILOT_ENABLED", "QTPILOT_DISCOVERY_PORT"};
+      "PATH",
+      "QT_PLUGIN_PATH",
+      "QT_QPA_PLATFORM_PLUGIN_PATH",
+      "QTPILOT_PORT",
+      "QTPILOT_MODE",
+      "QTPILOT_INJECT_CHILDREN",
+      "QTPILOT_ENABLED",
+      "QTPILOT_DISCOVERY_PORT",
+  };
   for (const char* varName : envVarsToForward) {
     QString val = QString::fromLocal8Bit(qgetenv(varName));
     if (!val.isEmpty()) {

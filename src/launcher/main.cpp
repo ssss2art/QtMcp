@@ -162,8 +162,9 @@ int main(int argc, char* argv[]) {
   if (parser.isSet(runAsAdminOption) && !parser.isSet(elevatedOption)) {
     if (!qtPilot::isProcessElevated()) {
       // Re-launch self as admin, forwarding all arguments
-      return qtPilot::relaunchElevated(QCoreApplication::applicationFilePath(),
-                                     QCoreApplication::arguments().mid(1));
+      return qtPilot::relaunchElevated(
+          QCoreApplication::applicationFilePath(),
+          QCoreApplication::arguments().mid(1));
     }
     // Already elevated — fall through to normal launch
   }
@@ -279,7 +280,8 @@ int main(int argc, char* argv[]) {
 
   // Success
   if (!options.quiet) {
-    fprintf(stderr, "[qtpilot-launch] Started process with PID %lld\n", static_cast<long long>(pid));
+    fprintf(stderr, "[qtpilot-launch] Started process with PID %lld\n",
+            static_cast<long long>(pid));
   }
 
   return 0;
