@@ -55,7 +55,7 @@ dist/
 *.egg-info/
 
 # Claude Code - local settings (personal/machine-specific)
-.claude/settings.local.json
+**.claude/settings.local.json
 
 # Environment files 
 .env
