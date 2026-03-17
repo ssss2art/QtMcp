@@ -213,7 +213,6 @@ elseif(UNIX AND NOT APPLE)
     add_definitions(-DQTPILOT_PLATFORM_LINUX)
 elseif(APPLE)
     add_definitions(-DQTPILOT_PLATFORM_MACOS)
-    message(WARNING "macOS support is not yet implemented")
 endif()
 
 # Compiler warnings
@@ -229,6 +228,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Wmissing-include-dirs
         -Wswitch-default
         -Wunused
+        # Qt 6.10+ Q_GLOBAL_STATIC uses variadic macros with omitted args (C++20 feature)
+        -Wno-variadic-macro-arguments-omitted
     )
 elseif(MSVC)
     add_compile_options(
@@ -276,7 +277,7 @@ if(WIN32)
     add_subdirectory(src/shared)
 endif()
 
-if(WIN32 OR (UNIX AND NOT APPLE))
+if(WIN32 OR UNIX)
     add_subdirectory(src/launcher)
 endif()
 

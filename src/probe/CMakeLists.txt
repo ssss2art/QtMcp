@@ -69,7 +69,9 @@ if(WIN32)
     list(APPEND PROBE_HEADERS
         core/child_injector_windows.h
     )
-elseif(UNIX AND NOT APPLE)
+elseif(APPLE)
+    list(APPEND PROBE_SOURCES core/probe_init_macos.cpp)
+elseif(UNIX)
     list(APPEND PROBE_SOURCES core/probe_init_linux.cpp)
 endif()
 
