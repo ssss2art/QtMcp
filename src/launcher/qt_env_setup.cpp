@@ -39,9 +39,9 @@ bool hasQtPrefixLayout(const QDir& d) {
     return false;
 
   // Check for framework bundle or plain dylib
-  QStringList coreMatches = libDir.entryList(
-      {QStringLiteral("QtCore.framework"), QStringLiteral("libQt*Core.dylib")},
-      QDir::Dirs | QDir::Files);
+  QStringList coreMatches =
+      libDir.entryList({QStringLiteral("QtCore.framework"), QStringLiteral("libQt*Core.dylib")},
+                       QDir::Dirs | QDir::Files);
   if (coreMatches.isEmpty())
     return false;
 #else
@@ -49,8 +49,7 @@ bool hasQtPrefixLayout(const QDir& d) {
   if (!libDir.exists())
     return false;
 
-  QStringList coreMatches =
-      libDir.entryList({QStringLiteral("libQt*Core.so*")}, QDir::Files);
+  QStringList coreMatches = libDir.entryList({QStringLiteral("libQt*Core.so*")}, QDir::Files);
   if (coreMatches.isEmpty())
     return false;
 #endif

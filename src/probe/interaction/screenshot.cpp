@@ -45,18 +45,16 @@ bool checkScreenCapturePermission([[maybe_unused]] const char* context) {
 /// @brief Encode a pixmap to base64 PNG with null-pixmap guard.
 QByteArray encodePixmap(const QPixmap& pixmap, const char* context) {
   if (pixmap.isNull()) {
-    throw std::runtime_error(
-        std::string(context) +
-        ": grab returned a null pixmap "
-        "(window may be hidden or screen capture permission denied)");
+    throw std::runtime_error(std::string(context) +
+                             ": grab returned a null pixmap "
+                             "(window may be hidden or screen capture permission denied)");
   }
 
   QByteArray bytes;
   QBuffer buffer(&bytes);
   buffer.open(QIODevice::WriteOnly);
   if (!pixmap.save(&buffer, "PNG")) {
-    throw std::runtime_error(
-        std::string(context) + ": failed to encode screenshot as PNG");
+    throw std::runtime_error(std::string(context) + ": failed to encode screenshot as PNG");
   }
 
   return bytes.toBase64();
@@ -141,8 +139,9 @@ QByteArray Screenshot::captureWindowLogical(QWidget* window) {
   QPixmap pixmap = screen->grabWindow(window->winId());
 
   if (pixmap.isNull()) {
-    throw std::runtime_error("captureWindowLogical: grab returned a null pixmap "
-                             "(window may be hidden or screen capture permission denied)");
+    throw std::runtime_error(
+        "captureWindowLogical: grab returned a null pixmap "
+        "(window may be hidden or screen capture permission denied)");
   }
 
   // Scale down to logical pixels if on HiDPI display

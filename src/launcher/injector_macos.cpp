@@ -110,8 +110,7 @@ qint64 launchWithProbe(const LaunchOptions& options) {
     // Set DYLD_INSERT_LIBRARIES
     const char* existingInsert = getenv("DYLD_INSERT_LIBRARIES");
     if (existingInsert && existingInsert[0] != '\0') {
-      QString newInsert =
-          absProbe + QLatin1Char(':') + QString::fromLocal8Bit(existingInsert);
+      QString newInsert = absProbe + QLatin1Char(':') + QString::fromLocal8Bit(existingInsert);
       setenv("DYLD_INSERT_LIBRARIES", qPrintable(newInsert), 1);
     } else {
       setenv("DYLD_INSERT_LIBRARIES", qPrintable(absProbe), 1);

@@ -228,9 +228,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Wmissing-include-dirs
         -Wswitch-default
         -Wunused
-        # Qt 6.10+ Q_GLOBAL_STATIC uses variadic macros with omitted args (C++20 feature)
-        -Wno-variadic-macro-arguments-omitted
     )
+    # Qt 6.10+ Q_GLOBAL_STATIC uses variadic macros with omitted args (C++20 feature).
+    # Not all Clang versions recognise this flag, so probe before enabling.
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-Wno-variadic-macro-arguments-omitted
+                            HAS_WNO_VARIADIC_MACRO_ARGUMENTS_OMITTED)
+    if(HAS_WNO_VARIADIC_MACRO_ARGUMENTS_OMITTED)
+        add_compile_options(-Wno-variadic-macro-arguments-omitted)
+    endif()
 elseif(MSVC)
     add_compile_options(
         /W4
