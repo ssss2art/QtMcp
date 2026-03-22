@@ -24,8 +24,8 @@ jobs:
   lint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: jidicula/clang-format-action@v4.11.0
+      - uses: actions/checkout@v6
+      - uses: jidicula/clang-format-action@v4.18.0
         with:
           clang-format-version: "18"
           check-path: "src"
@@ -43,7 +43,7 @@ jobs:
           - { qt: "6.11.0", os: macos-14,       preset: macos-release,   platform: macos,   compiler: clang,  modules: "qtwebsockets" }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -194,7 +194,7 @@ jobs:
           done
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qtpilot-${{ matrix.preset }}-qt${{ matrix.qt }}-${{ matrix.compiler }}
           path: install/${{ matrix.preset }}
@@ -202,10 +202,10 @@ jobs:
   python:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
