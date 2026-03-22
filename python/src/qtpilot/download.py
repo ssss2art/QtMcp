@@ -7,6 +7,7 @@ archive for your Qt version and platform.
 from __future__ import annotations
 
 import hashlib
+import platform
 import sys
 import tarfile
 import urllib.error
@@ -45,7 +46,7 @@ def latest_version() -> str:
 # Supported architectures per platform
 WINDOWS_ARCHITECTURES = frozenset(["x64", "x86"])
 LINUX_ARCHITECTURES = frozenset(["x64", "x86"])
-MACOS_ARCHITECTURES = frozenset(["arm64"])
+MACOS_ARCHITECTURES = frozenset(["arm64", "x86_64"])
 DEFAULT_ARCH = "x64"
 MACOS_DEFAULT_ARCH = "arm64"
 
@@ -93,6 +94,18 @@ def detect_platform() -> str:
         )
 
     return PLATFORM_MAP[platform][0]
+
+
+def detect_macos_arch() -> str:
+    """Detect the macOS architecture at runtime.
+
+    Returns:
+        "arm64" on Apple Silicon, "x86_64" on Intel Macs.
+    """
+    machine = platform.machine()
+    if machine == "arm64":
+        return "arm64"
+    return "x86_64"
 
 
 def get_probe_filename(platform_name: str | None = None) -> str:
@@ -198,16 +211,19 @@ def get_archive_filename(
     if platform_name is None:
         platform_name = detect_platform()
     if arch is None:
-        arch = MACOS_DEFAULT_ARCH if platform_name == "macos" else DEFAULT_ARCH
+        if platform_name == "macos":
+            arch = detect_macos_arch()
+        else:
+            arch = DEFAULT_ARCH
     ext = "zip" if platform_name == "windows" else "tar.gz"
 
     # Windows: always include arch suffix
     if platform_name == "windows":
         return f"qtpilot-qt{version}-{platform_name}-{arch}.{ext}"
 
-    # macOS: no arch suffix (arm64 is the only supported arch)
+    # macOS: always include arch suffix (arm64 or x86_64)
     if platform_name == "macos":
-        return f"qtpilot-qt{version}-{platform_name}.{ext}"
+        return f"qtpilot-qt{version}-{platform_name}-{arch}.{ext}"
 
     # Linux: only include arch suffix for x86 (backward compat for x64)
     if arch == "x86":

@@ -223,7 +223,7 @@ void applyEnvironment(const QString& binPath, const QString& pluginsPath) {
 #elif defined(Q_OS_MACOS)
   // macOS: DYLD_LIBRARY_PATH and QT_PLUGIN_PATH
   QString currentDyldPath = QString::fromLocal8Bit(qgetenv("DYLD_LIBRARY_PATH"));
-  if (!currentDyldPath.contains(binPath)) {
+  if (!currentDyldPath.split(QLatin1Char(':'), Qt::SkipEmptyParts).contains(binPath)) {
     QString newDyldPath = binPath + QStringLiteral(":") + currentDyldPath;
     qputenv("DYLD_LIBRARY_PATH", newDyldPath.toLocal8Bit());
   }
@@ -235,7 +235,7 @@ void applyEnvironment(const QString& binPath, const QString& pluginsPath) {
 #else
   // Linux: LD_LIBRARY_PATH and QT_PLUGIN_PATH
   QString currentLdPath = QString::fromLocal8Bit(qgetenv("LD_LIBRARY_PATH"));
-  if (!currentLdPath.contains(binPath)) {
+  if (!currentLdPath.split(QLatin1Char(':'), Qt::SkipEmptyParts).contains(binPath)) {
     QString newLdPath = binPath + QStringLiteral(":") + currentLdPath;
     qputenv("LD_LIBRARY_PATH", newLdPath.toLocal8Bit());
   }

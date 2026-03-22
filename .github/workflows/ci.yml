@@ -40,7 +40,9 @@ jobs:
           - { qt: "6.8.0",  os: ubuntu-24.04, preset: release,         platform: linux,   compiler: gcc13,  modules: "qtwebsockets" }
           - { qt: "6.9.0",  os: ubuntu-24.04, preset: release,         platform: linux,   compiler: gcc13,  modules: "qtwebsockets" }
           - { qt: "6.10.0", os: ubuntu-24.04, preset: release,         platform: linux,   compiler: gcc13,  modules: "qtwebsockets" }
-          - { qt: "6.11.0", os: macos-14,       preset: macos-release,   platform: macos,   compiler: clang,  modules: "qtwebsockets" }
+          - { qt: "6.10.0", os: windows-latest, preset: windows-release, platform: windows, compiler: msvc17, modules: "qtwebsockets" }
+          - { qt: "6.10.0", os: macos-13,       preset: macos-release,   platform: macos,   compiler: clang,  modules: "qtwebsockets", arch_label: x86_64 }
+          - { qt: "6.10.0", os: macos-14,       preset: macos-release,   platform: macos,   compiler: clang,  modules: "qtwebsockets", arch_label: arm64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -171,13 +173,13 @@ jobs:
           for f in "install/$PRESET/lib/"libqtPilot-probe-*.dylib; do
             [ -f "$f" ] && cp "$f" "install/$PRESET/testapp/qtPilot-probe.dylib"
           done
-          # Wrapper script (sets DYLD_LIBRARY_PATH for Qt frameworks)
-          cat > "install/$PRESET/testapp/qtPilot-test-app.sh" << WRAPPER
+          # Wrapper script (sets DYLD paths for Qt frameworks)
+          cat > "install/$PRESET/testapp/qtPilot-test-app.sh" << 'WRAPPER'
           #!/bin/sh
-          DIR="\$(cd "\$(dirname "\$0")" && pwd)"
-          export DYLD_FRAMEWORK_PATH="\$DIR:\${DYLD_FRAMEWORK_PATH:-}"
-          export QT_PLUGIN_PATH="$QT_PATH/plugins"
-          exec "\$DIR/qtPilot-test-app" "\$@"
+          DIR="$(cd "$(dirname "$0")" && pwd)"
+          export DYLD_FRAMEWORK_PATH="$DIR:${DYLD_FRAMEWORK_PATH:-}"
+          export QT_PLUGIN_PATH="$DIR/plugins"
+          exec "$DIR/qtPilot-test-app" "$@"
           WRAPPER
           chmod +x "install/$PRESET/testapp/qtPilot-test-app.sh"
           echo "Test app bundle size:"
@@ -196,7 +198,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: qtpilot-${{ matrix.preset }}-qt${{ matrix.qt }}-${{ matrix.compiler }}
+          name: qtpilot-${{ matrix.preset }}-qt${{ matrix.qt }}-${{ matrix.compiler }}${{ matrix.arch_label && format('-{0}', matrix.arch_label) || '' }}
           path: install/${{ matrix.preset }}
 
   python:

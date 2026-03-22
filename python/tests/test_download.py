@@ -27,6 +27,7 @@ from qtpilot.download import (
     _default_release_tag,
     build_archive_url,
     build_checksums_url,
+    detect_macos_arch,
     detect_platform,
     download_and_extract,
     extract_archive,
@@ -194,14 +195,22 @@ class TestArchiveFilename:
         with mock.patch("qtpilot.download.sys.platform", "win32"):
             assert get_archive_filename("6.8") == "qtpilot-qt6.8-windows-x64.zip"
 
-    def test_macos_tar_gz_no_arch_suffix(self) -> None:
-        """macOS archives have no arch suffix."""
-        assert get_archive_filename("6.10", "macos") == "qtpilot-qt6.10-macos.tar.gz"
+    def test_macos_tar_gz_arm64(self) -> None:
+        """macOS arm64 archives include arch suffix."""
+        assert get_archive_filename("6.10", "macos", arch="arm64") == "qtpilot-qt6.10-macos-arm64.tar.gz"
 
-    def test_macos_auto_detect(self) -> None:
-        """macOS auto-detection should produce correct filename."""
+    def test_macos_tar_gz_x86_64(self) -> None:
+        """macOS x86_64 archives include arch suffix."""
+        assert get_archive_filename("6.10", "macos", arch="x86_64") == "qtpilot-qt6.10-macos-x86_64.tar.gz"
+
+    def test_macos_auto_detect_arch(self) -> None:
+        """macOS auto-detection should use runtime arch."""
         with mock.patch("qtpilot.download.sys.platform", "darwin"):
-            assert get_archive_filename("6.10") == "qtpilot-qt6.10-macos.tar.gz"
+            with mock.patch("qtpilot.download.platform.machine", return_value="arm64"):
+                assert get_archive_filename("6.10") == "qtpilot-qt6.10-macos-arm64.tar.gz"
+        with mock.patch("qtpilot.download.sys.platform", "darwin"):
+            with mock.patch("qtpilot.download.platform.machine", return_value="x86_64"):
+                assert get_archive_filename("6.10") == "qtpilot-qt6.10-macos-x86_64.tar.gz"
 
     def test_arch_none_defaults_to_x64(self) -> None:
         """arch=None should default to x64 behavior."""
@@ -654,11 +663,22 @@ class TestArchitectureConstants:
         assert "x86" in LINUX_ARCHITECTURES
 
     def test_macos_architectures(self) -> None:
-        """macOS should support arm64."""
+        """macOS should support arm64 and x86_64."""
         assert "arm64" in MACOS_ARCHITECTURES
+        assert "x86_64" in MACOS_ARCHITECTURES
 
     def test_architecture_sets_are_frozen(self) -> None:
         """Architecture sets should be immutable."""
         assert isinstance(WINDOWS_ARCHITECTURES, frozenset)
         assert isinstance(LINUX_ARCHITECTURES, frozenset)
         assert isinstance(MACOS_ARCHITECTURES, frozenset)
+
+    def test_detect_macos_arch_arm64(self) -> None:
+        """Apple Silicon should return arm64."""
+        with mock.patch("qtpilot.download.platform.machine", return_value="arm64"):
+            assert detect_macos_arch() == "arm64"
+
+    def test_detect_macos_arch_x86_64(self) -> None:
+        """Intel Mac should return x86_64."""
+        with mock.patch("qtpilot.download.platform.machine", return_value="x86_64"):
+            assert detect_macos_arch() == "x86_64"

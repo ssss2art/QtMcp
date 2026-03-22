@@ -42,9 +42,13 @@ jobs:
               platform="linux"
             fi
 
-            # Determine architecture from preset name
-            if [[ "$basename" == *"x86"* ]]; then
+            # Determine architecture from artifact name
+            if [[ "$basename" == *"x86_64"* ]]; then
+              arch="x86_64"
+            elif [[ "$basename" == *"x86"* ]]; then
               arch="x86"
+            elif [[ "$basename" == *"arm64"* ]]; then
+              arch="arm64"
             elif [ "$platform" = "macos" ]; then
               arch="arm64"
             else
@@ -97,13 +101,13 @@ jobs:
             tag_platform_arch=$(basename "$staging_dir")
             qt_tag=$(echo "$tag_platform_arch" | grep -oP '^qt[0-9]+\.[0-9]+(-patched)?')
             platform=$(echo "$tag_platform_arch" | grep -oP '(windows|linux|macos)')
-            arch=$(echo "$tag_platform_arch" | grep -oP '(x64|x86|arm64)$')
+            arch=$(echo "$tag_platform_arch" | grep -oP '(x64|x86_64|x86|arm64)$')
 
             if [ "$platform" = "windows" ]; then
               archive="qtpilot-${qt_tag}-${platform}-${arch}.zip"
               (cd "$staging_dir" && zip -r "../../release/$archive" .)
             elif [ "$platform" = "macos" ]; then
-              archive="qtpilot-${qt_tag}-macos.tar.gz"
+              archive="qtpilot-${qt_tag}-macos-${arch}.tar.gz"
               tar -czf "release/$archive" -C "$staging_dir" .
             else
               if [ "$arch" = "x86" ]; then
