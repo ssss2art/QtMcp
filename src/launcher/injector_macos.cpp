@@ -14,7 +14,7 @@
 
 #include "injector.h"
 
-#if defined(Q_OS_MACOS) || defined(Q_OS_MAC)
+#if defined(Q_OS_MACOS)
 
 #include <cstdio>
 #include <cstdlib>
@@ -155,4 +155,4 @@ qint64 launchWithProbe(const LaunchOptions& options) {
 
 }  // namespace qtPilot
 
-#endif  // Q_OS_MACOS || Q_OS_MAC
+#endif  // Q_OS_MACOS
