@@ -45,6 +45,8 @@ jobs:
             # Determine architecture from preset name
             if [[ "$basename" == *"x86"* ]]; then
               arch="x86"
+            elif [ "$platform" = "macos" ]; then
+              arch="arm64"
             else
               arch="x64"
             fi
@@ -95,7 +97,7 @@ jobs:
             tag_platform_arch=$(basename "$staging_dir")
             qt_tag=$(echo "$tag_platform_arch" | grep -oP '^qt[0-9]+\.[0-9]+(-patched)?')
             platform=$(echo "$tag_platform_arch" | grep -oP '(windows|linux|macos)')
-            arch=$(echo "$tag_platform_arch" | grep -oP '(x64|x86)$')
+            arch=$(echo "$tag_platform_arch" | grep -oP '(x64|x86|arm64)$')
 
             if [ "$platform" = "windows" ]; then
               archive="qtpilot-${qt_tag}-${platform}-${arch}.zip"

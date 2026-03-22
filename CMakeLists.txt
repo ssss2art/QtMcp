@@ -18,6 +18,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Export compile commands for IDEs
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# macOS deployment target (10.15 = Catalina, required for CGPreflightScreenCaptureAccess)
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS deployment target")
+endif()
+
 # Options
 option(QTPILOT_BUILD_TESTS "Build unit tests" ON)
 option(QTPILOT_BUILD_TEST_APP "Build the test Qt application" ON)

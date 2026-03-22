@@ -7,7 +7,8 @@
 // At that point, QCoreApplication may not exist yet, so we must defer
 // initialization until Qt is ready.
 
-#if defined(__APPLE__)
+#include <QtGlobal>  // for Q_OS_MACOS — must precede the guard
+#if defined(Q_OS_MACOS)
 
 #include "probe.h"
 
@@ -108,4 +109,4 @@ __attribute__((destructor)) static void onLibraryUnload() {
   }
 }
 
-#endif  // __APPLE__
+#endif  // Q_OS_MACOS

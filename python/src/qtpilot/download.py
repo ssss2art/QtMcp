@@ -34,6 +34,7 @@ AVAILABLE_VERSIONS = frozenset([
     "6.5",
     "6.8",
     "6.9",
+    "6.10",
 ])
 
 
@@ -44,7 +45,9 @@ def latest_version() -> str:
 # Supported architectures per platform
 WINDOWS_ARCHITECTURES = frozenset(["x64", "x86"])
 LINUX_ARCHITECTURES = frozenset(["x64", "x86"])
+MACOS_ARCHITECTURES = frozenset(["arm64"])
 DEFAULT_ARCH = "x64"
+MACOS_DEFAULT_ARCH = "arm64"
 
 # Platform mapping: sys.platform -> (platform_name, archive_ext, lib_ext)
 PLATFORM_MAP: dict[str, tuple[str, str, str]] = {
@@ -74,7 +77,7 @@ def detect_platform() -> str:
     """Detect the current platform name.
 
     Returns:
-        Platform name string: "linux" or "windows"
+        Platform name string: "linux", "windows", or "macos"
 
     Raises:
         UnsupportedPlatformError: If the current platform is not supported.
@@ -195,14 +198,18 @@ def get_archive_filename(
     if platform_name is None:
         platform_name = detect_platform()
     if arch is None:
-        arch = DEFAULT_ARCH
+        arch = MACOS_DEFAULT_ARCH if platform_name == "macos" else DEFAULT_ARCH
     ext = "zip" if platform_name == "windows" else "tar.gz"
 
     # Windows: always include arch suffix
     if platform_name == "windows":
         return f"qtpilot-qt{version}-{platform_name}-{arch}.{ext}"
 
-    # Linux/macOS: only include arch suffix for x86 (backward compat for x64)
+    # macOS: no arch suffix (arm64 is the only supported arch)
+    if platform_name == "macos":
+        return f"qtpilot-qt{version}-{platform_name}.{ext}"
+
+    # Linux: only include arch suffix for x86 (backward compat for x64)
     if arch == "x86":
         return f"qtpilot-qt{version}-{platform_name}-x86.{ext}"
     return f"qtpilot-qt{version}-{platform_name}.{ext}"

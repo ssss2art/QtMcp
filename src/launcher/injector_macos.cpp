@@ -23,8 +23,6 @@
 #include <unistd.h>
 
 #include <QFileInfo>
-#include <QProcess>
-#include <QProcessEnvironment>
 
 namespace {
 
@@ -59,33 +57,15 @@ qint64 launchWithProbe(const LaunchOptions& options) {
   // Warn about SIP restrictions
   warnIfSipProtected(options.targetExecutable, options.quiet);
 
-  // 1. Set up environment for the child process
-  QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-
-  // Set QTPILOT_PORT for the probe
-  env.insert(QStringLiteral("QTPILOT_PORT"), QString::number(options.port));
-
   // Get absolute path to probe library
   QString absProbe = QFileInfo(options.probePath).absoluteFilePath();
 
-  // Prepend to DYLD_INSERT_LIBRARIES (preserve existing entries)
-  QString existingInsert = env.value(QStringLiteral("DYLD_INSERT_LIBRARIES"));
-  if (existingInsert.isEmpty()) {
-    env.insert(QStringLiteral("DYLD_INSERT_LIBRARIES"), absProbe);
-  } else {
-    // Prepend our library, colon-separated
-    env.insert(QStringLiteral("DYLD_INSERT_LIBRARIES"),
-               absProbe + QLatin1Char(':') + existingInsert);
-  }
-
   if (!options.quiet) {
-    fprintf(stderr, "[injector] DYLD_INSERT_LIBRARIES: %s\n",
-            qPrintable(env.value(QStringLiteral("DYLD_INSERT_LIBRARIES"))));
-    fprintf(stderr, "[injector] QTPILOT_PORT: %s\n",
-            qPrintable(env.value(QStringLiteral("QTPILOT_PORT"))));
+    fprintf(stderr, "[injector] Probe: %s\n", qPrintable(absProbe));
+    fprintf(stderr, "[injector] QTPILOT_PORT: %d\n", options.port);
   }
 
-  // 2. Fork the process
+  // Fork the process
   pid_t pid = fork();
 
   if (pid < 0) {

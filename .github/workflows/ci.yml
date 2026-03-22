@@ -172,12 +172,12 @@ jobs:
             [ -f "$f" ] && cp "$f" "install/$PRESET/testapp/qtPilot-probe.dylib"
           done
           # Wrapper script (sets DYLD_LIBRARY_PATH for Qt frameworks)
-          cat > "install/$PRESET/testapp/qtPilot-test-app.sh" << 'WRAPPER'
+          cat > "install/$PRESET/testapp/qtPilot-test-app.sh" << WRAPPER
           #!/bin/sh
-          DIR="$(cd "$(dirname "$0")" && pwd)"
-          export DYLD_FRAMEWORK_PATH="$DIR:${DYLD_FRAMEWORK_PATH:-}"
+          DIR="\$(cd "\$(dirname "\$0")" && pwd)"
+          export DYLD_FRAMEWORK_PATH="\$DIR:\${DYLD_FRAMEWORK_PATH:-}"
           export QT_PLUGIN_PATH="$QT_PATH/plugins"
-          exec "$DIR/qtPilot-test-app" "$@"
+          exec "\$DIR/qtPilot-test-app" "\$@"
           WRAPPER
           chmod +x "install/$PRESET/testapp/qtPilot-test-app.sh"
           echo "Test app bundle size:"

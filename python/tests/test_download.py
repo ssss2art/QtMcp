@@ -17,6 +17,8 @@ from qtpilot.download import (
     AVAILABLE_VERSIONS,
     DEFAULT_ARCH,
     LINUX_ARCHITECTURES,
+    MACOS_ARCHITECTURES,
+    MACOS_DEFAULT_ARCH,
     WINDOWS_ARCHITECTURES,
     ChecksumError,
     DownloadError,
@@ -117,6 +119,10 @@ class TestFilenames:
         """Linux probe filename."""
         assert get_probe_filename("linux") == "qtPilot-probe.so"
 
+    def test_probe_filename_macos(self) -> None:
+        """macOS probe filename."""
+        assert get_probe_filename("macos") == "qtPilot-probe.dylib"
+
     def test_probe_filename_auto_detect(self) -> None:
         """Probe filename auto-detects platform."""
         with mock.patch("qtpilot.download.sys.platform", "win32"):
@@ -131,6 +137,10 @@ class TestFilenames:
     def test_launcher_filename_linux(self) -> None:
         """Linux launcher filename."""
         assert get_launcher_filename("linux") == "qtPilot-launcher"
+
+    def test_launcher_filename_macos(self) -> None:
+        """macOS launcher filename."""
+        assert get_launcher_filename("macos") == "qtPilot-launcher"
 
     def test_launcher_filename_auto_detect(self) -> None:
         """Launcher filename auto-detects platform."""
@@ -183,6 +193,15 @@ class TestArchiveFilename:
         """Platform should be auto-detected when not specified."""
         with mock.patch("qtpilot.download.sys.platform", "win32"):
             assert get_archive_filename("6.8") == "qtpilot-qt6.8-windows-x64.zip"
+
+    def test_macos_tar_gz_no_arch_suffix(self) -> None:
+        """macOS archives have no arch suffix."""
+        assert get_archive_filename("6.10", "macos") == "qtpilot-qt6.10-macos.tar.gz"
+
+    def test_macos_auto_detect(self) -> None:
+        """macOS auto-detection should produce correct filename."""
+        with mock.patch("qtpilot.download.sys.platform", "darwin"):
+            assert get_archive_filename("6.10") == "qtpilot-qt6.10-macos.tar.gz"
 
     def test_arch_none_defaults_to_x64(self) -> None:
         """arch=None should default to x64 behavior."""
@@ -579,6 +598,7 @@ class TestAvailableVersions:
         assert "6.5" in AVAILABLE_VERSIONS
         assert "6.8" in AVAILABLE_VERSIONS
         assert "6.9" in AVAILABLE_VERSIONS
+        assert "6.10" in AVAILABLE_VERSIONS
 
     def test_versions_is_frozen(self) -> None:
         """AVAILABLE_VERSIONS should be immutable."""
@@ -619,6 +639,10 @@ class TestArchitectureConstants:
         """Default architecture should be x64."""
         assert DEFAULT_ARCH == "x64"
 
+    def test_macos_default_arch_is_arm64(self) -> None:
+        """macOS default architecture should be arm64."""
+        assert MACOS_DEFAULT_ARCH == "arm64"
+
     def test_windows_architectures(self) -> None:
         """Windows should support x64 and x86."""
         assert "x64" in WINDOWS_ARCHITECTURES
@@ -629,7 +653,12 @@ class TestArchitectureConstants:
         assert "x64" in LINUX_ARCHITECTURES
         assert "x86" in LINUX_ARCHITECTURES
 
+    def test_macos_architectures(self) -> None:
+        """macOS should support arm64."""
+        assert "arm64" in MACOS_ARCHITECTURES
+
     def test_architecture_sets_are_frozen(self) -> None:
         """Architecture sets should be immutable."""
         assert isinstance(WINDOWS_ARCHITECTURES, frozenset)
         assert isinstance(LINUX_ARCHITECTURES, frozenset)
+        assert isinstance(MACOS_ARCHITECTURES, frozenset)
