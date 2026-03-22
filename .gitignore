@@ -60,10 +60,11 @@ dist/
 # Claude Code - local settings (personal/machine-specific)
 **.claude/settings.local.json
 
-# Environment files 
+# Environment files
 .env
 .env.*
 .env.local
+.envrc
 
 # Standard entries for your stack (Node, Python, etc.) still apply
 # Test output and artifacts

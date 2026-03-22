@@ -41,7 +41,6 @@ jobs:
           - { qt: "6.9.0",  os: ubuntu-24.04, preset: release,         platform: linux,   compiler: gcc13,  modules: "qtwebsockets" }
           - { qt: "6.10.0", os: ubuntu-24.04, preset: release,         platform: linux,   compiler: gcc13,  modules: "qtwebsockets" }
           - { qt: "6.10.0", os: windows-latest, preset: windows-release, platform: windows, compiler: msvc17, modules: "qtwebsockets" }
-          - { qt: "6.10.0", os: macos-13,       preset: macos-release,   platform: macos,   compiler: clang,  modules: "qtwebsockets", arch_label: x86_64 }
           - { qt: "6.10.0", os: macos-14,       preset: macos-release,   platform: macos,   compiler: clang,  modules: "qtwebsockets", arch_label: arm64 }
     runs-on: ${{ matrix.os }}
     steps:
