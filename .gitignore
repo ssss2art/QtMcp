@@ -43,6 +43,8 @@
 # Build directories
 build/
 build_*/
+dist/
+install/
 
 # Tool caches
 .cache/
