@@ -3,7 +3,7 @@
 
 // qtPilot Launcher
 // Launches a Qt application with the qtPilot probe library injected.
-// Works on both Windows (DLL injection) and Linux (LD_PRELOAD).
+// Works on Windows (DLL injection), Linux (LD_PRELOAD), and macOS (DYLD_INSERT_LIBRARIES).
 
 #include "injector.h"
 #include "qt_env_setup.h"
@@ -20,7 +20,49 @@
 #include "elevation_windows.h"
 #endif
 
+#ifdef Q_OS_MACOS
+#include <QFile>
+#include <QRegularExpression>
+#include <QTextStream>
+#endif
+
 namespace {
+
+#ifdef Q_OS_MACOS
+/// @brief Resolve a .app bundle path to its inner executable.
+/// Reads CFBundleExecutable from Contents/Info.plist, falls back to the bundle name.
+/// Returns the original path unchanged if it doesn't end with ".app".
+QString resolveAppBundle(const QString& path) {
+  QString cleanPath = path;
+  while (cleanPath.endsWith(QLatin1Char('/')))
+    cleanPath.chop(1);
+
+  if (!cleanPath.endsWith(QStringLiteral(".app")))
+    return path;
+
+  QString plistPath = cleanPath + QStringLiteral("/Contents/Info.plist");
+  QString execName;
+
+  QFile plist(plistPath);
+  if (plist.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QString content = QTextStream(&plist).readAll();
+    // Find <key>CFBundleExecutable</key> followed by <string>...</string>
+    QRegularExpression re(
+        QStringLiteral("<key>CFBundleExecutable</key>\\s*<string>([^<]+)</string>"));
+    auto match = re.match(content);
+    if (match.hasMatch()) {
+      execName = match.captured(1);
+    }
+  }
+
+  if (execName.isEmpty()) {
+    // Fallback: use the .app basename
+    execName = QFileInfo(cleanPath).completeBaseName();
+  }
+
+  return cleanPath + QStringLiteral("/Contents/MacOS/") + execName;
+}
+#endif
 
 /// @brief Find the probe library adjacent to the launcher executable.
 /// @param qtVersion If non-empty, filter matches to those containing
@@ -31,6 +73,9 @@ QString findProbePath(const QString& qtVersion) {
 
 #ifdef Q_OS_WIN
   const QStringList globPatterns = {QStringLiteral("qtPilot-probe*.dll")};
+#elif defined(Q_OS_MACOS)
+  const QStringList globPatterns = {QStringLiteral("libqtPilot-probe*.dylib"),
+                                    QStringLiteral("qtPilot-probe*.dylib")};
 #else
   // Match both CMake build output (libqtPilot-probe*.so) and
   // archive-extracted probes (qtPilot-probe*.so)
@@ -171,7 +216,7 @@ int main(int argc, char* argv[]) {
   if (parser.isSet(runAsAdminOption)) {
     fprintf(stderr,
             "Warning: --run-as-admin is only supported on Windows. "
-            "Use sudo on Linux.\n");
+            "Use sudo on Linux/macOS.\n");
   }
 #endif
 
@@ -201,6 +246,11 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   options.port = static_cast<quint16>(portValue);
+
+  // Resolve .app bundles on macOS (e.g., Foo.app -> Foo.app/Contents/MacOS/Foo)
+#ifdef Q_OS_MACOS
+  options.targetExecutable = resolveAppBundle(options.targetExecutable);
+#endif
 
   // Resolve target executable path
   QFileInfo targetInfo(options.targetExecutable);
