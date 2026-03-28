@@ -640,6 +640,16 @@ class TestGetTestappPath:
         result = get_testapp_path(output_dir=tmp_path, platform_name="linux")
         assert result == wrapper
 
+    def test_finds_macos_testapp(self, tmp_path):
+        """Finds qtPilot-test-app.sh wrapper on macOS (same as Linux)."""
+        from qtpilot.download import get_testapp_path
+        testapp_dir = tmp_path / "testapp"
+        testapp_dir.mkdir()
+        wrapper = testapp_dir / "qtPilot-test-app.sh"
+        wrapper.touch()
+        result = get_testapp_path(output_dir=tmp_path, platform_name="macos")
+        assert result == wrapper
+
 
 class TestArchitectureConstants:
     """Tests for architecture-related constants."""
