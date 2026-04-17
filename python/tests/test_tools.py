@@ -30,6 +30,7 @@ class TestNativeTools:
             "qt_ping",
             "qt_objects_find",
             "qt_objects_findByClass",
+            "qt_objects_search",
             "qt_objects_tree",
             "qt_objects_info",
             "qt_objects_inspect",

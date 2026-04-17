@@ -124,6 +124,47 @@ def register_native_tools(mcp: FastMCP) -> None:
             params["root"] = root
         return await require_probe().call("qt.objects.query", params)
 
+    @mcp.tool
+    async def qt_objects_search(
+        objectName: str | None = None,
+        className: str | None = None,
+        properties: dict | None = None,
+        root: str | None = None,
+        limit: int | None = None,
+        ctx: Context = None,
+    ) -> dict:
+        """Discover objects by name, class, and/or property filters.
+
+        At least one of `objectName`, `className`, or `properties` must be provided.
+        Returns a uniform envelope with `objects`, `count`, `truncated`.
+
+        To discover which property names are available for filtering, call
+        qt_objects_inspect(objectId=X, parts=["properties"]) on a sample instance.
+
+        Args:
+            objectName: Exact match on QObject::objectName()
+            className: Exact match (subclass-aware) on metaObject()->className()
+            properties: Property-value filters; every listed property must equal the given value
+            root: Restrict search to this subtree
+            limit: Maximum matches returned (default 50)
+
+        Example: qt_objects_search(className="QPushButton", properties={"enabled": True})
+        """
+        from qtpilot.server import require_probe
+
+        params: dict = {}
+        if objectName is not None:
+            params["objectName"] = objectName
+        if className is not None:
+            params["className"] = className
+        if properties is not None:
+            params["properties"] = properties
+        if root is not None:
+            params["root"] = root
+        if limit is not None:
+            params["limit"] = limit
+        return await require_probe().call("qt.objects.search", params)
+
     # -- Properties ---------------------------------------------------------
 
     @mcp.tool
