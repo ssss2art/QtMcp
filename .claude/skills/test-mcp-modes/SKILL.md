@@ -88,22 +88,34 @@ Run these tests, recording pass/fail for each:
    - `qt_objects_find(name="nameEdit")` using the registered name — verify it resolves
    - `qt_names_unregister(name="myNameField")` — expect success
 
-10. **Models (table data):**
-    - `qt_models_list()` — expect at least 1 model (the QTableWidget's internal model)
-    - Pick a model objectId from the list
-    - `qt_models_info(objectId=<model>)` — expect rows >= 3, columns >= 3
-    - `qt_models_data(objectId=<model>, row=0, column=0)` — expect "Alpha" or similar data
+10. **Models (table data, flat model):**
+    - `qt_models_list()` — expect at least 2 models (tableWidget's internal model, treeView's model)
+    - Pick the tableWidget model objectId from the list
+    - `qt_models_info(objectId=<tableModel>)` — expect rows >= 3, columns >= 3
+    - `qt_models_data(objectId=<tableModel>)` — expect a rows array with display cells; the first row should contain "Alpha"
 
-11. **Hit test and geometry:**
+11. **Tree navigation (qt_models_data with parent, qt_models_find, qt_ui_clickItem):**
+    - Switch to the Tree tab: `qt_ui_click(objectId="treeTab")` — expect success
+    - `qt_models_data(objectId="treeView")` — expect top-level rows (ETC, Martin, BulkManufacturer), each with `hasChildren=true`, each row having a `path` field
+    - `qt_models_data(objectId="treeView", parent=[0])` — expect ETC's children (fos4..., ColorSource PAR), `path` starts with `[0, ...]`
+    - `qt_models_data(objectId="treeView", parent=[0, 0])` — expect fos4's children (Mode 8ch, Mode 12ch)
+    - `qt_models_data(objectId="treeView", parent=[99])` — expect error `kInvalidParentPath` with `failedSegment=0`
+    - `qt_models_find(objectId="treeView", value="Aura", match="contains")` — expect at least 1 match with `path=[1, 0]` (under Martin)
+    - `qt_models_find(objectId="treeView", value="Fixture 0500", match="exact", parent=[2])` — expect 1 match inside the BulkManufacturer subtree
+    - `qt_ui_clickItem(objectId="treeView", itemPath=["Martin","MAC Aura XB","Mode 12ch"], action="select")` — expect `found=true`, `path=[1,0,1]`, ancestors auto-expanded
+    - `qt_ui_clickItem(objectId="treeView", path=[0, 0], action="select")` — dual-addressing proof; expect `found=true`
+    - Pagination: `qt_models_data(objectId="treeView", parent=[2], offset=1100, limit=100)` — expect 100 rows, `hasMore=false`, first row path `[2, 1100]`
+
+12. **Hit test and geometry:**
     - `qt_ui_geometry(objectId=<submitButton>)` — expect x, y, width, height values
     - `qt_ui_hitTest(x=<center_x>, y=<center_y>)` using submitButton center — expect result identifying the submitButton
 
-12. **Events:**
+13. **Events:**
     - `qt_events_startCapture()` — expect success
     - `qt_ui_click(objectId=<submitButton>)` — generate some events
     - `qt_events_stopCapture()` — expect captured events list with entries
 
-13. **QML inspect** (may return empty if no QML items, but should not error):
+14. **QML inspect** (may return empty if no QML items, but should not error):
     - `qt_qml_inspect(objectId=<nameEdit>)` — expect a result (possibly indicating not a QML item)
 
 ### Phase 3: Recording Tests
@@ -238,7 +250,10 @@ Print a summary table:
 | Native | methods | PASS/FAIL |
 | Native | signals | PASS/FAIL |
 | Native | named_objects | PASS/FAIL |
-| Native | models | PASS/FAIL |
+| Native | models_flat_read | PASS/FAIL |
+| Native | models_tree_read | PASS/FAIL |
+| Native | models_find | PASS/FAIL |
+| Native | ui_clickItem | PASS/FAIL |
 | Native | hit_test_geometry | PASS/FAIL |
 | Native | events | PASS/FAIL |
 | Native | qml_inspect | PASS/FAIL |
@@ -267,7 +282,7 @@ Print a summary table:
 
 Mark a test as PASS if the tool returned the expected result type without error. Mark FAIL with a brief reason.
 
-Report total: **X/39 tests passed**.
+Report total: **X/42 tests passed**.
 
 ## Error Handling
 
