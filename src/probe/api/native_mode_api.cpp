@@ -19,6 +19,7 @@
 #include "introspection/signal_monitor.h"
 
 #include <QAbstractItemView>
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -626,23 +627,42 @@ void NativeModeApi::registerUiMethods() {
     }
 
     auto* view = qobject_cast<QAbstractItemView*>(obj);
-    if (!view) {
+    auto* combo = view ? nullptr : qobject_cast<QComboBox*>(obj);
+    QAbstractItemModel* model = nullptr;
+    if (view) {
+      model = view->model();
+    } else if (combo) {
+      model = combo->model();
+    }
+
+    if (!model) {
       throw JsonRpcException(
           ErrorCode::kNotAModel,
-          QStringLiteral("Object is not a QAbstractItemView"),
+          QStringLiteral("Object is not a view or combo box with a model"),
           QJsonObject{{QStringLiteral("objectId"), objectId},
                       {QStringLiteral("className"),
                        QString::fromUtf8(obj->metaObject()->className())}});
     }
-    QAbstractItemModel* model = view->model();
-    if (!model) {
-      throw JsonRpcException(
-          ErrorCode::kNotAModel, QStringLiteral("View has no model"),
-          QJsonObject{{QStringLiteral("objectId"), objectId}});
-    }
 
     const int column = p[QStringLiteral("column")].toInt(0);
     const QString action = p[QStringLiteral("action")].toString(QStringLiteral("click"));
+
+    // Early column validation — must happen before path resolution so that
+    // e.g. combo boxes (single column) report kInvalidColumn rather than
+    // kItemNotFound when caller passes a column > 0.
+    {
+      // For top-level column count we query the root's columns. Specific
+      // parent levels may have differing columnCount() but this upper bound
+      // is what the caller expressed intent against.
+      const int rootCols = combo ? 1 : model->columnCount(QModelIndex());
+      if (column < 0 || column >= rootCols) {
+        throw JsonRpcException(
+            ErrorCode::kInvalidColumn,
+            QStringLiteral("Column %1 out of range (columnCount=%2)").arg(column).arg(rootCols),
+            QJsonObject{{QStringLiteral("column"), column},
+                        {QStringLiteral("columnCount"), rootCols}});
+      }
+    }
 
     // Resolve the row-identity index.
     QModelIndex rowTarget;
@@ -701,8 +721,8 @@ void NativeModeApi::registerUiMethods() {
                              notFoundDetail);
     }
 
-    // Validate action column.
-    const int colCount = model->columnCount(rowTarget.parent());
+    // Validate action column. QComboBox is single-column.
+    const int colCount = combo ? 1 : model->columnCount(rowTarget.parent());
     if (column < 0 || column >= colCount) {
       throw JsonRpcException(
           ErrorCode::kInvalidColumn,
@@ -711,53 +731,79 @@ void NativeModeApi::registerUiMethods() {
                       {QStringLiteral("columnCount"), colCount}});
     }
 
-    const QModelIndex actionTarget = model->index(rowTarget.row(), column, rowTarget.parent());
-
-    if (action == QStringLiteral("select")) {
-      view->setCurrentIndex(actionTarget);
-    } else if (action == QStringLiteral("click")) {
-      view->setCurrentIndex(actionTarget);
-      const QRect rect = view->visualRect(actionTarget);
-      InputSimulator::mouseClick(view->viewport(), InputSimulator::MouseButton::Left,
-                                 rect.center());
-    } else if (action == QStringLiteral("doubleClick")) {
-      view->setCurrentIndex(actionTarget);
-      const QRect rect = view->visualRect(actionTarget);
-      InputSimulator::mouseDoubleClick(view->viewport(), InputSimulator::MouseButton::Left,
-                                       rect.center());
-    } else if (action == QStringLiteral("edit")) {
-      const int editColumn = p.contains(QStringLiteral("editColumn"))
-                                 ? p[QStringLiteral("editColumn")].toInt()
-                                 : column;
-      if (editColumn < 0 || editColumn >= colCount) {
-        throw JsonRpcException(
-            ErrorCode::kInvalidColumn,
-            QStringLiteral("editColumn %1 out of range (columnCount=%2)")
-                .arg(editColumn).arg(colCount),
-            QJsonObject{{QStringLiteral("editColumn"), editColumn},
-                        {QStringLiteral("columnCount"), colCount}});
-      }
-      const QModelIndex editIdx =
-          model->index(rowTarget.row(), editColumn, rowTarget.parent());
-      if (!(model->flags(editIdx) & Qt::ItemIsEditable)) {
+    if (combo) {
+      // Combo boxes: length-1 paths only; actions collapse to setCurrentIndex.
+      if (action == QStringLiteral("edit")) {
         QJsonArray pathOut;
-        for (QModelIndex w = editIdx; w.isValid(); w = w.parent())
-          pathOut.prepend(w.row());
+        pathOut.append(rowTarget.row());
         throw JsonRpcException(
-            ErrorCode::kNotEditable, QStringLiteral("Cell is not editable"),
+            ErrorCode::kNotEditable,
+            QStringLiteral("QComboBox cells are not inline-editable"),
             QJsonObject{{QStringLiteral("path"), pathOut},
-                        {QStringLiteral("editColumn"), editColumn}});
+                        {QStringLiteral("editColumn"), column}});
       }
-      view->setCurrentIndex(editIdx);
-      view->edit(editIdx);
+      if (action == QStringLiteral("select") || action == QStringLiteral("click")
+          || action == QStringLiteral("doubleClick")) {
+        combo->setCurrentIndex(rowTarget.row());
+      } else {
+        throw JsonRpcException(
+            JsonRpcError::kInvalidParams,
+            QStringLiteral("Unknown action: %1").arg(action),
+            QJsonObject{{QStringLiteral("action"), action},
+                        {QStringLiteral("validActions"),
+                         QJsonArray{QStringLiteral("select"), QStringLiteral("click"),
+                                    QStringLiteral("doubleClick")}}});
+      }
     } else {
-      throw JsonRpcException(
-          JsonRpcError::kInvalidParams,
-          QStringLiteral("Unknown action: %1").arg(action),
-          QJsonObject{{QStringLiteral("action"), action},
-                      {QStringLiteral("validActions"),
-                       QJsonArray{QStringLiteral("select"), QStringLiteral("click"),
-                                  QStringLiteral("doubleClick"), QStringLiteral("edit")}}});
+      const QModelIndex actionTarget =
+          model->index(rowTarget.row(), column, rowTarget.parent());
+
+      if (action == QStringLiteral("select")) {
+        view->setCurrentIndex(actionTarget);
+      } else if (action == QStringLiteral("click")) {
+        view->setCurrentIndex(actionTarget);
+        const QRect rect = view->visualRect(actionTarget);
+        InputSimulator::mouseClick(view->viewport(), InputSimulator::MouseButton::Left,
+                                   rect.center());
+      } else if (action == QStringLiteral("doubleClick")) {
+        view->setCurrentIndex(actionTarget);
+        const QRect rect = view->visualRect(actionTarget);
+        InputSimulator::mouseDoubleClick(view->viewport(), InputSimulator::MouseButton::Left,
+                                         rect.center());
+      } else if (action == QStringLiteral("edit")) {
+        const int editColumn = p.contains(QStringLiteral("editColumn"))
+                                   ? p[QStringLiteral("editColumn")].toInt()
+                                   : column;
+        if (editColumn < 0 || editColumn >= colCount) {
+          throw JsonRpcException(
+              ErrorCode::kInvalidColumn,
+              QStringLiteral("editColumn %1 out of range (columnCount=%2)")
+                  .arg(editColumn).arg(colCount),
+              QJsonObject{{QStringLiteral("editColumn"), editColumn},
+                          {QStringLiteral("columnCount"), colCount}});
+        }
+        const QModelIndex editIdx =
+            model->index(rowTarget.row(), editColumn, rowTarget.parent());
+        if (!(model->flags(editIdx) & Qt::ItemIsEditable)) {
+          QJsonArray pathOut;
+          for (QModelIndex w = editIdx; w.isValid(); w = w.parent())
+            pathOut.prepend(w.row());
+          throw JsonRpcException(
+              ErrorCode::kNotEditable, QStringLiteral("Cell is not editable"),
+              QJsonObject{{QStringLiteral("path"), pathOut},
+                          {QStringLiteral("editColumn"), editColumn}});
+        }
+        view->setCurrentIndex(editIdx);
+        view->edit(editIdx);
+      } else {
+        throw JsonRpcException(
+            JsonRpcError::kInvalidParams,
+            QStringLiteral("Unknown action: %1").arg(action),
+            QJsonObject{{QStringLiteral("action"), action},
+                        {QStringLiteral("validActions"),
+                         QJsonArray{QStringLiteral("select"), QStringLiteral("click"),
+                                    QStringLiteral("doubleClick"), QStringLiteral("edit")}}});
+      }
     }
 
     QJsonObject result = ModelNavigator::indexToRowData(model, rowTarget, {Qt::DisplayRole});

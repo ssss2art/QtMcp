@@ -10,6 +10,7 @@
 
 #include <QAbstractListModel>
 #include <QApplication>
+#include <QComboBox>
 #include <QPushButton>
 #include <QStandardItemModel>
 #include <QTableView>
@@ -141,6 +142,9 @@ class TestModelNavigator : public QObject {
   void testApiUiClickItemEditOpensEditor();
   void testApiUiClickItemEditInvalidColumnError();
   void testApiUiClickItemEditNonEditableError();
+  void testApiUiClickItemComboBoxSelectsValue();
+  void testApiUiClickItemComboBoxEditReturnsNotEditable();
+  void testApiUiClickItemComboBoxRejectsNonZeroColumn();
 
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
@@ -1143,6 +1147,60 @@ void TestModelNavigator::testApiUiClickItemEditNonEditableError() {
 
   delete view;
   delete model;
+}
+
+void TestModelNavigator::testApiUiClickItemComboBoxSelectsValue() {
+  auto* combo = new QComboBox();
+  combo->setObjectName("combo1");
+  combo->addItems({"Alpha", "Beta", "Gamma"});
+  combo->show();
+  QApplication::processEvents();
+  ObjectRegistry::instance()->scanExistingObjects(combo);
+
+  QString id = ObjectRegistry::instance()->objectId(combo);
+  callResult("qt.ui.clickItem",
+             QJsonObject{{"objectId", id},
+                         {"itemPath", QJsonArray{"Beta"}},
+                         {"action", "select"}});
+  QCOMPARE(combo->currentIndex(), 1);
+
+  delete combo;
+}
+
+void TestModelNavigator::testApiUiClickItemComboBoxEditReturnsNotEditable() {
+  auto* combo = new QComboBox();
+  combo->setObjectName("combo2");
+  combo->addItems({"X"});
+  combo->show();
+  QApplication::processEvents();
+  ObjectRegistry::instance()->scanExistingObjects(combo);
+
+  QString id = ObjectRegistry::instance()->objectId(combo);
+  QJsonObject error = callExpectError("qt.ui.clickItem",
+                                      QJsonObject{{"objectId", id},
+                                                  {"itemPath", QJsonArray{"X"}},
+                                                  {"action", "edit"}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kNotEditable);
+
+  delete combo;
+}
+
+void TestModelNavigator::testApiUiClickItemComboBoxRejectsNonZeroColumn() {
+  auto* combo = new QComboBox();
+  combo->setObjectName("combo3");
+  combo->addItems({"Y"});
+  combo->show();
+  QApplication::processEvents();
+  ObjectRegistry::instance()->scanExistingObjects(combo);
+
+  QString id = ObjectRegistry::instance()->objectId(combo);
+  QJsonObject error = callExpectError("qt.ui.clickItem",
+                                      QJsonObject{{"objectId", id},
+                                                  {"itemPath", QJsonArray{"Y"}},
+                                                  {"column", 1}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kInvalidColumn);
+
+  delete combo;
 }
 
 QTEST_MAIN(TestModelNavigator)

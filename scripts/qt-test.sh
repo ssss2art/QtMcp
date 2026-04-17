@@ -44,10 +44,21 @@ fi
 
 case "$OSTYPE" in
   msys*|cygwin*|win32)
-    # git-bash / mingw: cmd needs backslashes in paths it executes
+    # git-bash / mingw: cmd needs backslashes in paths it executes.
+    # Qt Test on Windows writes its PASS/FAIL report to a stream that cmd
+    # pipelines eat; route it through -o <file>,txt and dump the file.
     exe_win="${exe//\//\\}"
+    log="build/${target}.log"
+    log_win="${log//\//\\}"
     env_prefix="set PATH=${qt_dir}\\bin;%PATH% && set QT_PLUGIN_PATH=${qt_dir}\\plugins"
-    cmd //c "${env_prefix} && ${exe_win} -platform minimal $*"
+    cmd //c "${env_prefix} && ${exe_win} -platform minimal -o ${log_win},txt $*"
+    rc=$?
+    # Show a one-line summary plus any failing lines so the caller doesn't
+    # have to dig through thousands of QDEBUG records.
+    if [[ -f "$log" ]]; then
+      grep -E '^FAIL|^Totals' "$log" || true
+    fi
+    exit $rc
     ;;
   *)
     QT_PLUGIN_PATH="${qt_dir}/plugins" LD_LIBRARY_PATH="${qt_dir}/lib" "$exe" -platform minimal "$@"
