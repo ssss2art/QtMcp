@@ -106,6 +106,11 @@ class TestModelNavigator : public QObject {
   void testGetModelDataRowsHavePathField();
   void testGetModelDataInvalidParentPathReturnsEmpty();
 
+  // qt.models.data JSON-RPC handler
+  void testApiModelsDataWithParentArray();
+  void testApiModelsDataInvalidParentPathError();
+  void testApiModelsDataEchoesParent();
+
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
   QJsonObject callRaw(const QString& method, const QJsonObject& params);
@@ -684,6 +689,52 @@ void TestModelNavigator::testGetModelDataInvalidParentPathReturnsEmpty() {
   QJsonObject data = ModelNavigator::getModelData(m_smallModel, {99}, 0, -1, {});
   QCOMPARE(data["totalRows"].toInt(), 0);
   QCOMPARE(data["rows"].toArray().size(), 0);
+}
+
+// ========================================================================
+// qt.models.data JSON-RPC handler Tests
+// ========================================================================
+
+void TestModelNavigator::testApiModelsDataWithParentArray() {
+  auto* tree = new QStandardItemModel(this);
+  auto* a = new QStandardItem("A");
+  a->appendRow(new QStandardItem("A.0"));
+  a->appendRow(new QStandardItem("A.1"));
+  tree->appendRow(a);
+  tree->setObjectName("myTree");
+  ObjectRegistry::instance()->scanExistingObjects(tree);
+
+  QString modelId = ObjectRegistry::instance()->objectId(tree);
+
+  QJsonValue result = callResult("qt.models.data",
+                                 QJsonObject{{"objectId", modelId},
+                                             {"parent", QJsonArray{0}}});
+  QJsonObject data = result.toObject();
+  QCOMPARE(data["totalRows"].toInt(), 2);
+  QCOMPARE(data["rows"].toArray().size(), 2);
+  QCOMPARE(data["rows"].toArray()[0].toObject()["cells"].toArray()[0]
+               .toObject()["display"].toString(),
+           QString("A.0"));
+}
+
+void TestModelNavigator::testApiModelsDataInvalidParentPathError() {
+  QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
+  QJsonObject error = callExpectError("qt.models.data",
+                                      QJsonObject{{"objectId", modelId},
+                                                  {"parent", QJsonArray{99}}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kInvalidParentPath);
+  QJsonObject details = error["data"].toObject();
+  QCOMPARE(details["failedSegment"].toInt(), 0);
+  QVERIFY(details.contains("path"));
+  QVERIFY(details.contains("availableRows"));
+}
+
+void TestModelNavigator::testApiModelsDataEchoesParent() {
+  QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
+  QJsonValue result = callResult("qt.models.data",
+                                 QJsonObject{{"objectId", modelId},
+                                             {"parent", QJsonArray{}}});
+  QCOMPARE(result.toObject()["parent"].toArray().size(), 0);
 }
 
 QTEST_MAIN(TestModelNavigator)

@@ -847,11 +847,35 @@ void NativeModeApi::registerModelMethods() {
                        QStringLiteral("Use qt.models.list to discover available models")}});
     }
 
+    // Resolve parent path.
+    QList<int> parentPath;
+    QJsonArray parentArr = p[QStringLiteral("parent")].toArray();
+    for (const QJsonValue& v : parentArr) parentPath.append(v.toInt());
+
+    if (!parentPath.isEmpty()) {
+      int failed = -1;
+      QModelIndex parentIdx = ModelNavigator::pathToIndex(model, parentPath, &failed);
+      if (!parentIdx.isValid()) {
+        // Compute available rows at the failure point for the error detail.
+        QModelIndex walk;
+        for (int i = 0; i < failed; ++i) {
+          ModelNavigator::ensureFetched(model, walk);
+          walk = model->index(parentPath[i], 0, walk);
+        }
+        ModelNavigator::ensureFetched(model, walk);
+        throw JsonRpcException(
+            ErrorCode::kInvalidParentPath,
+            QStringLiteral("Parent path invalid at segment %1").arg(failed),
+            QJsonObject{{QStringLiteral("path"), parentArr},
+                        {QStringLiteral("failedSegment"), failed},
+                        {QStringLiteral("availableRows"), model->rowCount(walk)}});
+      }
+    }
+
     int offset = p[QStringLiteral("offset")].toInt(0);
     int limit = p[QStringLiteral("limit")].toInt(-1);
-    int parentRow = p[QStringLiteral("parentRow")].toInt(-1);
 
-    // Resolve roles parameter
+    // Resolve roles parameter.
     QList<int> resolvedRoles;
     QJsonArray rolesParam = p[QStringLiteral("roles")].toArray();
     for (const QJsonValue& roleVal : rolesParam) {
@@ -869,11 +893,6 @@ void NativeModeApi::registerModelMethods() {
         resolvedRoles.append(roleId);
       }
     }
-
-    // Translate old parentRow/parentCol into a one-level parentPath. Task 7
-    // replaces this shim with a full parent=[int] JSON-param reader.
-    QList<int> parentPath;
-    if (parentRow >= 0) parentPath.append(parentRow);
 
     QJsonObject data =
         ModelNavigator::getModelData(model, parentPath, offset, limit, resolvedRoles);
