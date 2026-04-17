@@ -898,6 +898,91 @@ void NativeModeApi::registerModelMethods() {
         ModelNavigator::getModelData(model, parentPath, offset, limit, resolvedRoles);
     return envelopeToString(ResponseEnvelope::wrap(data, objectId));
   });
+
+  // qt.models.find - recursive value search with match modes (lazy-aware)
+  m_handler->RegisterMethod(QStringLiteral("qt.models.find"), [](const QString& params) -> QString {
+    auto p = parseParams(params);
+    QObject* obj = resolveObjectParam(p, QStringLiteral("qt.models.find"));
+    QString objectId = p[QStringLiteral("objectId")].toString();
+
+    QAbstractItemModel* model = ModelNavigator::resolveModel(obj);
+    if (!model) {
+      throw JsonRpcException(
+          ErrorCode::kNotAModel,
+          QStringLiteral("Object is not a model and does not have an associated model"),
+          QJsonObject{{QStringLiteral("objectId"), objectId}});
+    }
+
+    // parent
+    QList<int> parentPath;
+    QJsonArray parentArr = p[QStringLiteral("parent")].toArray();
+    for (const QJsonValue& v : parentArr) parentPath.append(v.toInt());
+
+    QModelIndex parentIdx;
+    if (!parentPath.isEmpty()) {
+      int failed = -1;
+      parentIdx = ModelNavigator::pathToIndex(model, parentPath, &failed);
+      if (!parentIdx.isValid()) {
+        throw JsonRpcException(
+            ErrorCode::kInvalidParentPath,
+            QStringLiteral("Parent path invalid at segment %1").arg(failed),
+            QJsonObject{{QStringLiteral("path"), parentArr},
+                        {QStringLiteral("failedSegment"), failed}});
+      }
+    }
+
+    // opts
+    ModelNavigator::FindOptions opts;
+    opts.value = p[QStringLiteral("value")].toString();
+    opts.column = p[QStringLiteral("column")].toInt(0);
+
+    QJsonValue roleVal = p[QStringLiteral("role")];
+    if (roleVal.isDouble()) {
+      opts.role = roleVal.toInt();
+    } else {
+      QString roleName = roleVal.toString(QStringLiteral("display"));
+      int roleId = ModelNavigator::resolveRoleName(model, roleName);
+      if (roleId < 0) {
+        throw JsonRpcException(
+            ErrorCode::kModelRoleNotFound, QStringLiteral("Role not found: %1").arg(roleName),
+            QJsonObject{{QStringLiteral("roleName"), roleName},
+                        {QStringLiteral("availableRoles"), ModelNavigator::getRoleNames(model)}});
+      }
+      opts.role = roleId;
+    }
+
+    QString matchMode = p[QStringLiteral("match")].toString(QStringLiteral("contains"));
+    if      (matchMode == QStringLiteral("exact"))      opts.match = ModelNavigator::MatchMode::Exact;
+    else if (matchMode == QStringLiteral("contains"))   opts.match = ModelNavigator::MatchMode::Contains;
+    else if (matchMode == QStringLiteral("startsWith")) opts.match = ModelNavigator::MatchMode::StartsWith;
+    else if (matchMode == QStringLiteral("endsWith"))   opts.match = ModelNavigator::MatchMode::EndsWith;
+    else if (matchMode == QStringLiteral("regex"))      opts.match = ModelNavigator::MatchMode::Regex;
+    else {
+      throw JsonRpcException(
+          JsonRpcError::kInvalidParams,
+          QStringLiteral("Unknown match mode: %1").arg(matchMode),
+          QJsonObject{{QStringLiteral("match"), matchMode}});
+    }
+    opts.maxHits = p[QStringLiteral("maxHits")].toInt(10);
+
+    // Compile regex if needed.
+    QString regexError;
+    if (!ModelNavigator::compileFindOptions(opts, &regexError)) {
+      throw JsonRpcException(
+          ErrorCode::kInvalidRegex, QStringLiteral("Invalid regex: %1").arg(regexError),
+          QJsonObject{{QStringLiteral("pattern"), opts.value},
+                      {QStringLiteral("error"), regexError}});
+    }
+
+    QJsonArray matches;
+    bool truncated = ModelNavigator::findRecursive(model, parentIdx, opts, matches);
+
+    QJsonObject result;
+    result[QStringLiteral("matches")] = matches;
+    result[QStringLiteral("count")] = matches.size();
+    result[QStringLiteral("truncated")] = truncated;
+    return envelopeToString(ResponseEnvelope::wrap(result, objectId));
+  });
 }
 
 }  // namespace qtPilot

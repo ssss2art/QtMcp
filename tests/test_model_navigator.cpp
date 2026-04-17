@@ -120,6 +120,14 @@ class TestModelNavigator : public QObject {
   void testFindRecursiveRegex();
   void testFindRecursiveInvalidRegex();
 
+  // qt.models.find JSON-RPC handler
+  void testApiModelsFindExact();
+  void testApiModelsFindContainsReturnsPathAndCells();
+  void testApiModelsFindScopesToParent();
+  void testApiModelsFindTruncated();
+  void testApiModelsFindInvalidRegexError();
+  void testApiModelsFindRoleNotFoundError();
+
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
   QJsonObject callRaw(const QString& method, const QJsonObject& params);
@@ -882,6 +890,87 @@ void TestModelNavigator::testFindRecursiveInvalidRegex() {
   QVERIFY(!err.isEmpty());
 
   delete tree;
+}
+
+// ========================================================================
+// qt.models.find JSON-RPC handler Tests
+// ========================================================================
+
+void TestModelNavigator::testApiModelsFindExact() {
+  QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
+  QJsonValue result = callResult("qt.models.find",
+                                 QJsonObject{{"objectId", modelId},
+                                             {"value", "B1"},
+                                             {"match", "exact"}});
+  QJsonObject data = result.toObject();
+  QCOMPARE(data["count"].toInt(), 1);
+  QJsonArray matches = data["matches"].toArray();
+  QCOMPARE(matches[0].toObject()["path"].toArray()[0].toInt(), 1);
+}
+
+void TestModelNavigator::testApiModelsFindContainsReturnsPathAndCells() {
+  QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
+  QJsonValue result = callResult("qt.models.find",
+                                 QJsonObject{{"objectId", modelId},
+                                             {"value", "1"},
+                                             {"match", "contains"}});
+  QJsonObject data = result.toObject();
+  // A1, B1, C1 contain "1" in column 0 → 3 matches.
+  QCOMPARE(data["count"].toInt(), 3);
+  QJsonArray first = data["matches"].toArray()[0].toObject()["cells"].toArray();
+  QVERIFY(!first.isEmpty());
+}
+
+void TestModelNavigator::testApiModelsFindScopesToParent() {
+  auto* tree = new QStandardItemModel(this);
+  auto* a = new QStandardItem("A");
+  a->appendRow(new QStandardItem("target"));
+  auto* b = new QStandardItem("B");
+  b->appendRow(new QStandardItem("target"));
+  tree->appendRow(a);
+  tree->appendRow(b);
+  tree->setObjectName("scopedTree");
+  ObjectRegistry::instance()->scanExistingObjects(tree);
+  QString id = ObjectRegistry::instance()->objectId(tree);
+
+  QJsonValue result = callResult("qt.models.find",
+                                 QJsonObject{{"objectId", id},
+                                             {"value", "target"},
+                                             {"match", "exact"},
+                                             {"parent", QJsonArray{0}}});
+  QCOMPARE(result.toObject()["count"].toInt(), 1);
+}
+
+void TestModelNavigator::testApiModelsFindTruncated() {
+  QString modelId = ObjectRegistry::instance()->objectId(m_largeModel);
+  QJsonValue result = callResult("qt.models.find",
+                                 QJsonObject{{"objectId", modelId},
+                                             {"value", "Row"},
+                                             {"match", "contains"},
+                                             {"maxHits", 3}});
+  QJsonObject data = result.toObject();
+  QCOMPARE(data["count"].toInt(), 3);
+  QCOMPARE(data["truncated"].toBool(), true);
+}
+
+void TestModelNavigator::testApiModelsFindInvalidRegexError() {
+  QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
+  QJsonObject error = callExpectError("qt.models.find",
+                                      QJsonObject{{"objectId", modelId},
+                                                  {"value", "[unclosed"},
+                                                  {"match", "regex"}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kInvalidRegex);
+  QVERIFY(error["data"].toObject().contains("pattern"));
+  QVERIFY(error["data"].toObject().contains("error"));
+}
+
+void TestModelNavigator::testApiModelsFindRoleNotFoundError() {
+  QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
+  QJsonObject error = callExpectError("qt.models.find",
+                                      QJsonObject{{"objectId", modelId},
+                                                  {"value", "x"},
+                                                  {"role", "nonexistent"}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kModelRoleNotFound);
 }
 
 QTEST_MAIN(TestModelNavigator)
