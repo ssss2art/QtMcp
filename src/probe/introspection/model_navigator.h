@@ -111,6 +111,18 @@ class QTPILOT_EXPORT ModelNavigator {
   static QModelIndex pathToIndex(QAbstractItemModel* model, const QList<int>& path,
                                  int* outFailedSegment = nullptr);
 
+  /// @brief Walk a text path, matching each segment against cell display text.
+  ///
+  /// Matching is exact and case-sensitive. First matching row at each level
+  /// is taken. Returns a row-identity QModelIndex (column 0). If no match at
+  /// some level, returns invalid; (if set) writes segment index to output.
+  /// @param model The model to walk.
+  /// @param itemPath Display text at each level.
+  /// @param matchColumn Column whose display data is matched against each segment.
+  /// @param outFailedSegment Optional output: first failing segment index.
+  static QModelIndex textPathToIndex(QAbstractItemModel* model, const QStringList& itemPath,
+                                     int matchColumn, int* outFailedSegment = nullptr);
+
  private:
   ModelNavigator() = delete;  // Purely static, no instantiation
 };

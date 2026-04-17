@@ -86,6 +86,9 @@ class TestModelNavigator : public QObject {
   void testPathToIndexTwoLevel();
   void testPathToIndexInvalidReturnsFailedSegment();
   void testPathToIndexCallsEnsureFetched();
+  void testTextPathToIndexTwoLevel();
+  void testTextPathToIndexMissingSegment();
+  void testTextPathToIndexWithColumn();
 
   // qt.qml.inspect
   void testQmlInspectNonQmlObject();
@@ -559,6 +562,48 @@ void TestModelNavigator::testPathToIndexCallsEnsureFetched() {
   QModelIndex idx = ModelNavigator::pathToIndex(&lazy, {5});
   QVERIFY(idx.isValid());
   QCOMPARE(lazy.data(idx, Qt::DisplayRole).toString(), QString("Row5"));
+}
+
+void TestModelNavigator::testTextPathToIndexTwoLevel() {
+  auto* tree = new QStandardItemModel(this);
+  auto* etc = new QStandardItem("ETC");
+  etc->appendRow(new QStandardItem("fos4 Fresnel"));
+  etc->appendRow(new QStandardItem("ColorSource"));
+  tree->appendRow(etc);
+
+  QModelIndex idx = ModelNavigator::textPathToIndex(tree, {"ETC", "fos4 Fresnel"}, 0);
+  QVERIFY(idx.isValid());
+  QCOMPARE(tree->data(idx, Qt::DisplayRole).toString(), QString("fos4 Fresnel"));
+
+  delete tree;
+}
+
+void TestModelNavigator::testTextPathToIndexMissingSegment() {
+  auto* tree = new QStandardItemModel(this);
+  tree->appendRow(new QStandardItem("A"));
+
+  int failed = -1;
+  QModelIndex idx = ModelNavigator::textPathToIndex(tree, {"A", "missing"}, 0, &failed);
+  QVERIFY(!idx.isValid());
+  QCOMPARE(failed, 1);
+
+  delete tree;
+}
+
+void TestModelNavigator::testTextPathToIndexWithColumn() {
+  // 2-column flat model, match against column 1.
+  auto* tree = new QStandardItemModel(3, 2, this);
+  tree->setItem(0, 0, new QStandardItem("r0c0"));
+  tree->setItem(0, 1, new QStandardItem("r0c1"));
+  tree->setItem(1, 0, new QStandardItem("r1c0"));
+  tree->setItem(1, 1, new QStandardItem("r1c1"));
+  tree->setItem(2, 0, new QStandardItem("r2c0"));
+  tree->setItem(2, 1, new QStandardItem("r2c1"));
+
+  QModelIndex idx = ModelNavigator::textPathToIndex(tree, {"r1c1"}, 1);
+  QVERIFY(idx.isValid());
+  // Row identity should be row 1 (addressed via column 0).
+  QCOMPARE(idx.row(), 1);
 }
 
 QTEST_MAIN(TestModelNavigator)

@@ -212,6 +212,35 @@ QModelIndex ModelNavigator::pathToIndex(QAbstractItemModel* model, const QList<i
   return current;
 }
 
+QModelIndex ModelNavigator::textPathToIndex(QAbstractItemModel* model, const QStringList& itemPath,
+                                            int matchColumn, int* outFailedSegment) {
+  if (!model) {
+    if (outFailedSegment) *outFailedSegment = 0;
+    return {};
+  }
+  QModelIndex current;  // invalid = root
+  for (int i = 0; i < itemPath.size(); ++i) {
+    ensureFetched(model, current);
+    const QString& wanted = itemPath[i];
+    const int rows = model->rowCount(current);
+    bool matched = false;
+    for (int row = 0; row < rows; ++row) {
+      const QModelIndex cell = model->index(row, matchColumn, current);
+      if (!cell.isValid()) continue;
+      if (model->data(cell, Qt::DisplayRole).toString() == wanted) {
+        current = model->index(row, 0, current);  // row identity in column 0
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      if (outFailedSegment) *outFailedSegment = i;
+      return {};
+    }
+  }
+  return current;
+}
+
 QAbstractItemModel* ModelNavigator::resolveModel(QObject* obj) {
   if (!obj)
     return nullptr;
