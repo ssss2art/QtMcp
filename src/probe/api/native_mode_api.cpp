@@ -850,7 +850,6 @@ void NativeModeApi::registerModelMethods() {
     int offset = p[QStringLiteral("offset")].toInt(0);
     int limit = p[QStringLiteral("limit")].toInt(-1);
     int parentRow = p[QStringLiteral("parentRow")].toInt(-1);
-    int parentCol = p[QStringLiteral("parentCol")].toInt(0);
 
     // Resolve roles parameter
     QList<int> resolvedRoles;
@@ -871,8 +870,13 @@ void NativeModeApi::registerModelMethods() {
       }
     }
 
+    // Translate old parentRow/parentCol into a one-level parentPath. Task 7
+    // replaces this shim with a full parent=[int] JSON-param reader.
+    QList<int> parentPath;
+    if (parentRow >= 0) parentPath.append(parentRow);
+
     QJsonObject data =
-        ModelNavigator::getModelData(model, offset, limit, resolvedRoles, parentRow, parentCol);
+        ModelNavigator::getModelData(model, parentPath, offset, limit, resolvedRoles);
     return envelopeToString(ResponseEnvelope::wrap(data, objectId));
   });
 }

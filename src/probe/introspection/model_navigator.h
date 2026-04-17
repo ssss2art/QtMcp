@@ -40,24 +40,24 @@ class QTPILOT_EXPORT ModelNavigator {
   ///         hasChildren, className.
   static QJsonObject getModelInfo(QAbstractItemModel* model);
 
-  /// @brief Retrieve model data with smart pagination.
+  /// @brief Retrieve model data at `parentPath`, with smart pagination and role filtering.
   ///
-  /// Smart pagination rules:
-  /// - If limit <= 0 and totalRows <= 100: return all rows
-  /// - If limit <= 0 and totalRows > 100: return first 100 rows
-  /// - Otherwise: use provided offset/limit
+  /// Smart pagination rules (applied only when limit <= 0):
+  /// - totalRows <= 100: return all rows
+  /// - totalRows > 100: return first 100 rows
+  /// Rows returned carry a `path` field relative to the model root.
+  /// ensureFetched is called at every level of the path walk and at the
+  /// destination parent before counting rows.
   ///
   /// @param model The model to read data from.
-  /// @param offset Row offset (default 0).
-  /// @param limit Max rows to return (-1 = auto: all if <100, else 100).
-  /// @param roles List of role IDs to fetch (empty = Qt::DisplayRole only).
-  /// @param parentRow Parent row for tree navigation (-1 = root).
-  /// @param parentCol Parent column for tree navigation (default 0).
-  /// @return JSON object with rows, totalRows, totalColumns, offset,
-  ///         limit, hasMore.
-  static QJsonObject getModelData(QAbstractItemModel* model, int offset = 0, int limit = -1,
-                                  const QList<int>& roles = {}, int parentRow = -1,
-                                  int parentCol = 0);
+  /// @param parentPath Row path to the parent node; empty = root.
+  /// @param offset Row offset among children of `parentPath`.
+  /// @param limit Max rows; -1 = auto.
+  /// @param roles Role IDs; empty = Qt::DisplayRole only.
+  /// @return JSON object with parent, rows, totalRows, totalColumns, offset, limit, hasMore.
+  static QJsonObject getModelData(QAbstractItemModel* model, const QList<int>& parentPath,
+                                  int offset = 0, int limit = -1,
+                                  const QList<int>& roles = {});
 
   /// @brief Resolve a QObject to its underlying QAbstractItemModel.
   ///

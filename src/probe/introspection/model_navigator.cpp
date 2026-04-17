@@ -80,104 +80,56 @@ QJsonObject ModelNavigator::getModelInfo(QAbstractItemModel* model) {
   return info;
 }
 
-QJsonObject ModelNavigator::getModelData(QAbstractItemModel* model, int offset, int limit,
-                                         const QList<int>& roles, int parentRow, int parentCol) {
+QJsonObject ModelNavigator::getModelData(QAbstractItemModel* model, const QList<int>& parentPath,
+                                         int offset, int limit, const QList<int>& roles) {
   QJsonObject result;
-  if (!model) {
+  // Echo the parent path first so all early-return shapes match.
+  QJsonArray parentArr;
+  for (int seg : parentPath) parentArr.append(seg);
+  result[QStringLiteral("parent")] = parentArr;
+
+  auto fillEmpty = [&](int off, int lim) {
     result[QStringLiteral("rows")] = QJsonArray();
     result[QStringLiteral("totalRows")] = 0;
     result[QStringLiteral("totalColumns")] = 0;
-    result[QStringLiteral("offset")] = 0;
-    result[QStringLiteral("limit")] = 0;
+    result[QStringLiteral("offset")] = off;
+    result[QStringLiteral("limit")] = lim;
     result[QStringLiteral("hasMore")] = false;
-    return result;
-  }
+  };
+  if (!model) { fillEmpty(0, 0); return result; }
 
-  // Build parent QModelIndex for tree navigation
-  QModelIndex parentIdx;
-  if (parentRow >= 0) {
-    parentIdx = model->index(parentRow, parentCol, QModelIndex());
-  }
+  // Resolve parent. Invalid path → empty result (handler emits kInvalidParentPath).
+  QModelIndex parentIdx = pathToIndex(model, parentPath);
+  if (!parentPath.isEmpty() && !parentIdx.isValid()) { fillEmpty(0, 0); return result; }
 
+  ensureFetched(model, parentIdx);
   const int totalRows = model->rowCount(parentIdx);
   const int totalCols = model->columnCount(parentIdx);
 
-  // Smart pagination
+  // Smart pagination.
   if (limit <= 0) {
-    if (totalRows <= 100) {
-      offset = 0;
-      limit = totalRows;
-    } else {
-      limit = 100;
-    }
+    if (totalRows <= 100) { offset = 0; limit = totalRows; }
+    else { limit = 100; }
   }
-
-  // Clamp offset
-  if (offset < 0)
-    offset = 0;
-  if (offset > totalRows)
-    offset = totalRows;
-
+  if (offset < 0) offset = 0;
+  if (offset > totalRows) offset = totalRows;
   const int endRow = qMin(offset + limit, totalRows);
 
-  // Default roles
-  QList<int> effectiveRoles = roles;
-  if (effectiveRoles.isEmpty()) {
-    effectiveRoles.append(Qt::DisplayRole);
-  }
+  QList<int> effective = roles;
+  if (effective.isEmpty()) effective.append(Qt::DisplayRole);
 
-  // Build role name map for output keys
-  const QHash<int, QByteArray> modelRoleNames = model->roleNames();
-
-  // Fetch data
-  QJsonArray rowsArray;
+  QJsonArray rowsArr;
   for (int row = offset; row < endRow; ++row) {
-    QJsonObject rowObj;
-    QJsonArray cellsArray;
-
-    for (int col = 0; col < totalCols; ++col) {
-      const QModelIndex idx = model->index(row, col, parentIdx);
-      QJsonObject cellObj;
-
-      for (int role : effectiveRoles) {
-        const QVariant data = model->data(idx, role);
-        // Determine role name for JSON key
-        QString roleName;
-        if (modelRoleNames.contains(role)) {
-          roleName = QString::fromUtf8(modelRoleNames.value(role));
-        } else {
-          // Fallback to standard role name
-          const auto& stdRoles = standardRoleNames();
-          for (auto it = stdRoles.constBegin(); it != stdRoles.constEnd(); ++it) {
-            if (it.value() == role) {
-              roleName = it.key();
-              break;
-            }
-          }
-          if (roleName.isEmpty()) {
-            roleName = QStringLiteral("role_") + QString::number(role);
-          }
-        }
-        cellObj[roleName] = variantToJson(data);
-      }
-
-      cellsArray.append(cellObj);
-    }
-
-    // Check if row has children (for tree navigation)
-    const QModelIndex firstColIdx = model->index(row, 0, parentIdx);
-    rowObj[QStringLiteral("cells")] = cellsArray;
-    rowObj[QStringLiteral("hasChildren")] = model->hasChildren(firstColIdx);
-    rowsArray.append(rowObj);
+    const QModelIndex idx = model->index(row, 0, parentIdx);
+    rowsArr.append(indexToRowData(model, idx, effective));
   }
 
-  result[QStringLiteral("rows")] = rowsArray;
+  result[QStringLiteral("rows")] = rowsArr;
   result[QStringLiteral("totalRows")] = totalRows;
   result[QStringLiteral("totalColumns")] = totalCols;
   result[QStringLiteral("offset")] = offset;
   result[QStringLiteral("limit")] = limit;
   result[QStringLiteral("hasMore")] = (endRow < totalRows);
-
   return result;
 }
 

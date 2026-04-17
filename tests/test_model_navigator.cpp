@@ -101,6 +101,11 @@ class TestModelNavigator : public QObject {
   // indexToRowData helper
   void testIndexToRowDataProducesPathAndCells();
 
+  // getModelData with parentPath
+  void testGetModelDataWithTwoLevelParentPath();
+  void testGetModelDataRowsHavePathField();
+  void testGetModelDataInvalidParentPathReturnsEmpty();
+
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
   QJsonObject callRaw(const QString& method, const QJsonObject& params);
@@ -634,6 +639,51 @@ void TestModelNavigator::testIndexToRowDataProducesPathAndCells() {
   QCOMPARE(row["hasChildren"].toBool(), false);
 
   delete tree;
+}
+
+// ========================================================================
+// getModelData with parentPath Tests
+// ========================================================================
+
+void TestModelNavigator::testGetModelDataWithTwoLevelParentPath() {
+  auto* tree = new QStandardItemModel(this);
+  auto* a = new QStandardItem("A");
+  a->appendRow(new QStandardItem("A.0"));
+  a->appendRow(new QStandardItem("A.1"));
+  auto* aa0 = new QStandardItem("A.0 child placeholder");
+  a->child(0)->appendRow(aa0);
+  tree->appendRow(a);
+
+  QJsonObject data = ModelNavigator::getModelData(tree, {0, 0}, 0, -1, {});
+  QCOMPARE(data["totalRows"].toInt(), 1);
+  QJsonArray rows = data["rows"].toArray();
+  QCOMPARE(rows.size(), 1);
+  QJsonArray path = rows[0].toObject()["path"].toArray();
+  QCOMPARE(path.size(), 3);
+  QCOMPARE(path[0].toInt(), 0);
+  QCOMPARE(path[1].toInt(), 0);
+  QCOMPARE(path[2].toInt(), 0);
+
+  delete tree;
+}
+
+void TestModelNavigator::testGetModelDataRowsHavePathField() {
+  QJsonObject data = ModelNavigator::getModelData(m_smallModel, {}, 0, -1, {});
+  QJsonArray rows = data["rows"].toArray();
+  QCOMPARE(rows.size(), 3);
+  for (int i = 0; i < 3; ++i) {
+    QJsonArray path = rows[i].toObject()["path"].toArray();
+    QCOMPARE(path.size(), 1);
+    QCOMPARE(path[0].toInt(), i);
+  }
+  // parent echo
+  QCOMPARE(data["parent"].toArray().size(), 0);
+}
+
+void TestModelNavigator::testGetModelDataInvalidParentPathReturnsEmpty() {
+  QJsonObject data = ModelNavigator::getModelData(m_smallModel, {99}, 0, -1, {});
+  QCOMPARE(data["totalRows"].toInt(), 0);
+  QCOMPARE(data["rows"].toArray().size(), 0);
 }
 
 QTEST_MAIN(TestModelNavigator)
