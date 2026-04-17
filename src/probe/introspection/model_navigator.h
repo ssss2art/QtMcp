@@ -123,6 +123,17 @@ class QTPILOT_EXPORT ModelNavigator {
   static QModelIndex textPathToIndex(QAbstractItemModel* model, const QStringList& itemPath,
                                      int matchColumn, int* outFailedSegment = nullptr);
 
+  /// @brief Convert a QModelIndex to a {path, cells, hasChildren} JSON row.
+  ///
+  /// `path` is built by walking up via parent(). `cells` contains one entry
+  /// per column at the index's level, each carrying the requested roles.
+  /// Does not fetchMore — caller is responsible if iterating children.
+  /// @param model The model.
+  /// @param index The index to serialize.
+  /// @param roles Role IDs to fetch per cell. Empty → Qt::DisplayRole only.
+  static QJsonObject indexToRowData(QAbstractItemModel* model, const QModelIndex& index,
+                                    const QList<int>& roles = {});
+
  private:
   ModelNavigator() = delete;  // Purely static, no instantiation
 };

@@ -290,6 +290,51 @@ int ModelNavigator::resolveRoleName(QAbstractItemModel* model, const QString& ro
   return -1;
 }
 
+QJsonObject ModelNavigator::indexToRowData(QAbstractItemModel* model, const QModelIndex& index,
+                                           const QList<int>& roles) {
+  QJsonObject row;
+  if (!model || !index.isValid()) return row;
+
+  // Build path by walking up to root.
+  QJsonArray pathArr;
+  for (QModelIndex walk = index; walk.isValid(); walk = walk.parent()) {
+    pathArr.prepend(walk.row());
+  }
+  row[QStringLiteral("path")] = pathArr;
+
+  // Effective roles.
+  QList<int> effective = roles;
+  if (effective.isEmpty()) effective.append(Qt::DisplayRole);
+
+  const QHash<int, QByteArray> modelRoleNames = model->roleNames();
+  const QModelIndex parent = index.parent();
+  const int colCount = model->columnCount(parent);
+
+  QJsonArray cells;
+  for (int col = 0; col < colCount; ++col) {
+    const QModelIndex cellIdx = model->index(index.row(), col, parent);
+    QJsonObject cell;
+    for (int role : effective) {
+      QString roleName;
+      if (modelRoleNames.contains(role)) {
+        roleName = QString::fromUtf8(modelRoleNames.value(role));
+      } else {
+        const auto& std = standardRoleNames();
+        for (auto it = std.constBegin(); it != std.constEnd(); ++it) {
+          if (it.value() == role) { roleName = it.key(); break; }
+        }
+        if (roleName.isEmpty())
+          roleName = QStringLiteral("role_") + QString::number(role);
+      }
+      cell[roleName] = variantToJson(model->data(cellIdx, role));
+    }
+    cells.append(cell);
+  }
+  row[QStringLiteral("cells")] = cells;
+  row[QStringLiteral("hasChildren")] = model->hasChildren(model->index(index.row(), 0, parent));
+  return row;
+}
+
 QJsonObject ModelNavigator::getRoleNames(QAbstractItemModel* model) {
   QJsonObject result;
   if (!model)

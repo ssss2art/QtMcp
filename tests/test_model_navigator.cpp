@@ -98,6 +98,9 @@ class TestModelNavigator : public QObject {
   void testResponseEnvelopeWrapping();
   void testModelsListResponseEnvelope();
 
+  // indexToRowData helper
+  void testIndexToRowDataProducesPathAndCells();
+
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
   QJsonObject callRaw(const QString& method, const QJsonObject& params);
@@ -604,6 +607,33 @@ void TestModelNavigator::testTextPathToIndexWithColumn() {
   QVERIFY(idx.isValid());
   // Row identity should be row 1 (addressed via column 0).
   QCOMPARE(idx.row(), 1);
+}
+
+// ========================================================================
+// indexToRowData Helper Tests
+// ========================================================================
+
+void TestModelNavigator::testIndexToRowDataProducesPathAndCells() {
+  auto* tree = new QStandardItemModel(this);
+  auto* parent = new QStandardItem("P");
+  parent->appendRow(new QStandardItem("C0"));
+  parent->appendRow(new QStandardItem("C1"));
+  tree->appendRow(parent);
+
+  const QModelIndex c1 = tree->index(1, 0, tree->index(0, 0));
+  QJsonObject row = ModelNavigator::indexToRowData(tree, c1, {Qt::DisplayRole});
+
+  QJsonArray path = row["path"].toArray();
+  QCOMPARE(path.size(), 2);
+  QCOMPARE(path[0].toInt(), 0);
+  QCOMPARE(path[1].toInt(), 1);
+
+  QJsonArray cells = row["cells"].toArray();
+  QCOMPARE(cells.size(), 1);  // single column
+  QCOMPARE(cells[0].toObject()["display"].toString(), QString("C1"));
+  QCOMPARE(row["hasChildren"].toBool(), false);
+
+  delete tree;
 }
 
 QTEST_MAIN(TestModelNavigator)
