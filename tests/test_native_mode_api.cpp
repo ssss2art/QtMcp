@@ -10,6 +10,7 @@
 #include "transport/jsonrpc_handler.h"
 
 #include <QApplication>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSignalSpy>
@@ -50,6 +51,11 @@ class TestNativeModeApi : public QObject {
   void testObjectsInspect();
   void testObjectsQuery();
   void testObjectsQueryWithPropertyFilter();
+  void testObjectsSearchByClassName();
+  void testObjectsSearchByObjectName();
+  void testObjectsSearchByProperties();
+  void testObjectsSearchNoFiltersIsError();
+  void testObjectsSearchLimitTruncation();
 
   // Properties (qt.properties.*)
   void testPropertiesList();
@@ -400,6 +406,96 @@ void TestNativeModeApi::testObjectsQueryWithPropertyFilter() {
     QJsonObject entry = v.toObject();
     QVERIFY(entry["className"].toString().contains("QPushButton"));
   }
+}
+
+void TestNativeModeApi::testObjectsSearchByClassName() {
+  auto* widget = new QPushButton(QStringLiteral("test"), m_testWindow);
+  widget->setObjectName(QStringLiteral("searchTarget"));
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+
+  QJsonObject params;
+  params[QStringLiteral("className")] = QStringLiteral("QPushButton");
+  QJsonValue result = callResult("qt.objects.search", params);
+
+  QVERIFY(result.isObject());
+  QJsonObject obj = result.toObject();
+  QVERIFY(obj.contains(QStringLiteral("objects")));
+  QVERIFY(obj.contains(QStringLiteral("count")));
+  QVERIFY(obj.contains(QStringLiteral("truncated")));
+  QJsonArray objects = obj[QStringLiteral("objects")].toArray();
+  QVERIFY(objects.size() >= 1);
+
+  bool found = false;
+  for (const auto& v : objects) {
+    QJsonObject entry = v.toObject();
+    if (entry[QStringLiteral("objectName")].toString() == QStringLiteral("searchTarget")) {
+      found = true;
+      QCOMPARE(entry[QStringLiteral("className")].toString(), QStringLiteral("QPushButton"));
+      QVERIFY(entry.contains(QStringLiteral("objectId")));
+      QVERIFY(entry.contains(QStringLiteral("numericId")));
+      break;
+    }
+  }
+  QVERIFY(found);
+}
+
+void TestNativeModeApi::testObjectsSearchByObjectName() {
+  auto* w = new QLabel(QStringLiteral("hello"), m_testWindow);
+  w->setObjectName(QStringLiteral("uniqueLabel42"));
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+
+  QJsonObject params;
+  params[QStringLiteral("objectName")] = QStringLiteral("uniqueLabel42");
+  QJsonValue result = callResult("qt.objects.search", params);
+
+  QJsonArray objects = result.toObject()[QStringLiteral("objects")].toArray();
+  QCOMPARE(objects.size(), 1);
+  QCOMPARE(objects[0].toObject()[QStringLiteral("objectName")].toString(),
+           QStringLiteral("uniqueLabel42"));
+}
+
+void TestNativeModeApi::testObjectsSearchByProperties() {
+  auto* w = new QPushButton(QStringLiteral("Go"), m_testWindow);
+  w->setObjectName(QStringLiteral("propTestBtn"));
+  w->setEnabled(false);
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+
+  QJsonObject params;
+  params[QStringLiteral("className")] = QStringLiteral("QPushButton");
+  QJsonObject props;
+  props[QStringLiteral("enabled")] = false;
+  params[QStringLiteral("properties")] = props;
+  QJsonValue result = callResult("qt.objects.search", params);
+
+  QJsonArray objects = result.toObject()[QStringLiteral("objects")].toArray();
+  bool found = false;
+  for (const auto& v : objects) {
+    if (v.toObject()[QStringLiteral("objectName")].toString() == QStringLiteral("propTestBtn")) {
+      found = true;
+      break;
+    }
+  }
+  QVERIFY(found);
+}
+
+void TestNativeModeApi::testObjectsSearchNoFiltersIsError() {
+  QJsonObject params;
+  QJsonObject error = callExpectError("qt.objects.search", params);
+  QCOMPARE(error[QStringLiteral("code")].toInt(), int(JsonRpcError::kInvalidParams));
+}
+
+void TestNativeModeApi::testObjectsSearchLimitTruncation() {
+  auto* lbl = new QLabel(QStringLiteral("truncTest"), m_testWindow);
+  lbl->setObjectName(QStringLiteral("truncLabel_0"));
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+
+  QJsonObject params;
+  params[QStringLiteral("objectName")] = QStringLiteral("truncLabel_0");
+  params[QStringLiteral("limit")] = 0;
+  QJsonValue result = callResult("qt.objects.search", params);
+  QJsonObject obj = result.toObject();
+  QCOMPARE(obj[QStringLiteral("count")].toInt(), 0);
+  QCOMPARE(obj[QStringLiteral("truncated")].toBool(), true);
 }
 
 // ========================================================================

@@ -327,6 +327,94 @@ void NativeModeApi::registerObjectMethods() {
 
         return envelopeToString(ResponseEnvelope::wrap(matches));
       });
+
+  // qt.objects.search - unified discovery: objectName / className / properties filters
+  m_handler->RegisterMethod(
+      QStringLiteral("qt.objects.search"), [](const QString& params) -> QString {
+        auto p = parseParams(params);
+        QString objectName = p[QStringLiteral("objectName")].toString();
+        QString className = p[QStringLiteral("className")].toString();
+        QJsonObject propFilters = p[QStringLiteral("properties")].toObject();
+        QString rootId = p[QStringLiteral("root")].toString();
+        int limit = p.contains(QStringLiteral("limit")) ? p[QStringLiteral("limit")].toInt() : 50;
+
+        if (objectName.isEmpty() && className.isEmpty() && propFilters.isEmpty()) {
+          throw JsonRpcException(
+              JsonRpcError::kInvalidParams,
+              QStringLiteral("Specify at least one of objectName, className, properties"),
+              QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.objects.search")}});
+        }
+        if (limit < 0) {
+          throw JsonRpcException(
+              JsonRpcError::kInvalidParams, QStringLiteral("limit must be >= 0"),
+              QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.objects.search")}});
+        }
+
+        QObject* rootObj = nullptr;
+        if (!rootId.isEmpty()) {
+          rootObj = ObjectResolver::resolve(rootId);
+        }
+
+        QList<QObject*> candidates;
+        if (!className.isEmpty()) {
+          candidates = ObjectRegistry::instance()->findAllByClassName(className, rootObj);
+        } else {
+          candidates = ObjectRegistry::instance()->allObjects();
+          if (rootObj) {
+            QList<QObject*> filtered;
+            for (QObject* obj : candidates) {
+              QObject* parent = obj;
+              while (parent && parent != rootObj) parent = parent->parent();
+              if (parent == rootObj) filtered.append(obj);
+            }
+            candidates = filtered;
+          }
+        }
+
+        QJsonArray matches;
+        bool truncated = false;
+        for (QObject* obj : candidates) {
+          if (!objectName.isEmpty() && obj->objectName() != objectName) {
+            continue;
+          }
+          if (!propFilters.isEmpty()) {
+            bool ok = true;
+            for (auto it = propFilters.constBegin(); it != propFilters.constEnd(); ++it) {
+              try {
+                QJsonValue actual = MetaInspector::getProperty(obj, it.key());
+                if (actual != it.value()) {
+                  ok = false;
+                  break;
+                }
+              } catch (...) {
+                ok = false;
+                break;
+              }
+            }
+            if (!ok) continue;
+          }
+
+          if (matches.size() >= limit) {
+            truncated = true;
+            break;
+          }
+
+          QString objId = ObjectRegistry::instance()->objectId(obj);
+          int numId = ObjectResolver::assignNumericId(obj);
+          QJsonObject entry;
+          entry[QStringLiteral("objectId")] = objId;
+          entry[QStringLiteral("className")] = QString::fromUtf8(obj->metaObject()->className());
+          entry[QStringLiteral("objectName")] = obj->objectName();
+          entry[QStringLiteral("numericId")] = numId;
+          matches.append(entry);
+        }
+
+        QJsonObject result;
+        result[QStringLiteral("objects")] = matches;
+        result[QStringLiteral("count")] = matches.size();
+        result[QStringLiteral("truncated")] = truncated;
+        return envelopeToString(ResponseEnvelope::wrap(result));
+      });
 }
 
 // ============================================================================
