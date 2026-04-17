@@ -181,6 +181,14 @@ QJsonObject ModelNavigator::getModelData(QAbstractItemModel* model, int offset, 
   return result;
 }
 
+void ModelNavigator::ensureFetched(QAbstractItemModel* model, const QModelIndex& parentIdx) {
+  if (!model) return;
+  // Drain fetchMore loop — some models fetch in batches.
+  while (model->canFetchMore(parentIdx)) {
+    model->fetchMore(parentIdx);
+  }
+}
+
 QAbstractItemModel* ModelNavigator::resolveModel(QObject* obj) {
   if (!obj)
     return nullptr;

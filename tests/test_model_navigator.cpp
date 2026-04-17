@@ -6,7 +6,9 @@
 #include "core/object_registry.h"
 #include "core/object_resolver.h"
 #include "transport/jsonrpc_handler.h"
+#include "introspection/model_navigator.h"
 
+#include <QAbstractListModel>
 #include <QApplication>
 #include <QPushButton>
 #include <QStandardItemModel>
@@ -14,6 +16,36 @@
 #include <QtTest>
 
 using namespace qtPilot;
+
+/// Minimal lazy model: rowCount reports 0 until fetchMore is called.
+class LazyFlatModel : public QAbstractListModel {
+ public:
+  explicit LazyFlatModel(int virtualCount, QObject* parent = nullptr)
+      : QAbstractListModel(parent), m_virtualCount(virtualCount) {}
+
+  int rowCount(const QModelIndex& parent = QModelIndex()) const override {
+    return parent.isValid() ? 0 : m_fetched;
+  }
+  QVariant data(const QModelIndex& idx, int role = Qt::DisplayRole) const override {
+    if (!idx.isValid() || role != Qt::DisplayRole) return {};
+    return QString("Row%1").arg(idx.row());
+  }
+  bool canFetchMore(const QModelIndex& parent) const override {
+    return !parent.isValid() && m_fetched < m_virtualCount;
+  }
+  void fetchMore(const QModelIndex& parent) override {
+    if (parent.isValid() || m_fetched >= m_virtualCount) return;
+    const int toAdd = m_virtualCount - m_fetched;
+    beginInsertRows(QModelIndex(), m_fetched, m_fetched + toAdd - 1);
+    m_fetched += toAdd;
+    endInsertRows();
+  }
+  int fetchedRows() const { return m_fetched; }
+
+ private:
+  int m_virtualCount;
+  int m_fetched = 0;
+};
 
 /// @brief Integration tests for qt.models.* and qt.qml.inspect API methods.
 ///
@@ -47,6 +79,9 @@ class TestModelNavigator : public QObject {
   void testModelsDataByRoleId();
   void testModelsDataInvalidRole();
   void testModelsDataNotAModel();
+
+  // Tree/path helpers
+  void testEnsureFetchedCallsFetchMoreOnLazyModel();
 
   // qt.qml.inspect
   void testQmlInspectNonQmlObject();
@@ -469,6 +504,20 @@ void TestModelNavigator::testModelsListResponseEnvelope() {
   QVERIFY(envelope.contains("result"));
   QVERIFY(envelope.contains("meta"));
   QVERIFY(envelope["result"].isArray());
+}
+
+// ========================================================================
+// Tree/Path Helper Tests
+// ========================================================================
+
+void TestModelNavigator::testEnsureFetchedCallsFetchMoreOnLazyModel() {
+  LazyFlatModel lazy(42, this);
+  QCOMPARE(lazy.fetchedRows(), 0);
+
+  ModelNavigator::ensureFetched(&lazy, QModelIndex());
+
+  QCOMPARE(lazy.fetchedRows(), 42);
+  QCOMPARE(lazy.rowCount(), 42);
 }
 
 QTEST_MAIN(TestModelNavigator)

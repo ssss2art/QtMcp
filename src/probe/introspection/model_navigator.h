@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "core/probe.h"  // For QTPILOT_EXPORT
+
 #include <QAbstractItemModel>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -20,7 +22,7 @@ namespace qtPilot {
 ///
 /// Smart pagination: models with <=100 rows return all data by default;
 /// larger models return the first 100 rows per page.
-class ModelNavigator {
+class QTPILOT_EXPORT ModelNavigator {
  public:
   /// @brief Discover all QAbstractItemModel instances via ObjectRegistry.
   ///
@@ -86,6 +88,15 @@ class ModelNavigator {
   /// @param model The model to get role names from.
   /// @return JSON object: {"0": "display", "1": "decoration", ...}
   static QJsonObject getRoleNames(QAbstractItemModel* model);
+
+  /// @brief Force-load lazy children at parentIdx until canFetchMore returns false.
+  ///
+  /// Qt lazy models (e.g., QFileSystemModel) may report rowCount=0 until
+  /// fetchMore is called. This helper drains the fetch queue so subsequent
+  /// rowCount/index calls see the full set of children.
+  /// @param model The model whose children to fetch.
+  /// @param parentIdx The parent index. Default (invalid) = root.
+  static void ensureFetched(QAbstractItemModel* model, const QModelIndex& parentIdx = QModelIndex());
 
  private:
   ModelNavigator() = delete;  // Purely static, no instantiation
