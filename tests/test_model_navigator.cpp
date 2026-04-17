@@ -145,6 +145,7 @@ class TestModelNavigator : public QObject {
   void testApiUiClickItemComboBoxSelectsValue();
   void testApiUiClickItemComboBoxEditReturnsNotEditable();
   void testApiUiClickItemComboBoxRejectsNonZeroColumn();
+  void testApiUiClickItemExpandsAncestors();
 
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
@@ -1201,6 +1202,40 @@ void TestModelNavigator::testApiUiClickItemComboBoxRejectsNonZeroColumn() {
   QCOMPARE(error["code"].toInt(), ErrorCode::kInvalidColumn);
 
   delete combo;
+}
+
+void TestModelNavigator::testApiUiClickItemExpandsAncestors() {
+  auto* tree = new QStandardItemModel(this);
+  auto* a = new QStandardItem("A");
+  auto* aa = new QStandardItem("A.A");
+  aa->appendRow(new QStandardItem("leaf"));
+  a->appendRow(aa);
+  tree->appendRow(a);
+
+  auto* view = new QTreeView();
+  view->setObjectName("expandTree");
+  view->setModel(tree);
+  view->show();
+  QApplication::processEvents();
+  ObjectRegistry::instance()->scanExistingObjects(tree);
+  ObjectRegistry::instance()->scanExistingObjects(view);
+
+  QString viewId = ObjectRegistry::instance()->objectId(view);
+
+  // All ancestors start collapsed.
+  QVERIFY(!view->isExpanded(tree->index(0, 0)));
+  QVERIFY(!view->isExpanded(tree->index(0, 0, tree->index(0, 0))));
+
+  callResult("qt.ui.clickItem",
+             QJsonObject{{"objectId", viewId},
+                         {"path", QJsonArray{0, 0, 0}},
+                         {"action", "select"}});
+
+  QVERIFY(view->isExpanded(tree->index(0, 0)));
+  QVERIFY(view->isExpanded(tree->index(0, 0, tree->index(0, 0))));
+
+  delete view;
+  delete tree;
 }
 
 QTEST_MAIN(TestModelNavigator)

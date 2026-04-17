@@ -20,6 +20,7 @@
 
 #include <QAbstractItemView>
 #include <QComboBox>
+#include <QTreeView>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -757,6 +758,21 @@ void NativeModeApi::registerUiMethods() {
     } else {
       const QModelIndex actionTarget =
           model->index(rowTarget.row(), column, rowTarget.parent());
+
+      const bool wantExpand = p.contains(QStringLiteral("expand"))
+                                  ? p[QStringLiteral("expand")].toBool()
+                                  : true;
+      const bool wantScroll = p.contains(QStringLiteral("scroll"))
+                                  ? p[QStringLiteral("scroll")].toBool()
+                                  : true;
+      if (wantExpand) {
+        if (auto* treeView = qobject_cast<QTreeView*>(view)) {
+          for (QModelIndex anc = actionTarget.parent(); anc.isValid(); anc = anc.parent()) {
+            treeView->expand(anc);
+          }
+        }
+      }
+      if (wantScroll) view->scrollTo(actionTarget);
 
       if (action == QStringLiteral("select")) {
         view->setCurrentIndex(actionTarget);
