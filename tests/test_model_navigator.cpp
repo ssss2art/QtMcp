@@ -128,6 +128,12 @@ class TestModelNavigator : public QObject {
   void testApiModelsFindInvalidRegexError();
   void testApiModelsFindRoleNotFoundError();
 
+  // qt.ui.clickItem JSON-RPC handler
+  void testApiUiClickItemPathSelect();
+  void testApiUiClickItemMissingPathAndItemPath();
+  void testApiUiClickItemBothPathAndItemPathError();
+  void testApiUiClickItemInvalidPathError();
+
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
   QJsonObject callRaw(const QString& method, const QJsonObject& params);
@@ -971,6 +977,52 @@ void TestModelNavigator::testApiModelsFindRoleNotFoundError() {
                                                   {"value", "x"},
                                                   {"role", "nonexistent"}});
   QCOMPARE(error["code"].toInt(), ErrorCode::kModelRoleNotFound);
+}
+
+// ========================================================================
+// qt.ui.clickItem JSON-RPC handler Tests
+// ========================================================================
+
+void TestModelNavigator::testApiUiClickItemPathSelect() {
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  QJsonValue result = callResult("qt.ui.clickItem",
+                                 QJsonObject{{"objectId", viewId},
+                                             {"path", QJsonArray{1}},
+                                             {"action", "select"}});
+  QJsonObject data = result.toObject();
+  QCOMPARE(data["found"].toBool(), true);
+  QCOMPARE(data["path"].toArray()[0].toInt(), 1);
+  // Verify the view's current index reflects the selection.
+  QCOMPARE(m_tableView->currentIndex().row(), 1);
+}
+
+void TestModelNavigator::testApiUiClickItemMissingPathAndItemPath() {
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  QJsonObject error = callExpectError("qt.ui.clickItem",
+                                      QJsonObject{{"objectId", viewId},
+                                                  {"action", "select"}});
+  QCOMPARE(error["code"].toInt(), JsonRpcError::kInvalidParams);
+}
+
+void TestModelNavigator::testApiUiClickItemBothPathAndItemPathError() {
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  QJsonObject error = callExpectError("qt.ui.clickItem",
+                                      QJsonObject{{"objectId", viewId},
+                                                  {"path", QJsonArray{0}},
+                                                  {"itemPath", QJsonArray{"A1"}}});
+  QCOMPARE(error["code"].toInt(), JsonRpcError::kInvalidParams);
+}
+
+void TestModelNavigator::testApiUiClickItemInvalidPathError() {
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  QJsonObject error = callExpectError("qt.ui.clickItem",
+                                      QJsonObject{{"objectId", viewId},
+                                                  {"path", QJsonArray{99}}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kItemNotFound);
+  QJsonObject details = error["data"].toObject();
+  QCOMPARE(details["mode"].toString(), QString("row"));
+  QCOMPARE(details["failedSegment"].toInt(), 0);
+  QCOMPARE(details["requestedRow"].toInt(), 99);
 }
 
 QTEST_MAIN(TestModelNavigator)

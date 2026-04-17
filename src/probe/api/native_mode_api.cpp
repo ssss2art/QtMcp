@@ -18,6 +18,7 @@
 #include "introspection/qml_inspector.h"
 #include "introspection/signal_monitor.h"
 
+#include <QAbstractItemView>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -605,6 +606,127 @@ void NativeModeApi::registerUiMethods() {
 
     QJsonObject result;
     result[QStringLiteral("success")] = true;
+    return envelopeToString(ResponseEnvelope::wrap(result, objectId));
+  });
+
+  // qt.ui.clickItem - select/click/edit an item by itemPath (string[]) or path (int[]).
+  m_handler->RegisterMethod(
+      QStringLiteral("qt.ui.clickItem"), [](const QString& params) -> QString {
+    auto p = parseParams(params);
+    QObject* obj = resolveObjectParam(p, QStringLiteral("qt.ui.clickItem"));
+    QString objectId = p[QStringLiteral("objectId")].toString();
+
+    const bool hasPath = p.contains(QStringLiteral("path"));
+    const bool hasItemPath = p.contains(QStringLiteral("itemPath"));
+    if (hasPath == hasItemPath) {
+      throw JsonRpcException(
+          JsonRpcError::kInvalidParams,
+          QStringLiteral("Exactly one of 'path' or 'itemPath' is required"),
+          QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.ui.clickItem")}});
+    }
+
+    auto* view = qobject_cast<QAbstractItemView*>(obj);
+    if (!view) {
+      throw JsonRpcException(
+          ErrorCode::kNotAModel,
+          QStringLiteral("Object is not a QAbstractItemView"),
+          QJsonObject{{QStringLiteral("objectId"), objectId},
+                      {QStringLiteral("className"),
+                       QString::fromUtf8(obj->metaObject()->className())}});
+    }
+    QAbstractItemModel* model = view->model();
+    if (!model) {
+      throw JsonRpcException(
+          ErrorCode::kNotAModel, QStringLiteral("View has no model"),
+          QJsonObject{{QStringLiteral("objectId"), objectId}});
+    }
+
+    const int column = p[QStringLiteral("column")].toInt(0);
+    const QString action = p[QStringLiteral("action")].toString(QStringLiteral("click"));
+
+    // Resolve the row-identity index.
+    QModelIndex rowTarget;
+    int failedSegment = -1;
+    QJsonObject notFoundDetail;
+
+    if (hasPath) {
+      QList<int> rowPath;
+      QJsonArray pathArr = p[QStringLiteral("path")].toArray();
+      for (const QJsonValue& v : pathArr) rowPath.append(v.toInt());
+      rowTarget = ModelNavigator::pathToIndex(model, rowPath, &failedSegment);
+      if (!rowTarget.isValid()) {
+        QModelIndex walk;
+        for (int i = 0; i < failedSegment; ++i) {
+          ModelNavigator::ensureFetched(model, walk);
+          walk = model->index(rowPath[i], 0, walk);
+        }
+        ModelNavigator::ensureFetched(model, walk);
+        QJsonArray partial;
+        for (int i = 0; i < failedSegment; ++i) partial.append(rowPath[i]);
+        notFoundDetail = QJsonObject{{QStringLiteral("mode"), QStringLiteral("row")},
+                                     {QStringLiteral("failedSegment"), failedSegment},
+                                     {QStringLiteral("requestedRow"), rowPath.value(failedSegment, -1)},
+                                     {QStringLiteral("availableRows"), model->rowCount(walk)},
+                                     {QStringLiteral("partialPath"), partial}};
+      }
+    } else {
+      QStringList itemPath;
+      QJsonArray ipArr = p[QStringLiteral("itemPath")].toArray();
+      for (const QJsonValue& v : ipArr) itemPath.append(v.toString());
+      rowTarget = ModelNavigator::textPathToIndex(model, itemPath, column, &failedSegment);
+      if (!rowTarget.isValid()) {
+        QJsonArray partial;
+        QModelIndex walk;
+        for (int i = 0; i < failedSegment; ++i) {
+          ModelNavigator::ensureFetched(model, walk);
+          const int rows = model->rowCount(walk);
+          for (int r = 0; r < rows; ++r) {
+            const QModelIndex cell = model->index(r, column, walk);
+            if (model->data(cell, Qt::DisplayRole).toString() == itemPath[i]) {
+              partial.append(r);
+              walk = model->index(r, 0, walk);
+              break;
+            }
+          }
+        }
+        notFoundDetail = QJsonObject{{QStringLiteral("mode"), QStringLiteral("text")},
+                                     {QStringLiteral("failedSegment"), failedSegment},
+                                     {QStringLiteral("segmentText"), itemPath.value(failedSegment)},
+                                     {QStringLiteral("partialPath"), partial}};
+      }
+    }
+
+    if (!rowTarget.isValid()) {
+      throw JsonRpcException(ErrorCode::kItemNotFound, QStringLiteral("Item not found"),
+                             notFoundDetail);
+    }
+
+    // Validate action column.
+    const int colCount = model->columnCount(rowTarget.parent());
+    if (column < 0 || column >= colCount) {
+      throw JsonRpcException(
+          ErrorCode::kInvalidColumn,
+          QStringLiteral("Column %1 out of range (columnCount=%2)").arg(column).arg(colCount),
+          QJsonObject{{QStringLiteral("column"), column},
+                      {QStringLiteral("columnCount"), colCount}});
+    }
+
+    const QModelIndex actionTarget = model->index(rowTarget.row(), column, rowTarget.parent());
+
+    // Action dispatch — for now, only "select" is implemented. Other actions land in Task 12.
+    if (action == QStringLiteral("select")) {
+      view->setCurrentIndex(actionTarget);
+    } else {
+      throw JsonRpcException(
+          JsonRpcError::kInvalidParams,
+          QStringLiteral("Action not yet implemented in this build: %1").arg(action),
+          QJsonObject{{QStringLiteral("action"), action}});
+    }
+
+    QJsonObject result = ModelNavigator::indexToRowData(model, rowTarget, {Qt::DisplayRole});
+    result[QStringLiteral("found")] = true;
+    result[QStringLiteral("action")] = action;
+    if (hasItemPath) result[QStringLiteral("itemPath")] = p[QStringLiteral("itemPath")];
     return envelopeToString(ResponseEnvelope::wrap(result, objectId));
   });
 
