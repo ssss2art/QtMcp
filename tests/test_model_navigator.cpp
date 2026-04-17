@@ -82,6 +82,10 @@ class TestModelNavigator : public QObject {
 
   // Tree/path helpers
   void testEnsureFetchedCallsFetchMoreOnLazyModel();
+  void testPathToIndexRoot();
+  void testPathToIndexTwoLevel();
+  void testPathToIndexInvalidReturnsFailedSegment();
+  void testPathToIndexCallsEnsureFetched();
 
   // qt.qml.inspect
   void testQmlInspectNonQmlObject();
@@ -518,6 +522,43 @@ void TestModelNavigator::testEnsureFetchedCallsFetchMoreOnLazyModel() {
 
   QCOMPARE(lazy.fetchedRows(), 42);
   QCOMPARE(lazy.rowCount(), 42);
+}
+
+void TestModelNavigator::testPathToIndexRoot() {
+  QModelIndex idx = ModelNavigator::pathToIndex(m_smallModel, {});
+  QVERIFY(!idx.isValid());  // root
+}
+
+void TestModelNavigator::testPathToIndexTwoLevel() {
+  // Build a 2-level tree in a QStandardItemModel.
+  auto* tree = new QStandardItemModel(this);
+  auto* a = new QStandardItem("A");
+  auto* b = new QStandardItem("B");
+  a->appendRow(new QStandardItem("A.0"));
+  a->appendRow(new QStandardItem("A.1"));
+  b->appendRow(new QStandardItem("B.0"));
+  tree->appendRow(a);
+  tree->appendRow(b);
+
+  QModelIndex idx = ModelNavigator::pathToIndex(tree, {0, 1});
+  QVERIFY(idx.isValid());
+  QCOMPARE(tree->data(idx, Qt::DisplayRole).toString(), QString("A.1"));
+
+  delete tree;
+}
+
+void TestModelNavigator::testPathToIndexInvalidReturnsFailedSegment() {
+  int failed = -1;
+  QModelIndex idx = ModelNavigator::pathToIndex(m_smallModel, {99}, &failed);
+  QVERIFY(!idx.isValid());
+  QCOMPARE(failed, 0);
+}
+
+void TestModelNavigator::testPathToIndexCallsEnsureFetched() {
+  LazyFlatModel lazy(10, this);
+  QModelIndex idx = ModelNavigator::pathToIndex(&lazy, {5});
+  QVERIFY(idx.isValid());
+  QCOMPARE(lazy.data(idx, Qt::DisplayRole).toString(), QString("Row5"));
 }
 
 QTEST_MAIN(TestModelNavigator)

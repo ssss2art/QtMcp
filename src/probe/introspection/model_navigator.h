@@ -98,6 +98,19 @@ class QTPILOT_EXPORT ModelNavigator {
   /// @param parentIdx The parent index. Default (invalid) = root.
   static void ensureFetched(QAbstractItemModel* model, const QModelIndex& parentIdx = QModelIndex());
 
+  /// @brief Walk a row path, calling ensureFetched at each level.
+  ///
+  /// Each segment indexes into column 0 of the current parent. Returns an
+  /// invalid QModelIndex for the root (empty path). If any segment is out
+  /// of range, returns an invalid index and (if outFailedSegment is set)
+  /// writes the 0-based index of the failing segment.
+  /// @param model The model to walk.
+  /// @param path  Row indices, one per tree level.
+  /// @param outFailedSegment Optional output: index of first failing segment.
+  /// @return QModelIndex for the target node, or invalid on failure.
+  static QModelIndex pathToIndex(QAbstractItemModel* model, const QList<int>& path,
+                                 int* outFailedSegment = nullptr);
+
  private:
   ModelNavigator() = delete;  // Purely static, no instantiation
 };

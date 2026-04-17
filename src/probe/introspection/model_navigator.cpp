@@ -189,6 +189,29 @@ void ModelNavigator::ensureFetched(QAbstractItemModel* model, const QModelIndex&
   }
 }
 
+QModelIndex ModelNavigator::pathToIndex(QAbstractItemModel* model, const QList<int>& path,
+                                        int* outFailedSegment) {
+  if (!model) {
+    if (outFailedSegment) *outFailedSegment = 0;
+    return {};
+  }
+  QModelIndex current;  // invalid = root
+  for (int i = 0; i < path.size(); ++i) {
+    ensureFetched(model, current);
+    const int row = path[i];
+    if (row < 0 || row >= model->rowCount(current)) {
+      if (outFailedSegment) *outFailedSegment = i;
+      return {};
+    }
+    current = model->index(row, 0, current);
+    if (!current.isValid()) {
+      if (outFailedSegment) *outFailedSegment = i;
+      return {};
+    }
+  }
+  return current;
+}
+
 QAbstractItemModel* ModelNavigator::resolveModel(QObject* obj) {
   if (!obj)
     return nullptr;
