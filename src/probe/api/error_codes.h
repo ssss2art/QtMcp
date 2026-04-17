@@ -60,6 +60,11 @@ constexpr int kModelNotFound = -32090;
 constexpr int kModelIndexOutOfBounds = -32091;
 constexpr int kModelRoleNotFound = -32092;
 constexpr int kNotAModel = -32093;
+constexpr int kInvalidParentPath = -32094;
+constexpr int kItemNotFound = -32095;
+constexpr int kInvalidColumn = -32096;
+constexpr int kNotEditable = -32097;
+constexpr int kInvalidRegex = -32098;
 
 }  // namespace ErrorCode
 }  // namespace qtPilot
