@@ -410,27 +410,30 @@ def register_native_tools(mcp: FastMCP) -> None:
     @mcp.tool
     async def qt_models_data(
         objectId: str,
-        row: int | None = None,
-        column: int | None = None,
-        role: str | int | None = None,
+        parent: list[int] | None = None,
         offset: int | None = None,
         limit: int | None = None,
+        roles: list[str] | None = None,
         ctx: Context = None,
     ) -> dict:
-        """Read data from a model with optional row/column/role filtering and pagination.
-        Example: qt_models_data(objectId="tableModel", row=0, column=1)
+        """Read rows from a model/view, at any depth via `parent` row-path.
+
+        `parent=[]` (or omitted) returns top-level rows. `parent=[0, 2]` returns
+        the children of the third child of the first top-level row. Each returned
+        row carries a full `path` field and a `hasChildren` flag so callers can
+        recurse. Pagination via `offset`/`limit` applies to children of `parent`.
+        Lazy models (canFetchMore) are force-fetched at each level.
+        Example: qt_models_data(objectId="treeView", parent=[0], limit=50)
         """
         from qtpilot.server import require_probe
 
         params: dict = {"objectId": objectId}
-        if row is not None:
-            params["row"] = row
-        if column is not None:
-            params["column"] = column
-        if role is not None:
-            params["role"] = role
+        if parent is not None:
+            params["parent"] = parent
         if offset is not None:
             params["offset"] = offset
         if limit is not None:
             params["limit"] = limit
+        if roles is not None:
+            params["roles"] = roles
         return await require_probe().call("qt.models.data", params)
