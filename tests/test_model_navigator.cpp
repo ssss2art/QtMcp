@@ -111,6 +111,15 @@ class TestModelNavigator : public QObject {
   void testApiModelsDataInvalidParentPathError();
   void testApiModelsDataEchoesParent();
 
+  // findRecursive walker
+  void testFindRecursiveExactMatch();
+  void testFindRecursiveContainsMultipleLevels();
+  void testFindRecursiveRespectsMaxHits();
+  void testFindRecursiveScopesToParent();
+  void testFindRecursiveFindsLazyChildren();
+  void testFindRecursiveRegex();
+  void testFindRecursiveInvalidRegex();
+
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
   QJsonObject callRaw(const QString& method, const QJsonObject& params);
@@ -735,6 +744,144 @@ void TestModelNavigator::testApiModelsDataEchoesParent() {
                                  QJsonObject{{"objectId", modelId},
                                              {"parent", QJsonArray{}}});
   QCOMPARE(result.toObject()["parent"].toArray().size(), 0);
+}
+
+// ========================================================================
+// findRecursive Walker Tests
+// ========================================================================
+
+void TestModelNavigator::testFindRecursiveExactMatch() {
+  auto* tree = new QStandardItemModel(this);
+  auto* etc = new QStandardItem("ETC");
+  etc->appendRow(new QStandardItem("fos4 Fresnel"));
+  tree->appendRow(etc);
+  tree->appendRow(new QStandardItem("Martin"));
+
+  ModelNavigator::FindOptions opts;
+  opts.value = "Martin";
+  opts.match = ModelNavigator::MatchMode::Exact;
+  opts.maxHits = 10;
+
+  QJsonArray matches;
+  bool truncated = ModelNavigator::findRecursive(tree, QModelIndex(), opts, matches);
+  QCOMPARE(matches.size(), 1);
+  QCOMPARE(truncated, false);
+  QJsonArray path = matches[0].toObject()["path"].toArray();
+  QCOMPARE(path.size(), 1);
+  QCOMPARE(path[0].toInt(), 1);
+
+  delete tree;
+}
+
+void TestModelNavigator::testFindRecursiveContainsMultipleLevels() {
+  auto* tree = new QStandardItemModel(this);
+  auto* a = new QStandardItem("ETC");
+  a->appendRow(new QStandardItem("fos4 Fresnel"));
+  a->appendRow(new QStandardItem("ColorSource"));
+  tree->appendRow(a);
+  auto* b = new QStandardItem("Martin");
+  b->appendRow(new QStandardItem("MAC Fresnel"));
+  tree->appendRow(b);
+
+  ModelNavigator::FindOptions opts;
+  opts.value = "Fresnel";
+  opts.match = ModelNavigator::MatchMode::Contains;
+  opts.maxHits = 10;
+
+  QJsonArray matches;
+  ModelNavigator::findRecursive(tree, QModelIndex(), opts, matches);
+  QCOMPARE(matches.size(), 2);
+
+  delete tree;
+}
+
+void TestModelNavigator::testFindRecursiveRespectsMaxHits() {
+  auto* tree = new QStandardItemModel(this);
+  for (int i = 0; i < 5; ++i) tree->appendRow(new QStandardItem("match"));
+
+  ModelNavigator::FindOptions opts;
+  opts.value = "match";
+  opts.match = ModelNavigator::MatchMode::Exact;
+  opts.maxHits = 2;
+
+  QJsonArray matches;
+  bool truncated = ModelNavigator::findRecursive(tree, QModelIndex(), opts, matches);
+  QCOMPARE(matches.size(), 2);
+  QCOMPARE(truncated, true);
+
+  delete tree;
+}
+
+void TestModelNavigator::testFindRecursiveScopesToParent() {
+  auto* tree = new QStandardItemModel(this);
+  auto* a = new QStandardItem("A");
+  a->appendRow(new QStandardItem("target"));
+  auto* b = new QStandardItem("B");
+  b->appendRow(new QStandardItem("target"));
+  tree->appendRow(a);
+  tree->appendRow(b);
+
+  ModelNavigator::FindOptions opts;
+  opts.value = "target";
+  opts.match = ModelNavigator::MatchMode::Exact;
+  opts.maxHits = 10;
+
+  QJsonArray matches;
+  ModelNavigator::findRecursive(tree, tree->index(0, 0), opts, matches);
+  QCOMPARE(matches.size(), 1);
+
+  delete tree;
+}
+
+void TestModelNavigator::testFindRecursiveFindsLazyChildren() {
+  LazyFlatModel lazy(20, this);
+
+  ModelNavigator::FindOptions opts;
+  opts.value = "Row15";
+  opts.match = ModelNavigator::MatchMode::Exact;
+  opts.maxHits = 10;
+
+  QJsonArray matches;
+  ModelNavigator::findRecursive(&lazy, QModelIndex(), opts, matches);
+  QCOMPARE(matches.size(), 1);
+  QCOMPARE(lazy.fetchedRows(), 20);
+}
+
+void TestModelNavigator::testFindRecursiveRegex() {
+  auto* tree = new QStandardItemModel(this);
+  tree->appendRow(new QStandardItem("foo123"));
+  tree->appendRow(new QStandardItem("bar"));
+  tree->appendRow(new QStandardItem("foo456"));
+
+  ModelNavigator::FindOptions opts;
+  opts.value = "foo[0-9]+";
+  opts.match = ModelNavigator::MatchMode::Regex;
+  opts.maxHits = 10;
+
+  QString err;
+  QVERIFY(ModelNavigator::compileFindOptions(opts, &err));
+  QJsonArray matches;
+  ModelNavigator::findRecursive(tree, QModelIndex(), opts, matches);
+  QCOMPARE(matches.size(), 2);
+
+  delete tree;
+}
+
+void TestModelNavigator::testFindRecursiveInvalidRegex() {
+  auto* tree = new QStandardItemModel(this);
+  tree->appendRow(new QStandardItem("x"));
+
+  ModelNavigator::FindOptions opts;
+  opts.value = "[unclosed";
+  opts.match = ModelNavigator::MatchMode::Regex;
+  opts.maxHits = 10;
+
+  QString err;
+  bool ok = ModelNavigator::compileFindOptions(opts, &err);
+  QCOMPARE(ok, false);
+  QVERIFY(!err.isEmpty());
+
+  delete tree;
 }
 
 QTEST_MAIN(TestModelNavigator)

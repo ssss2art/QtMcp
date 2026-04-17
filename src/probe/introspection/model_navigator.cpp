@@ -193,6 +193,58 @@ QModelIndex ModelNavigator::textPathToIndex(QAbstractItemModel* model, const QSt
   return current;
 }
 
+bool ModelNavigator::compileFindOptions(FindOptions& opts, QString* outError) {
+  if (opts.match != MatchMode::Regex) return true;
+  opts.compiledRegex.setPattern(opts.value);
+  opts.compiledRegex.setPatternOptions(QRegularExpression::CaseInsensitiveOption);
+  if (!opts.compiledRegex.isValid()) {
+    if (outError) *outError = opts.compiledRegex.errorString();
+    return false;
+  }
+  return true;
+}
+
+namespace {
+bool matchesValue(const QString& cell, const ModelNavigator::FindOptions& opts) {
+  switch (opts.match) {
+    case ModelNavigator::MatchMode::Exact:
+      return cell.compare(opts.value, Qt::CaseInsensitive) == 0;
+    case ModelNavigator::MatchMode::Contains:
+      return cell.contains(opts.value, Qt::CaseInsensitive);
+    case ModelNavigator::MatchMode::StartsWith:
+      return cell.startsWith(opts.value, Qt::CaseInsensitive);
+    case ModelNavigator::MatchMode::EndsWith:
+      return cell.endsWith(opts.value, Qt::CaseInsensitive);
+    case ModelNavigator::MatchMode::Regex:
+      return opts.compiledRegex.match(cell).hasMatch();
+  }
+  return false;
+}
+}  // namespace
+
+bool ModelNavigator::findRecursive(QAbstractItemModel* model, const QModelIndex& parentIdx,
+                                   FindOptions& opts, QJsonArray& outMatches) {
+  if (!model) return false;
+  ensureFetched(model, parentIdx);
+  const int rows = model->rowCount(parentIdx);
+  for (int row = 0; row < rows; ++row) {
+    const QModelIndex cellIdx = model->index(row, opts.column, parentIdx);
+    if (cellIdx.isValid()) {
+      const QString cellText = model->data(cellIdx, opts.role).toString();
+      if (matchesValue(cellText, opts)) {
+        const QModelIndex rowIdx = model->index(row, 0, parentIdx);
+        outMatches.append(indexToRowData(model, rowIdx, {opts.role}));
+        if (opts.maxHits >= 0 && outMatches.size() >= opts.maxHits) return true;
+      }
+    }
+    const QModelIndex childParent = model->index(row, 0, parentIdx);
+    if (model->hasChildren(childParent)) {
+      if (findRecursive(model, childParent, opts, outMatches)) return true;
+    }
+  }
+  return false;
+}
+
 QAbstractItemModel* ModelNavigator::resolveModel(QObject* obj) {
   if (!obj)
     return nullptr;

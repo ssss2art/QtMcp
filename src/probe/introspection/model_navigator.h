@@ -9,6 +9,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QList>
+#include <QRegularExpression>
 #include <QString>
 
 namespace qtPilot {
@@ -133,6 +134,37 @@ class QTPILOT_EXPORT ModelNavigator {
   /// @param roles Role IDs to fetch per cell. Empty → Qt::DisplayRole only.
   static QJsonObject indexToRowData(QAbstractItemModel* model, const QModelIndex& index,
                                     const QList<int>& roles = {});
+
+  /// Match modes for findRecursive.
+  enum class MatchMode { Exact, Contains, StartsWith, EndsWith, Regex };
+
+  /// Options bag for findRecursive.
+  struct FindOptions {
+    QString value;
+    int column = 0;
+    int role = Qt::DisplayRole;
+    MatchMode match = MatchMode::Contains;
+    int maxHits = 10;    // -1 = unlimited
+    // Compiled regex lives on the options struct so the walker reuses it.
+    QRegularExpression compiledRegex;
+  };
+
+  /// @brief Pre-compile regex (if applicable) and return false on bad pattern.
+  /// @param opts Options to compile. `opts.compiledRegex` is updated in place.
+  /// @param outError Optional error message on failure.
+  static bool compileFindOptions(FindOptions& opts, QString* outError = nullptr);
+
+  /// @brief Depth-first search of `parent`'s subtree for rows whose cell at
+  /// `opts.column` matches `opts.value` under `opts.role` using `opts.match`.
+  /// Calls ensureFetched before every rowCount/index. Appends row data (via
+  /// indexToRowData) to `outMatches`. Returns true if truncated at maxHits.
+  /// @param model The model.
+  /// @param parentIdx Starting parent (invalid = root).
+  /// @param opts Find options (regex must be pre-compiled via compileFindOptions).
+  /// @param outMatches JSON array to append matches to.
+  /// @return true if the walk was truncated by maxHits; false if it ran to completion.
+  static bool findRecursive(QAbstractItemModel* model, const QModelIndex& parentIdx,
+                            FindOptions& opts, QJsonArray& outMatches);
 
  private:
   ModelNavigator() = delete;  // Purely static, no instantiation
