@@ -13,6 +13,7 @@
 #include <QPushButton>
 #include <QStandardItemModel>
 #include <QTableView>
+#include <QTreeView>
 #include <QtTest>
 
 using namespace qtPilot;
@@ -133,6 +134,8 @@ class TestModelNavigator : public QObject {
   void testApiUiClickItemMissingPathAndItemPath();
   void testApiUiClickItemBothPathAndItemPathError();
   void testApiUiClickItemInvalidPathError();
+  void testApiUiClickItemTextPathSelect();
+  void testApiUiClickItemTextPathMissingSegment();
 
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
@@ -1023,6 +1026,46 @@ void TestModelNavigator::testApiUiClickItemInvalidPathError() {
   QCOMPARE(details["mode"].toString(), QString("row"));
   QCOMPARE(details["failedSegment"].toInt(), 0);
   QCOMPARE(details["requestedRow"].toInt(), 99);
+}
+
+void TestModelNavigator::testApiUiClickItemTextPathSelect() {
+  auto* tree = new QStandardItemModel(this);
+  auto* etc = new QStandardItem("ETC");
+  etc->appendRow(new QStandardItem("fos4 Fresnel"));
+  tree->appendRow(etc);
+  auto* view = new QTreeView();
+  view->setObjectName("treeView");
+  view->setModel(tree);
+  view->show();
+  QApplication::processEvents();
+  ObjectRegistry::instance()->scanExistingObjects(tree);
+  ObjectRegistry::instance()->scanExistingObjects(view);
+
+  QString viewId = ObjectRegistry::instance()->objectId(view);
+  QJsonValue result = callResult("qt.ui.clickItem",
+                                 QJsonObject{{"objectId", viewId},
+                                             {"itemPath", QJsonArray{"ETC", "fos4 Fresnel"}},
+                                             {"action", "select"}});
+  QJsonObject data = result.toObject();
+  QCOMPARE(data["found"].toBool(), true);
+  QJsonArray path = data["path"].toArray();
+  QCOMPARE(path.size(), 2);
+  QCOMPARE(path[0].toInt(), 0);
+  QCOMPARE(path[1].toInt(), 0);
+
+  delete view;
+  delete tree;
+}
+
+void TestModelNavigator::testApiUiClickItemTextPathMissingSegment() {
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  QJsonObject error = callExpectError("qt.ui.clickItem",
+                                      QJsonObject{{"objectId", viewId},
+                                                  {"itemPath", QJsonArray{"not-a-value"}}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kItemNotFound);
+  QJsonObject details = error["data"].toObject();
+  QCOMPARE(details["mode"].toString(), QString("text"));
+  QCOMPARE(details["segmentText"].toString(), QString("not-a-value"));
 }
 
 QTEST_MAIN(TestModelNavigator)
