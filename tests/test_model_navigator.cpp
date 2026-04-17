@@ -136,6 +136,11 @@ class TestModelNavigator : public QObject {
   void testApiUiClickItemInvalidPathError();
   void testApiUiClickItemTextPathSelect();
   void testApiUiClickItemTextPathMissingSegment();
+  void testApiUiClickItemClickAction();
+  void testApiUiClickItemDoubleClickAction();
+  void testApiUiClickItemEditOpensEditor();
+  void testApiUiClickItemEditInvalidColumnError();
+  void testApiUiClickItemEditNonEditableError();
 
  private:
   /// @brief Make a JSON-RPC call and return the full parsed response object.
@@ -1066,6 +1071,78 @@ void TestModelNavigator::testApiUiClickItemTextPathMissingSegment() {
   QJsonObject details = error["data"].toObject();
   QCOMPARE(details["mode"].toString(), QString("text"));
   QCOMPARE(details["segmentText"].toString(), QString("not-a-value"));
+}
+
+void TestModelNavigator::testApiUiClickItemClickAction() {
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  callResult("qt.ui.clickItem",
+             QJsonObject{{"objectId", viewId},
+                         {"path", QJsonArray{1}},
+                         {"action", "click"}});
+  QCOMPARE(m_tableView->currentIndex().row(), 1);
+}
+
+void TestModelNavigator::testApiUiClickItemDoubleClickAction() {
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  QJsonValue result = callResult("qt.ui.clickItem",
+                                 QJsonObject{{"objectId", viewId},
+                                             {"path", QJsonArray{0}},
+                                             {"action", "doubleClick"}});
+  QCOMPARE(result.toObject()["found"].toBool(), true);
+  QCOMPARE(m_tableView->currentIndex().row(), 0);
+}
+
+void TestModelNavigator::testApiUiClickItemEditOpensEditor() {
+  // QStandardItem cells are editable by default.
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  QJsonValue result = callResult("qt.ui.clickItem",
+                                 QJsonObject{{"objectId", viewId},
+                                             {"path", QJsonArray{0}},
+                                             {"action", "edit"},
+                                             {"column", 0},
+                                             {"editColumn", 1}});
+  QCOMPARE(result.toObject()["found"].toBool(), true);
+  // Edit succeeded without throwing, and the current index moved to the
+  // edit cell. (state() is protected so we can't query EditingState directly;
+  // the non-throw path + currentIndex shift is the observable contract.)
+  QCOMPARE(m_tableView->currentIndex().row(), 0);
+  QCOMPARE(m_tableView->currentIndex().column(), 1);
+}
+
+void TestModelNavigator::testApiUiClickItemEditInvalidColumnError() {
+  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
+  QJsonObject error = callExpectError("qt.ui.clickItem",
+                                      QJsonObject{{"objectId", viewId},
+                                                  {"path", QJsonArray{0}},
+                                                  {"action", "edit"},
+                                                  {"editColumn", 99}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kInvalidColumn);
+  QCOMPARE(error["data"].toObject()["editColumn"].toInt(), 99);
+}
+
+void TestModelNavigator::testApiUiClickItemEditNonEditableError() {
+  // Build a read-only model.
+  auto* model = new QStandardItemModel(1, 1, this);
+  auto* item = new QStandardItem("readonly");
+  item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);  // NOT editable
+  model->setItem(0, 0, item);
+  auto* view = new QTableView();
+  view->setObjectName("readonlyView");
+  view->setModel(model);
+  view->show();
+  QApplication::processEvents();
+  ObjectRegistry::instance()->scanExistingObjects(model);
+  ObjectRegistry::instance()->scanExistingObjects(view);
+
+  QString viewId = ObjectRegistry::instance()->objectId(view);
+  QJsonObject error = callExpectError("qt.ui.clickItem",
+                                      QJsonObject{{"objectId", viewId},
+                                                  {"path", QJsonArray{0}},
+                                                  {"action", "edit"}});
+  QCOMPARE(error["code"].toInt(), ErrorCode::kNotEditable);
+
+  delete view;
+  delete model;
 }
 
 QTEST_MAIN(TestModelNavigator)

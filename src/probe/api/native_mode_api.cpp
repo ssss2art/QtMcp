@@ -713,14 +713,51 @@ void NativeModeApi::registerUiMethods() {
 
     const QModelIndex actionTarget = model->index(rowTarget.row(), column, rowTarget.parent());
 
-    // Action dispatch — for now, only "select" is implemented. Other actions land in Task 12.
     if (action == QStringLiteral("select")) {
       view->setCurrentIndex(actionTarget);
+    } else if (action == QStringLiteral("click")) {
+      view->setCurrentIndex(actionTarget);
+      const QRect rect = view->visualRect(actionTarget);
+      InputSimulator::mouseClick(view->viewport(), InputSimulator::MouseButton::Left,
+                                 rect.center());
+    } else if (action == QStringLiteral("doubleClick")) {
+      view->setCurrentIndex(actionTarget);
+      const QRect rect = view->visualRect(actionTarget);
+      InputSimulator::mouseDoubleClick(view->viewport(), InputSimulator::MouseButton::Left,
+                                       rect.center());
+    } else if (action == QStringLiteral("edit")) {
+      const int editColumn = p.contains(QStringLiteral("editColumn"))
+                                 ? p[QStringLiteral("editColumn")].toInt()
+                                 : column;
+      if (editColumn < 0 || editColumn >= colCount) {
+        throw JsonRpcException(
+            ErrorCode::kInvalidColumn,
+            QStringLiteral("editColumn %1 out of range (columnCount=%2)")
+                .arg(editColumn).arg(colCount),
+            QJsonObject{{QStringLiteral("editColumn"), editColumn},
+                        {QStringLiteral("columnCount"), colCount}});
+      }
+      const QModelIndex editIdx =
+          model->index(rowTarget.row(), editColumn, rowTarget.parent());
+      if (!(model->flags(editIdx) & Qt::ItemIsEditable)) {
+        QJsonArray pathOut;
+        for (QModelIndex w = editIdx; w.isValid(); w = w.parent())
+          pathOut.prepend(w.row());
+        throw JsonRpcException(
+            ErrorCode::kNotEditable, QStringLiteral("Cell is not editable"),
+            QJsonObject{{QStringLiteral("path"), pathOut},
+                        {QStringLiteral("editColumn"), editColumn}});
+      }
+      view->setCurrentIndex(editIdx);
+      view->edit(editIdx);
     } else {
       throw JsonRpcException(
           JsonRpcError::kInvalidParams,
-          QStringLiteral("Action not yet implemented in this build: %1").arg(action),
-          QJsonObject{{QStringLiteral("action"), action}});
+          QStringLiteral("Unknown action: %1").arg(action),
+          QJsonObject{{QStringLiteral("action"), action},
+                      {QStringLiteral("validActions"),
+                       QJsonArray{QStringLiteral("select"), QStringLiteral("click"),
+                                  QStringLiteral("doubleClick"), QStringLiteral("edit")}}});
     }
 
     QJsonObject result = ModelNavigator::indexToRowData(model, rowTarget, {Qt::DisplayRole});
