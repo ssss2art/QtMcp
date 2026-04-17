@@ -18,9 +18,9 @@ def _tool_names(mcp: FastMCP) -> set[str]:
 
 class TestNativeTools:
     def test_native_tools_registered(self, mock_mcp):
-        """Native mode registers >= 32 tools."""
+        """Native mode registers >= 34 tools."""
         register_native_tools(mock_mcp)
-        assert len(_tool_names(mock_mcp)) >= 32
+        assert len(_tool_names(mock_mcp)) >= 34
 
     def test_native_tool_names(self, mock_mcp):
         """Key native tool names are present."""
@@ -43,9 +43,11 @@ class TestNativeTools:
             "qt_ui_click",
             "qt_ui_screenshot",
             "qt_ui_sendKeys",
+            "qt_ui_clickItem",
             "qt_models_list",
             "qt_models_info",
             "qt_models_data",
+            "qt_models_find",
             "qt_qml_inspect",
             "qt_names_register",
             "qt_names_list",

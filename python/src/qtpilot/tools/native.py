@@ -437,3 +437,78 @@ def register_native_tools(mcp: FastMCP) -> None:
         if roles is not None:
             params["roles"] = roles
         return await require_probe().call("qt.models.data", params)
+
+    @mcp.tool
+    async def qt_models_find(
+        objectId: str,
+        value: str,
+        column: int = 0,
+        role: str = "display",
+        match: str = "contains",
+        max_hits: int = 10,
+        parent: list[int] | None = None,
+        ctx: Context = None,
+    ) -> dict:
+        """Search a model recursively for rows whose cell value matches `value`.
+
+        `match` one of "exact", "contains", "startsWith", "endsWith", "regex".
+        Matching is case-insensitive. `max_hits=-1` = unlimited. `parent=[...]`
+        restricts the search to that subtree. Lazy models are force-fetched at
+        each level (no false negatives).
+        Returns: {matches: [{path, cells}], count, truncated}.
+        Example: qt_models_find(objectId="treeView", value="Aura", match="contains")
+        """
+        from qtpilot.server import require_probe
+
+        params: dict = {
+            "objectId": objectId,
+            "value": value,
+            "column": column,
+            "role": role,
+            "match": match,
+            "maxHits": max_hits,
+        }
+        if parent is not None:
+            params["parent"] = parent
+        return await require_probe().call("qt.models.find", params)
+
+    @mcp.tool
+    async def qt_ui_clickItem(
+        objectId: str,
+        itemPath: list[str] | None = None,
+        path: list[int] | None = None,
+        column: int = 0,
+        action: str = "click",
+        editColumn: int | None = None,
+        expand: bool = True,
+        scroll: bool = True,
+        ctx: Context = None,
+    ) -> dict:
+        """Select / click / double-click / edit an item in a view.
+
+        Exactly one of `itemPath` (exact display text per level) or `path`
+        (int[] row path) must be provided. `column` selects which cell of the
+        addressed row is acted on (and, for `itemPath`, which column's text is
+        matched). `action` one of "select", "click", "doubleClick", "edit".
+        Works on QTreeView, QTableView, QListView, QComboBox. For combo boxes,
+        paths must be length 1 and `edit` returns kNotEditable.
+        Example: qt_ui_clickItem(objectId="treeView", itemPath=["ETC","fos4 Fresnel"])
+        """
+        from qtpilot.server import require_probe
+
+        if (itemPath is None) == (path is None):
+            raise ValueError("Exactly one of itemPath or path must be provided")
+        params: dict = {
+            "objectId": objectId,
+            "column": column,
+            "action": action,
+            "expand": expand,
+            "scroll": scroll,
+        }
+        if itemPath is not None:
+            params["itemPath"] = itemPath
+        if path is not None:
+            params["path"] = path
+        if editColumn is not None:
+            params["editColumn"] = editColumn
+        return await require_probe().call("qt.ui.clickItem", params)
