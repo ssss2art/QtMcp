@@ -111,6 +111,30 @@ class TestCreateServerModes:
         assert "qtpilot_connect_probe" in names
         assert "qtpilot_set_mode" in names
         assert "qtpilot_get_mode" in names
+        assert "qtpilot_status" in names
+
+
+class TestQtpilotStatus:
+    @pytest.mark.asyncio
+    async def test_qtpilot_status_structure(self):
+        """qtpilot_status returns mode + available_modes + connection + discovery."""
+        from qtpilot.server import create_server
+
+        mcp = create_server(mode="native")
+        status_fn = mcp._tool_manager._tools["qtpilot_status"].fn
+        result = await status_fn(ctx=None)
+
+        assert "mode" in result
+        assert result["mode"] == "native"
+        assert "available_modes" in result
+        assert set(result["available_modes"]) == {"native", "cu", "chrome", "all"}
+        assert "connection" in result
+        assert "connected" in result["connection"]
+        assert result["connection"]["connected"] is False  # no probe wired in test
+        assert "discovery" in result
+        assert "active" in result["discovery"]
+        assert "probes" in result["discovery"]
+        assert isinstance(result["discovery"]["probes"], list)
 
     def test_recording_tools_always_registered(self):
         from qtpilot.server import create_server

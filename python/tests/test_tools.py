@@ -9,6 +9,7 @@ from fastmcp import FastMCP
 from qtpilot.tools.native import register_native_tools
 from qtpilot.tools.cu import register_cu_tools
 from qtpilot.tools.chrome import register_chrome_tools
+from qtpilot.tools.discovery_tools import register_discovery_tools
 
 
 def _tool_names(mcp: FastMCP) -> set[str]:
@@ -84,6 +85,21 @@ class TestCuTools:
         }
         missing = expected - names
         assert not missing, f"Missing CU tools: {missing}"
+
+
+class TestDiscoveryTools:
+    def test_discovery_tool_names(self, mock_mcp):
+        """Discovery-layer tools include the unified qtpilot_status."""
+        register_discovery_tools(mock_mcp)
+        names = _tool_names(mock_mcp)
+        expected = {
+            "qtpilot_status",
+            "qtpilot_connect_probe",
+            "qtpilot_disconnect_probe",
+            "qtpilot_set_mode",
+        }
+        missing = expected - names
+        assert not missing, f"Missing discovery tools: {missing}"
 
 
 class TestChromeTools:

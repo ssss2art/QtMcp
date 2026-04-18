@@ -82,6 +82,55 @@ def register_discovery_tools(mcp: FastMCP) -> None:
         return {"disconnected": True, "ws_url": ws_url}
 
     @mcp.tool
+    async def qtpilot_status(ctx: Context = None) -> dict:
+        """Get the full qtPilot session status in one call.
+
+        Returns the active mode, the list of available modes, probe connection
+        state, and discovery state (including all currently discovered probes).
+
+        Example: qtpilot_status()
+        """
+        from qtpilot.server import get_discovery, get_probe, get_state
+
+        state = get_state()
+        probe = get_probe()
+        discovery = get_discovery()
+
+        connection: dict = {
+            "connected": probe is not None and probe.is_connected,
+        }
+        if probe and probe.is_connected:
+            connection["ws_url"] = probe.ws_url
+            connection["probe_version"] = getattr(probe, "probe_version", None)
+            connection["protocol_version"] = getattr(probe, "protocol_version", None)
+
+        disc_info: dict = {
+            "active": discovery is not None and discovery.is_running,
+            "probes": [],
+        }
+        if discovery:
+            discovery.prune_stale()
+            current_url = probe.ws_url if probe and probe.is_connected else None
+            for dp in discovery.probes.values():
+                disc_info["probes"].append({
+                    "ws_url": dp.ws_url,
+                    "app_name": dp.app_name,
+                    "pid": dp.pid,
+                    "qt_version": dp.qt_version,
+                    "hostname": dp.hostname,
+                    "mode": dp.mode,
+                    "uptime": round(dp.uptime, 1),
+                    "connected": dp.ws_url == current_url,
+                })
+
+        return {
+            "mode": state.mode,
+            "available_modes": ["native", "cu", "chrome", "all"],
+            "connection": connection,
+            "discovery": disc_info,
+        }
+
+    @mcp.tool
     async def qtPilot_probe_status(ctx: Context) -> dict:
         """Get the current probe connection and discovery status.
 
