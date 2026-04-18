@@ -65,17 +65,38 @@ def register_logging_tools(mcp: FastMCP) -> None:
         return logger.stop()
 
     @mcp.tool
-    async def qtpilot_log_status(ctx: Context = None) -> dict:
-        """Get current message logging status.
+    async def qtpilot_log_status(tail: int = 0, ctx: Context = None) -> dict:
+        """Get current message logging status, and optionally tail recent entries.
 
-        Returns whether logging is active, file path, verbosity level,
-        entry count, buffer size, and session duration.
+        Returns logging state, file path, verbosity level, entry count, buffer
+        size, and session duration. When `tail > 0`, also returns the most
+        recent `tail` entries from the in-memory ring buffer.
 
-        Example: qtpilot_log_status()
+        Args:
+            tail: When >0, include that many most-recent entries under the
+                  `entries` key. When 0 (default), no entries are returned --
+                  cheap status only.
+
+        Example: qtpilot_log_status(tail=10)
         """
         from qtpilot.server import get_message_logger
 
-        return get_message_logger().status()
+        if tail < 0:
+            raise ValueError("tail must be >= 0")
+
+        logger = get_message_logger()
+        raw = logger.status()
+
+        # Rename `entries` count -> `entry_count` so the `entries` key is
+        # available for the list form when requested.
+        status = {k: v for k, v in raw.items() if k != "entries"}
+        if "entries" in raw:
+            status["entry_count"] = raw["entries"]
+
+        if tail > 0:
+            status["entries"] = logger.tail(count=tail)["entries"]
+
+        return status
 
     @mcp.tool
     async def qtpilot_log_tail(count: int = 50, ctx: Context = None) -> dict:
