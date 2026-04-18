@@ -716,8 +716,8 @@ void NativeModeApi::registerSignalMethods() {
 // ============================================================================
 
 void NativeModeApi::registerEventMethods() {
-  // qt.events.startCapture - start global event capture
-  m_handler->RegisterMethod(QStringLiteral("qt.events.startCapture"),
+  // qt.events.start - start global event capture
+  m_handler->RegisterMethod(QStringLiteral("qt.events.start"),
                             [](const QString& /*params*/) -> QString {
                               EventCapture::instance()->startCapture();
                               QJsonObject result;
@@ -725,8 +725,8 @@ void NativeModeApi::registerEventMethods() {
                               return envelopeToString(ResponseEnvelope::wrap(result));
                             });
 
-  // qt.events.stopCapture - stop global event capture
-  m_handler->RegisterMethod(QStringLiteral("qt.events.stopCapture"),
+  // qt.events.stop - stop global event capture
+  m_handler->RegisterMethod(QStringLiteral("qt.events.stop"),
                             [](const QString& /*params*/) -> QString {
                               EventCapture::instance()->stopCapture();
                               QJsonObject result;

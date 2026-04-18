@@ -176,7 +176,7 @@ class EventRecorder:
         # Start global event capture if requested
         if capture_events:
             try:
-                await probe.call("qt.events.startCapture")
+                await probe.call("qt.events.start")
             except Exception:
                 logger.debug("Failed to start event capture", exc_info=True)
 
@@ -221,7 +221,7 @@ class EventRecorder:
         # Stop event capture if we enabled it
         if self._capture_events:
             try:
-                await probe.call("qt.events.stopCapture")
+                await probe.call("qt.events.stop")
             except Exception:
                 logger.debug("Failed to stop event capture", exc_info=True)
 

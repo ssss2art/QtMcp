@@ -289,30 +289,30 @@ def register_native_tools(mcp: FastMCP) -> None:
     # -- Event capture ------------------------------------------------------
 
     @mcp.tool
-    async def qt_events_startCapture(ctx: Context) -> dict:
+    async def qt_events_start(ctx: Context) -> dict:
         """Start global event capture on the Qt application.
 
         Installs a global event filter that captures user-interaction events
         (mouse clicks, key presses, focus changes) for every widget without
         needing per-widget signal subscriptions.
 
-        Example: qt_events_startCapture()
+        Example: qt_events_start()
         """
         from qtpilot.server import require_probe
 
-        return await require_probe().call("qt.events.startCapture")
+        return await require_probe().call("qt.events.start")
 
     @mcp.tool
-    async def qt_events_stopCapture(ctx: Context) -> dict:
+    async def qt_events_stop(ctx: Context) -> dict:
         """Stop global event capture.
 
-        Removes the global event filter installed by qt_events_startCapture.
+        Removes the global event filter installed by qt_events_start.
 
-        Example: qt_events_stopCapture()
+        Example: qt_events_stop()
         """
         from qtpilot.server import require_probe
 
-        return await require_probe().call("qt.events.stopCapture")
+        return await require_probe().call("qt.events.stop")
 
     # -- UI interaction -----------------------------------------------------
 
