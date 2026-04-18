@@ -141,5 +141,5 @@ class TestQtpilotStatus:
 
         mcp = create_server(mode="cu")
         names = _tool_names(mcp)
-        assert "qtpilot_start_recording" in names
-        assert "qtpilot_stop_recording" in names
+        assert "qtpilot_recording_start" in names
+        assert "qtpilot_recording_stop" in names
