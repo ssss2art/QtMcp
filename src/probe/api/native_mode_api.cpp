@@ -258,18 +258,107 @@ void NativeModeApi::registerObjectMethods() {
         return envelopeToString(ResponseEnvelope::wrap(info, objectId));
       });
 
-  // qt.objects.inspect - convenience: info + properties + methods + signals
+  // qt.objects.inspect - consolidated read-only introspection with parts selector
   m_handler->RegisterMethod(
       QStringLiteral("qt.objects.inspect"), [](const QString& params) -> QString {
         auto p = parseParams(params);
         QObject* obj = resolveObjectParam(p, QStringLiteral("qt.objects.inspect"));
         QString objectId = p[QStringLiteral("objectId")].toString();
 
+        static const QStringList allParts = {
+            QStringLiteral("info"),       QStringLiteral("properties"),
+            QStringLiteral("methods"),    QStringLiteral("signals"),
+            QStringLiteral("qml"),        QStringLiteral("geometry"),
+            QStringLiteral("model")};
+
+        QStringList requestedParts;
+        QJsonValue partsValue = p[QStringLiteral("parts")];
+        if (partsValue.isUndefined() || partsValue.isNull()) {
+          requestedParts << QStringLiteral("info");
+        } else if (partsValue.isString()) {
+          QString s = partsValue.toString();
+          if (s == QStringLiteral("all")) {
+            requestedParts = allParts;
+          } else {
+            requestedParts << s;
+          }
+        } else if (partsValue.isArray()) {
+          for (const auto& v : partsValue.toArray()) {
+            requestedParts << v.toString();
+          }
+        }
+
+        for (const QString& part : requestedParts) {
+          if (!allParts.contains(part)) {
+            QJsonArray validArray;
+            for (const QString& v : allParts) validArray.append(v);
+            validArray.append(QStringLiteral("all"));
+            throw JsonRpcException(
+                ErrorCode::kInvalidField,
+                QStringLiteral("Unknown part: %1").arg(part),
+                QJsonObject{{QStringLiteral("field"), part},
+                            {QStringLiteral("validFields"), validArray}});
+          }
+        }
+
         QJsonObject result;
-        result[QStringLiteral("info")] = MetaInspector::objectInfo(obj);
-        result[QStringLiteral("properties")] = MetaInspector::listProperties(obj);
-        result[QStringLiteral("methods")] = MetaInspector::listMethods(obj);
-        result[QStringLiteral("signals")] = MetaInspector::listSignals(obj);
+
+        if (requestedParts.contains(QStringLiteral("info"))) {
+          result[QStringLiteral("info")] = MetaInspector::objectInfo(obj);
+        }
+        if (requestedParts.contains(QStringLiteral("properties"))) {
+          result[QStringLiteral("properties")] = MetaInspector::listProperties(obj);
+        }
+        if (requestedParts.contains(QStringLiteral("methods"))) {
+          result[QStringLiteral("methods")] = MetaInspector::listMethods(obj);
+        }
+        if (requestedParts.contains(QStringLiteral("signals"))) {
+          result[QStringLiteral("signals")] = MetaInspector::listSignals(obj);
+        }
+        if (requestedParts.contains(QStringLiteral("qml"))) {
+          QmlItemInfo qmlInfo = inspectQmlItem(obj);
+          if (qmlInfo.isQmlItem) {
+            QJsonObject qmlResult;
+            qmlResult[QStringLiteral("isQmlItem")] = true;
+            qmlResult[QStringLiteral("qmlId")] = qmlInfo.qmlId;
+            qmlResult[QStringLiteral("qmlFile")] = qmlInfo.qmlFile;
+            qmlResult[QStringLiteral("qmlTypeName")] = qmlInfo.shortTypeName;
+            result[QStringLiteral("qml")] = qmlResult;
+          } else {
+            result[QStringLiteral("qml")] = QJsonValue();
+          }
+        }
+        if (requestedParts.contains(QStringLiteral("geometry"))) {
+          if (auto* widget = qobject_cast<QWidget*>(obj)) {
+            QJsonObject geom;
+            geom[QStringLiteral("x")] = widget->x();
+            geom[QStringLiteral("y")] = widget->y();
+            geom[QStringLiteral("width")] = widget->width();
+            geom[QStringLiteral("height")] = widget->height();
+            geom[QStringLiteral("visible")] = widget->isVisible();
+            result[QStringLiteral("geometry")] = geom;
+          } else {
+            result[QStringLiteral("geometry")] = QJsonValue();
+          }
+        }
+        if (requestedParts.contains(QStringLiteral("model"))) {
+          QAbstractItemModel* model = ModelNavigator::resolveModel(obj);
+          if (model) {
+            QJsonObject modelInfo;
+            modelInfo[QStringLiteral("rowCount")] = model->rowCount();
+            modelInfo[QStringLiteral("columnCount")] = model->columnCount();
+            QJsonObject roleNames;
+            const auto roles = model->roleNames();
+            for (auto it = roles.constBegin(); it != roles.constEnd(); ++it) {
+              roleNames[QString::number(it.key())] = QString::fromUtf8(it.value());
+            }
+            modelInfo[QStringLiteral("roleNames")] = roleNames;
+            modelInfo[QStringLiteral("hasChildren")] = model->hasChildren();
+            result[QStringLiteral("model")] = modelInfo;
+          } else {
+            result[QStringLiteral("model")] = QJsonValue();
+          }
+        }
 
         return envelopeToString(ResponseEnvelope::wrap(result, objectId));
       });

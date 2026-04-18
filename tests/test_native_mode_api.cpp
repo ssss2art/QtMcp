@@ -49,6 +49,12 @@ class TestNativeModeApi : public QObject {
   void testObjectsTree();
   void testObjectsInfo();
   void testObjectsInspect();
+  void testInspectDefaultInfoOnly();
+  void testInspectPropertiesPart();
+  void testInspectAllAlias();
+  void testInspectUnknownPartError();
+  void testInspectModelPartNullForNonModel();
+  void testInspectGeometryPartOnWidget();
   void testObjectsQuery();
   void testObjectsQueryWithPropertyFilter();
   void testObjectsSearchByClassName();
@@ -354,7 +360,7 @@ void TestNativeModeApi::testObjectsInspect() {
   QString objectId = findResult.toObject()["objectId"].toString();
 
   // Inspect
-  QJsonValue result = callResult("qt.objects.inspect", QJsonObject{{"objectId", objectId}});
+  QJsonValue result = callResult("qt.objects.inspect", QJsonObject{{"objectId", objectId}, {"parts", "all"}});
   QVERIFY(result.isObject());
 
   QJsonObject inspected = result.toObject();
@@ -374,6 +380,114 @@ void TestNativeModeApi::testObjectsInspect() {
 
   // signals should have entries
   QVERIFY(inspected["signals"].toArray().size() > 0);
+}
+
+void TestNativeModeApi::testInspectDefaultInfoOnly() {
+  auto* w = new QLabel(QStringLiteral("inspTest"), m_testWindow);
+  w->setObjectName(QStringLiteral("inspTarget"));
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+  QString id = ObjectRegistry::instance()->objectId(w);
+
+  QJsonObject params;
+  params[QStringLiteral("objectId")] = id;
+  QJsonValue result = callResult("qt.objects.inspect", params);
+
+  QJsonObject obj = result.toObject();
+  QVERIFY(obj.contains(QStringLiteral("info")));
+  QVERIFY(!obj.contains(QStringLiteral("properties")));
+  QVERIFY(!obj.contains(QStringLiteral("methods")));
+  QVERIFY(!obj.contains(QStringLiteral("signals")));
+  QVERIFY(!obj.contains(QStringLiteral("qml")));
+  QVERIFY(!obj.contains(QStringLiteral("geometry")));
+  QVERIFY(!obj.contains(QStringLiteral("model")));
+}
+
+void TestNativeModeApi::testInspectPropertiesPart() {
+  auto* w = new QLabel(QStringLiteral("propTest"), m_testWindow);
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+  QString id = ObjectRegistry::instance()->objectId(w);
+
+  QJsonObject params;
+  params[QStringLiteral("objectId")] = id;
+  QJsonArray parts;
+  parts.append(QStringLiteral("properties"));
+  params[QStringLiteral("parts")] = parts;
+  QJsonValue result = callResult("qt.objects.inspect", params);
+
+  QJsonObject obj = result.toObject();
+  QVERIFY(obj.contains(QStringLiteral("properties")));
+  QVERIFY(!obj.contains(QStringLiteral("info")));
+  QVERIFY(obj[QStringLiteral("properties")].toArray().size() > 0);
+}
+
+void TestNativeModeApi::testInspectAllAlias() {
+  auto* w = new QLabel(QStringLiteral("allTest"), m_testWindow);
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+  QString id = ObjectRegistry::instance()->objectId(w);
+
+  QJsonObject params;
+  params[QStringLiteral("objectId")] = id;
+  params[QStringLiteral("parts")] = QStringLiteral("all");
+  QJsonValue result = callResult("qt.objects.inspect", params);
+
+  QJsonObject obj = result.toObject();
+  QVERIFY(obj.contains(QStringLiteral("info")));
+  QVERIFY(obj.contains(QStringLiteral("properties")));
+  QVERIFY(obj.contains(QStringLiteral("methods")));
+  QVERIFY(obj.contains(QStringLiteral("signals")));
+  QVERIFY(obj.contains(QStringLiteral("qml")));
+  QVERIFY(obj.contains(QStringLiteral("geometry")));
+  QVERIFY(obj.contains(QStringLiteral("model")));
+}
+
+void TestNativeModeApi::testInspectUnknownPartError() {
+  auto* w = new QLabel(QStringLiteral("errTest"), m_testWindow);
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+  QString id = ObjectRegistry::instance()->objectId(w);
+
+  QJsonObject params;
+  params[QStringLiteral("objectId")] = id;
+  QJsonArray parts;
+  parts.append(QStringLiteral("bogus"));
+  params[QStringLiteral("parts")] = parts;
+  QJsonObject error = callExpectError("qt.objects.inspect", params);
+  QCOMPARE(error[QStringLiteral("code")].toInt(), ErrorCode::kInvalidField);
+}
+
+void TestNativeModeApi::testInspectModelPartNullForNonModel() {
+  auto* w = new QLabel(QStringLiteral("nullModelTest"), m_testWindow);
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+  QString id = ObjectRegistry::instance()->objectId(w);
+
+  QJsonObject params;
+  params[QStringLiteral("objectId")] = id;
+  QJsonArray parts;
+  parts.append(QStringLiteral("model"));
+  params[QStringLiteral("parts")] = parts;
+  QJsonValue result = callResult("qt.objects.inspect", params);
+
+  QJsonObject obj = result.toObject();
+  QVERIFY(obj.contains(QStringLiteral("model")));
+  QVERIFY(obj[QStringLiteral("model")].isNull());
+}
+
+void TestNativeModeApi::testInspectGeometryPartOnWidget() {
+  auto* w = new QLabel(QStringLiteral("geomTest"), m_testWindow);
+  w->resize(100, 50);
+  ObjectRegistry::instance()->scanExistingObjects(m_testWindow);
+  QString id = ObjectRegistry::instance()->objectId(w);
+
+  QJsonObject params;
+  params[QStringLiteral("objectId")] = id;
+  QJsonArray parts;
+  parts.append(QStringLiteral("geometry"));
+  params[QStringLiteral("parts")] = parts;
+  QJsonValue result = callResult("qt.objects.inspect", params);
+
+  QJsonObject geom = result.toObject()[QStringLiteral("geometry")].toObject();
+  QCOMPARE(geom[QStringLiteral("width")].toInt(), 100);
+  QCOMPARE(geom[QStringLiteral("height")].toInt(), 50);
+  QVERIFY(geom.contains(QStringLiteral("visible")));
 }
 
 void TestNativeModeApi::testObjectsQuery() {
