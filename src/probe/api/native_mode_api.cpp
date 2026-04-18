@@ -1297,10 +1297,10 @@ void NativeModeApi::registerModelMethods() {
     return envelopeToString(ResponseEnvelope::wrap(data, objectId));
   });
 
-  // qt.models.find - recursive value search with match modes (lazy-aware)
-  m_handler->RegisterMethod(QStringLiteral("qt.models.find"), [](const QString& params) -> QString {
+  // qt.models.search - recursive value search with match modes (lazy-aware)
+  m_handler->RegisterMethod(QStringLiteral("qt.models.search"), [](const QString& params) -> QString {
     auto p = parseParams(params);
-    QObject* obj = resolveObjectParam(p, QStringLiteral("qt.models.find"));
+    QObject* obj = resolveObjectParam(p, QStringLiteral("qt.models.search"));
     QString objectId = p[QStringLiteral("objectId")].toString();
 
     QAbstractItemModel* model = ModelNavigator::resolveModel(obj);

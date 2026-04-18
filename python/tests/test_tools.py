@@ -49,7 +49,7 @@ class TestNativeTools:
             "qt_models_list",
             "qt_models_info",
             "qt_models_data",
-            "qt_models_find",
+            "qt_models_search",
             "qt_qml_inspect",
             "qt_names_register",
             "qt_names_list",

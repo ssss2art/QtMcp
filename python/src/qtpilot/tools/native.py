@@ -501,7 +501,7 @@ def register_native_tools(mcp: FastMCP) -> None:
         return await require_probe().call("qt.models.data", params)
 
     @mcp.tool
-    async def qt_models_find(
+    async def qt_models_search(
         objectId: str,
         value: str,
         column: int = 0,
@@ -518,7 +518,7 @@ def register_native_tools(mcp: FastMCP) -> None:
         restricts the search to that subtree. Lazy models are force-fetched at
         each level (no false negatives).
         Returns: {matches: [{path, cells}], count, truncated}.
-        Example: qt_models_find(objectId="treeView", value="Aura", match="contains")
+        Example: qt_models_search(objectId="treeView", value="Aura", match="contains")
         """
         from qtpilot.server import require_probe
 
@@ -532,7 +532,7 @@ def register_native_tools(mcp: FastMCP) -> None:
         }
         if parent is not None:
             params["parent"] = parent
-        return await require_probe().call("qt.models.find", params)
+        return await require_probe().call("qt.models.search", params)
 
     @mcp.tool
     async def qt_ui_clickItem(

@@ -122,7 +122,7 @@ class TestModelNavigator : public QObject {
   void testFindRecursiveRegex();
   void testFindRecursiveInvalidRegex();
 
-  // qt.models.find JSON-RPC handler
+  // qt.models.search JSON-RPC handler
   void testApiModelsFindExact();
   void testApiModelsFindContainsReturnsPathAndCells();
   void testApiModelsFindScopesToParent();
@@ -912,12 +912,12 @@ void TestModelNavigator::testFindRecursiveInvalidRegex() {
 }
 
 // ========================================================================
-// qt.models.find JSON-RPC handler Tests
+// qt.models.search JSON-RPC handler Tests
 // ========================================================================
 
 void TestModelNavigator::testApiModelsFindExact() {
   QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
-  QJsonValue result = callResult("qt.models.find",
+  QJsonValue result = callResult("qt.models.search",
                                  QJsonObject{{"objectId", modelId},
                                              {"value", "B1"},
                                              {"match", "exact"}});
@@ -929,7 +929,7 @@ void TestModelNavigator::testApiModelsFindExact() {
 
 void TestModelNavigator::testApiModelsFindContainsReturnsPathAndCells() {
   QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
-  QJsonValue result = callResult("qt.models.find",
+  QJsonValue result = callResult("qt.models.search",
                                  QJsonObject{{"objectId", modelId},
                                              {"value", "1"},
                                              {"match", "contains"}});
@@ -952,7 +952,7 @@ void TestModelNavigator::testApiModelsFindScopesToParent() {
   ObjectRegistry::instance()->scanExistingObjects(tree);
   QString id = ObjectRegistry::instance()->objectId(tree);
 
-  QJsonValue result = callResult("qt.models.find",
+  QJsonValue result = callResult("qt.models.search",
                                  QJsonObject{{"objectId", id},
                                              {"value", "target"},
                                              {"match", "exact"},
@@ -962,7 +962,7 @@ void TestModelNavigator::testApiModelsFindScopesToParent() {
 
 void TestModelNavigator::testApiModelsFindTruncated() {
   QString modelId = ObjectRegistry::instance()->objectId(m_largeModel);
-  QJsonValue result = callResult("qt.models.find",
+  QJsonValue result = callResult("qt.models.search",
                                  QJsonObject{{"objectId", modelId},
                                              {"value", "Row"},
                                              {"match", "contains"},
@@ -974,7 +974,7 @@ void TestModelNavigator::testApiModelsFindTruncated() {
 
 void TestModelNavigator::testApiModelsFindInvalidRegexError() {
   QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
-  QJsonObject error = callExpectError("qt.models.find",
+  QJsonObject error = callExpectError("qt.models.search",
                                       QJsonObject{{"objectId", modelId},
                                                   {"value", "[unclosed"},
                                                   {"match", "regex"}});
@@ -985,7 +985,7 @@ void TestModelNavigator::testApiModelsFindInvalidRegexError() {
 
 void TestModelNavigator::testApiModelsFindRoleNotFoundError() {
   QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
-  QJsonObject error = callExpectError("qt.models.find",
+  QJsonObject error = callExpectError("qt.models.search",
                                       QJsonObject{{"objectId", modelId},
                                                   {"value", "x"},
                                                   {"role", "nonexistent"}});
