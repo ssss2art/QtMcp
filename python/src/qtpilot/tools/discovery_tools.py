@@ -59,11 +59,8 @@ def register_discovery_tools(mcp: FastMCP) -> None:
         """
         from qtpilot.server import connect_to_probe
 
-        try:
-            conn = await connect_to_probe(ws_url)
-            return {"connected": True, "ws_url": conn.ws_url}
-        except Exception as e:
-            return {"connected": False, "error": str(e)}
+        conn = await connect_to_probe(ws_url)
+        return {"ok": True, "ws_url": conn.ws_url}
 
     @mcp.tool
     async def qtpilot_disconnect_probe(ctx: Context) -> dict:
@@ -75,11 +72,11 @@ def register_discovery_tools(mcp: FastMCP) -> None:
 
         probe = get_probe()
         if probe is None or not probe.is_connected:
-            return {"disconnected": False, "reason": "No probe connected"}
+            return {"ok": False, "reason": "No probe connected"}
 
         ws_url = probe.ws_url
         await disconnect_probe()
-        return {"disconnected": True, "ws_url": ws_url}
+        return {"ok": True, "ws_url": ws_url}
 
     @mcp.tool
     async def qtpilot_status(ctx: Context = None) -> dict:
@@ -188,6 +185,9 @@ def register_discovery_tools(mcp: FastMCP) -> None:
 
         state = get_state()
         result = state.set_mode(mode)
-        if "error" not in result and result.get("changed", False):
+        if "error" in result:
+            raise ValueError(result["error"])
+        changed = result.pop("changed", False)
+        if changed:
             await ctx.send_tool_list_changed()
-        return result
+        return {"ok": True, **result}
