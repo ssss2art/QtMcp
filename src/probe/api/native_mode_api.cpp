@@ -572,8 +572,14 @@ void NativeModeApi::registerPropertyMethods() {
 
         try {
           bool ok = MetaInspector::setProperty(obj, name, value);
+          if (!ok) {
+            throw JsonRpcException(ErrorCode::kPropertyTypeMismatch,
+                                   QStringLiteral("Property set failed"),
+                                   QJsonObject{{QStringLiteral("objectId"), objectId},
+                                               {QStringLiteral("property"), name}});
+          }
           QJsonObject result;
-          result[QStringLiteral("success")] = ok;
+          result[QStringLiteral("ok")] = true;
           return envelopeToString(ResponseEnvelope::wrap(result, objectId));
         } catch (const std::runtime_error& e) {
           // Distinguish read-only from not-found
@@ -694,7 +700,7 @@ void NativeModeApi::registerSignalMethods() {
 
         SignalMonitor::instance()->unsubscribe(subscriptionId);
         QJsonObject result;
-        result[QStringLiteral("success")] = true;
+        result[QStringLiteral("ok")] = true;
         return envelopeToString(ResponseEnvelope::wrap(result));
       });
 
@@ -763,7 +769,7 @@ void NativeModeApi::registerUiMethods() {
     InputSimulator::mouseClick(widget, btn, clickPos);
 
     QJsonObject result;
-    result[QStringLiteral("success")] = true;
+    result[QStringLiteral("ok")] = true;
     return envelopeToString(ResponseEnvelope::wrap(result, objectId));
   });
 
@@ -784,7 +790,7 @@ void NativeModeApi::registerUiMethods() {
     }
 
     QJsonObject result;
-    result[QStringLiteral("success")] = true;
+    result[QStringLiteral("ok")] = true;
     return envelopeToString(ResponseEnvelope::wrap(result, objectId));
   });
 
@@ -1086,7 +1092,7 @@ void NativeModeApi::registerNameMapMethods() {
 
         SymbolicNameMap::instance()->registerName(name, path);
         QJsonObject result;
-        result[QStringLiteral("success")] = true;
+        result[QStringLiteral("ok")] = true;
         return envelopeToString(ResponseEnvelope::wrap(result));
       });
 
@@ -1104,7 +1110,7 @@ void NativeModeApi::registerNameMapMethods() {
 
         SymbolicNameMap::instance()->unregisterName(name);
         QJsonObject result;
-        result[QStringLiteral("success")] = true;
+        result[QStringLiteral("ok")] = true;
         return envelopeToString(ResponseEnvelope::wrap(result));
       });
 
@@ -1142,7 +1148,7 @@ void NativeModeApi::registerNameMapMethods() {
 
     QJsonObject names = SymbolicNameMap::instance()->allNames();
     QJsonObject result;
-    result[QStringLiteral("success")] = true;
+    result[QStringLiteral("ok")] = true;
     result[QStringLiteral("count")] = names.size();
     return envelopeToString(ResponseEnvelope::wrap(result));
   });
@@ -1159,8 +1165,13 @@ void NativeModeApi::registerNameMapMethods() {
     }
 
     bool ok = SymbolicNameMap::instance()->saveToFile(filePath);
+    if (!ok) {
+      throw JsonRpcException(ErrorCode::kNameMapLoadError,
+                             QStringLiteral("Failed to save name map to: %1").arg(filePath),
+                             QJsonObject{{QStringLiteral("filePath"), filePath}});
+    }
     QJsonObject result;
-    result[QStringLiteral("success")] = ok;
+    result[QStringLiteral("ok")] = true;
     return envelopeToString(ResponseEnvelope::wrap(result));
   });
 }

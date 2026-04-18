@@ -654,7 +654,7 @@ void TestNativeModeApi::testPropertiesGetSet() {
       callResult("qt.properties.set",
                  QJsonObject{{"objectId", objectId}, {"name", "text"}, {"value", "Changed"}});
   QVERIFY(setResult.isObject());
-  QCOMPARE(setResult.toObject()["success"].toBool(), true);
+  QCOMPARE(setResult.toObject()["ok"].toBool(), true);
 
   // Verify change via get
   QJsonValue getResult2 =
@@ -751,7 +751,7 @@ void TestNativeModeApi::testSignalsSubscribeUnsubscribe() {
   QJsonValue unsubResult =
       callResult("qt.signals.unsubscribe", QJsonObject{{"subscriptionId", subscriptionId}});
   QVERIFY(unsubResult.isObject());
-  QCOMPARE(unsubResult.toObject()["success"].toBool(), true);
+  QCOMPARE(unsubResult.toObject()["ok"].toBool(), true);
 
   int countAfter = SignalMonitor::instance()->subscriptionCount();
   QCOMPARE(countAfter, countBefore - 1);
@@ -803,7 +803,7 @@ void TestNativeModeApi::testUiClick() {
   QApplication::processEvents();
 
   QVERIFY(result.isObject());
-  QCOMPARE(result.toObject()["success"].toBool(), true);
+  QCOMPARE(result.toObject()["ok"].toBool(), true);
   QCOMPARE(spy.count(), 1);
 }
 
@@ -820,7 +820,7 @@ void TestNativeModeApi::testUiSendKeys() {
   QApplication::processEvents();
 
   QVERIFY(result.isObject());
-  QCOMPARE(result.toObject()["success"].toBool(), true);
+  QCOMPARE(result.toObject()["ok"].toBool(), true);
   QCOMPARE(m_testLineEdit->text(), QString("Hello"));
 }
 
@@ -833,7 +833,7 @@ void TestNativeModeApi::testNamesRegisterAndList() {
   QJsonValue regResult = callResult("qt.names.register",
                                     QJsonObject{{"name", "myBtn"}, {"path", "testWindow/testBtn"}});
   QVERIFY(regResult.isObject());
-  QCOMPARE(regResult.toObject()["success"].toBool(), true);
+  QCOMPARE(regResult.toObject()["ok"].toBool(), true);
 
   // List names
   QJsonValue listResult = callResult("qt.names.list", QJsonObject());
@@ -855,7 +855,7 @@ void TestNativeModeApi::testNamesUnregister() {
   // Unregister
   QJsonValue unregResult = callResult("qt.names.unregister", QJsonObject{{"name", "tempName"}});
   QVERIFY(unregResult.isObject());
-  QCOMPARE(unregResult.toObject()["success"].toBool(), true);
+  QCOMPARE(unregResult.toObject()["ok"].toBool(), true);
 
   // Verify gone
   QJsonValue listAfter = callResult("qt.names.list", QJsonObject());
