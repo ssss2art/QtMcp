@@ -90,13 +90,34 @@ def register_native_tools(mcp: FastMCP) -> None:
         return await require_probe().call("qt.objects.info", {"objectId": objectId})
 
     @mcp.tool
-    async def qt_objects_inspect(objectId: str, ctx: Context = None) -> dict:
-        """Deep-inspect an object: properties, methods, signals.
-        Example: qt_objects_inspect(objectId="MainWindow")
+    async def qt_objects_inspect(
+        objectId: str,
+        parts: str | list[str] | None = None,
+        ctx: Context = None,
+    ) -> dict:
+        """Inspect an object with selectable detail sections.
+
+        `parts` controls which sections are returned. Default is `["info"]` for a
+        lightweight overview. Use `"all"` or a list like `["info","properties","methods"]`
+        for more detail.
+
+        Valid parts: info, properties, methods, signals, qml, geometry, model.
+        Parts that don't apply to the object (e.g. `model` on a non-model object) return
+        as a null value rather than raising.
+
+        Args:
+            objectId: The object to inspect
+            parts: Sections to include. String "all" includes everything; string "info"
+                   (or omitted) returns just info. A list names specific sections.
+
+        Example: qt_objects_inspect(objectId="MainWindow", parts=["info","geometry"])
         """
         from qtpilot.server import require_probe
 
-        return await require_probe().call("qt.objects.inspect", {"objectId": objectId})
+        params: dict = {"objectId": objectId}
+        if parts is not None:
+            params["parts"] = parts
+        return await require_probe().call("qt.objects.inspect", params)
 
     @mcp.tool
     async def qt_objects_query(
