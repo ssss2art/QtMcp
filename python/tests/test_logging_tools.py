@@ -16,9 +16,9 @@ def _tool_names(mcp: FastMCP) -> set[str]:
 
 class TestLoggingTools:
     def test_logging_tools_registered(self, mock_mcp):
-        """Logging tools register exactly 4 tools."""
+        """Logging tools register exactly 3 tools."""
         register_logging_tools(mock_mcp)
-        assert len(_tool_names(mock_mcp)) == 4
+        assert len(_tool_names(mock_mcp)) == 3
 
     def test_logging_tool_names(self, mock_mcp):
         """All logging tool names are present."""
@@ -28,7 +28,6 @@ class TestLoggingTools:
             "qtpilot_log_start",
             "qtpilot_log_stop",
             "qtpilot_log_status",
-            "qtpilot_log_tail",
         }
         missing = expected - names
         assert not missing, f"Missing logging tools: {missing}"

@@ -28,43 +28,7 @@ def register_native_tools(mcp: FastMCP) -> None:
 
         return await require_probe().call("qt.version")
 
-    @mcp.tool
-    async def qt_modes(ctx: Context) -> dict:
-        """List available API modes on the probe.
-        Example: qt_modes()
-        """
-        from qtpilot.server import require_probe
-
-        return await require_probe().call("qt.modes")
-
     # -- Object tree --------------------------------------------------------
-
-    @mcp.tool
-    async def qt_objects_find(name: str, root: str | None = None, ctx: Context = None) -> dict:
-        """Find objects by QObject objectName (the internal C++ identifier, NOT the visible label/text).
-        To search by visible text (e.g. button label), use qt_objects_query instead.
-        Example: qt_objects_find(name="submitButton")
-        """
-        from qtpilot.server import require_probe
-
-        params: dict = {"name": name}
-        if root is not None:
-            params["root"] = root
-        return await require_probe().call("qt.objects.find", params)
-
-    @mcp.tool
-    async def qt_objects_findByClass(className: str, root: str | None = None, ctx: Context = None) -> dict:
-        """Find objects by class name, optionally under a root object.
-        Returns all instances of the class. To narrow results by property values
-        (e.g. find a specific button by its label), use qt_objects_query instead.
-        Example: qt_objects_findByClass(className="QPushButton")
-        """
-        from qtpilot.server import require_probe
-
-        params: dict = {"className": className}
-        if root is not None:
-            params["root"] = root
-        return await require_probe().call("qt.objects.findByClass", params)
 
     @mcp.tool
     async def qt_objects_tree(root: str | None = None, maxDepth: int | None = None, ctx: Context = None) -> dict:
@@ -79,15 +43,6 @@ def register_native_tools(mcp: FastMCP) -> None:
         if maxDepth is not None:
             params["maxDepth"] = maxDepth
         return await require_probe().call("qt.objects.tree", params)
-
-    @mcp.tool
-    async def qt_objects_info(objectId: str, ctx: Context = None) -> dict:
-        """Get basic info (class, parent, children) for an object.
-        Example: qt_objects_info(objectId="MainWindow")
-        """
-        from qtpilot.server import require_probe
-
-        return await require_probe().call("qt.objects.info", {"objectId": objectId})
 
     @mcp.tool
     async def qt_objects_inspect(
@@ -118,32 +73,6 @@ def register_native_tools(mcp: FastMCP) -> None:
         if parts is not None:
             params["parts"] = parts
         return await require_probe().call("qt.objects.inspect", params)
-
-    @mcp.tool
-    async def qt_objects_query(
-        className: str | None = None,
-        properties: dict | None = None,
-        root: str | None = None,
-        ctx: Context = None,
-    ) -> dict:
-        """Query objects by class and/or property values.
-        This is the best way to find widgets by their visible text or state.
-        Common patterns:
-        - Find a button by label: qt_objects_query(className="QAction", properties={"text": "Next"})
-        - Find a checkbox by state: qt_objects_query(className="QCheckBox", properties={"checked": True})
-        - Find any widget by text: qt_objects_query(properties={"text": "Search"})
-        Example: qt_objects_query(className="QLabel", properties={"text": "Hello"})
-        """
-        from qtpilot.server import require_probe
-
-        params: dict = {}
-        if className is not None:
-            params["className"] = className
-        if properties is not None:
-            params["properties"] = properties
-        if root is not None:
-            params["root"] = root
-        return await require_probe().call("qt.objects.query", params)
 
     @mcp.tool
     async def qt_objects_search(
@@ -189,15 +118,6 @@ def register_native_tools(mcp: FastMCP) -> None:
     # -- Properties ---------------------------------------------------------
 
     @mcp.tool
-    async def qt_properties_list(objectId: str, ctx: Context = None) -> dict:
-        """List all properties of an object.
-        Example: qt_properties_list(objectId="MainWindow")
-        """
-        from qtpilot.server import require_probe
-
-        return await require_probe().call("qt.properties.list", {"objectId": objectId})
-
-    @mcp.tool
     async def qt_properties_get(objectId: str, name: str, ctx: Context = None) -> dict:
         """Get a single property value.
         Example: qt_properties_get(objectId="MainWindow", name="windowTitle")
@@ -222,15 +142,6 @@ def register_native_tools(mcp: FastMCP) -> None:
     # -- Methods ------------------------------------------------------------
 
     @mcp.tool
-    async def qt_methods_list(objectId: str, ctx: Context = None) -> dict:
-        """List all invocable methods of an object.
-        Example: qt_methods_list(objectId="MainWindow")
-        """
-        from qtpilot.server import require_probe
-
-        return await require_probe().call("qt.methods.list", {"objectId": objectId})
-
-    @mcp.tool
     async def qt_methods_invoke(
         objectId: str, method: str, args: list | None = None, ctx: Context = None
     ) -> dict:
@@ -245,15 +156,6 @@ def register_native_tools(mcp: FastMCP) -> None:
         return await require_probe().call("qt.methods.invoke", params)
 
     # -- Signals ------------------------------------------------------------
-
-    @mcp.tool
-    async def qt_signals_list(objectId: str, ctx: Context = None) -> dict:
-        """List all signals of an object.
-        Example: qt_signals_list(objectId="MainWindow")
-        """
-        from qtpilot.server import require_probe
-
-        return await require_probe().call("qt.signals.list", {"objectId": objectId})
 
     @mcp.tool
     async def qt_signals_subscribe(objectId: str, signal: str, ctx: Context = None) -> dict:
@@ -438,17 +340,6 @@ def register_native_tools(mcp: FastMCP) -> None:
 
         return await require_probe().call("qt.names.load", {"filePath": filePath})
 
-    # -- QML ----------------------------------------------------------------
-
-    @mcp.tool
-    async def qt_qml_inspect(objectId: str, ctx: Context = None) -> dict:
-        """Inspect QML-specific properties and bindings of an object.
-        Example: qt_qml_inspect(objectId="qmlRoot")
-        """
-        from qtpilot.server import require_probe
-
-        return await require_probe().call("qt.qml.inspect", {"objectId": objectId})
-
     # -- Models -------------------------------------------------------------
 
     @mcp.tool
@@ -459,15 +350,6 @@ def register_native_tools(mcp: FastMCP) -> None:
         from qtpilot.server import require_probe
 
         return await require_probe().call("qt.models.list")
-
-    @mcp.tool
-    async def qt_models_info(objectId: str, ctx: Context = None) -> dict:
-        """Get metadata about a model (row/column counts, role names).
-        Example: qt_models_info(objectId="tableModel")
-        """
-        from qtpilot.server import require_probe
-
-        return await require_probe().call("qt.models.info", {"objectId": objectId})
 
     @mcp.tool
     async def qt_models_data(

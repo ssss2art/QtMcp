@@ -19,9 +19,9 @@ def _tool_names(mcp: FastMCP) -> set[str]:
 
 class TestNativeTools:
     def test_native_tools_registered(self, mock_mcp):
-        """Native mode registers >= 34 tools."""
+        """Native mode registers >= 25 tools."""
         register_native_tools(mock_mcp)
-        assert len(_tool_names(mock_mcp)) >= 34
+        assert len(_tool_names(mock_mcp)) >= 25
 
     def test_native_tool_names(self, mock_mcp):
         """Key native tool names are present."""
@@ -29,28 +29,20 @@ class TestNativeTools:
         names = _tool_names(mock_mcp)
         expected = {
             "qt_ping",
-            "qt_objects_find",
-            "qt_objects_findByClass",
             "qt_objects_search",
             "qt_objects_tree",
-            "qt_objects_info",
             "qt_objects_inspect",
             "qt_properties_get",
             "qt_properties_set",
-            "qt_properties_list",
-            "qt_methods_list",
             "qt_methods_invoke",
-            "qt_signals_list",
             "qt_signals_subscribe",
             "qt_ui_click",
             "qt_ui_screenshot",
             "qt_ui_sendKeys",
             "qt_ui_clickItem",
             "qt_models_list",
-            "qt_models_info",
             "qt_models_data",
             "qt_models_search",
-            "qt_qml_inspect",
             "qt_names_register",
             "qt_names_list",
         }

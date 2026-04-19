@@ -107,10 +107,8 @@ class TestCreateServerModes:
 
         mcp = create_server(mode="native")
         names = _tool_names(mcp)
-        assert "qtpilot_list_probes" in names
         assert "qtpilot_connect_probe" in names
         assert "qtpilot_set_mode" in names
-        assert "qtpilot_get_mode" in names
         assert "qtpilot_status" in names
 
 
