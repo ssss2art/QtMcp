@@ -64,7 +64,7 @@ QObject* resolveObjectParam(const QJsonObject& params, const QString& methodName
         QJsonObject{
             {QStringLiteral("objectId"), objectId},
             {QStringLiteral("hint"),
-             QStringLiteral("Use qt.objects.find or qt.objects.tree to discover valid IDs")}});
+             QStringLiteral("Use qt.objects.search or qt.objects.tree to discover valid IDs")}});
   }
   return obj;
 }
@@ -105,7 +105,7 @@ NativeModeApi::NativeModeApi(JsonRpcHandler* handler, QObject* parent)
 }
 
 // ============================================================================
-// System methods: qt.ping, qt.version, qt.modes
+// System methods: qt.ping, qt.version
 // ============================================================================
 
 void NativeModeApi::registerSystemMethods() {
@@ -138,15 +138,6 @@ void NativeModeApi::registerSystemMethods() {
     return envelopeToString(ResponseEnvelope::wrap(result));
   });
 
-  // qt.modes - available API modes
-  m_handler->RegisterMethod(QStringLiteral("qt.modes"), [](const QString& /*params*/) -> QString {
-    QJsonArray modes;
-    modes.append(QStringLiteral("native"));
-    modes.append(QStringLiteral("computer_use"));
-    modes.append(QStringLiteral("chrome"));
-
-    return envelopeToString(ResponseEnvelope::wrap(modes));
-  });
 }
 
 // ============================================================================
@@ -154,82 +145,6 @@ void NativeModeApi::registerSystemMethods() {
 // ============================================================================
 
 void NativeModeApi::registerObjectMethods() {
-  // qt.objects.find - find by objectName
-  m_handler->RegisterMethod(
-      QStringLiteral("qt.objects.find"), [](const QString& params) -> QString {
-        auto p = parseParams(params);
-        QString name = p[QStringLiteral("name")].toString();
-        if (name.isEmpty()) {
-          throw JsonRpcException(
-              JsonRpcError::kInvalidParams, QStringLiteral("Missing required parameter: name"),
-              QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.objects.find")}});
-        }
-
-        // Optional root
-        QObject* rootObj = nullptr;
-        QString rootId = p[QStringLiteral("root")].toString();
-        if (!rootId.isEmpty()) {
-          rootObj = ObjectResolver::resolve(rootId);
-        }
-
-        QObject* found = ObjectRegistry::instance()->findByObjectName(name, rootObj);
-        if (!found) {
-          throw JsonRpcException(
-              ErrorCode::kObjectNotFound,
-              QStringLiteral("Object not found with name: %1").arg(name),
-              QJsonObject{{QStringLiteral("name"), name},
-                          {QStringLiteral("hint"),
-                           QStringLiteral("Use qt.objects.tree to see all objects, or "
-                                          "qt.objects.findByClass to search by class")}});
-        }
-
-        QString objectId = ObjectRegistry::instance()->objectId(found);
-        int numericId = ObjectResolver::assignNumericId(found);
-
-        QJsonObject result;
-        result[QStringLiteral("objectId")] = objectId;
-        result[QStringLiteral("className")] = QString::fromUtf8(found->metaObject()->className());
-        result[QStringLiteral("numericId")] = numericId;
-
-        return envelopeToString(ResponseEnvelope::wrap(result, objectId));
-      });
-
-  // qt.objects.findByClass - find all by class name
-  m_handler->RegisterMethod(
-      QStringLiteral("qt.objects.findByClass"), [](const QString& params) -> QString {
-        auto p = parseParams(params);
-        QString className = p[QStringLiteral("className")].toString();
-        if (className.isEmpty()) {
-          throw JsonRpcException(
-              JsonRpcError::kInvalidParams, QStringLiteral("Missing required parameter: className"),
-              QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.objects.findByClass")}});
-        }
-
-        QObject* rootObj = nullptr;
-        QString rootId = p[QStringLiteral("root")].toString();
-        if (!rootId.isEmpty()) {
-          rootObj = ObjectResolver::resolve(rootId);
-        }
-
-        QList<QObject*> found = ObjectRegistry::instance()->findAllByClassName(className, rootObj);
-
-        QJsonArray objects;
-        for (QObject* obj : found) {
-          QString objId = ObjectRegistry::instance()->objectId(obj);
-          int numId = ObjectResolver::assignNumericId(obj);
-          QJsonObject entry;
-          entry[QStringLiteral("objectId")] = objId;
-          entry[QStringLiteral("className")] = QString::fromUtf8(obj->metaObject()->className());
-          entry[QStringLiteral("numericId")] = numId;
-          objects.append(entry);
-        }
-
-        QJsonObject result;
-        result[QStringLiteral("objects")] = objects;
-
-        return envelopeToString(ResponseEnvelope::wrap(result));
-      });
-
   // qt.objects.tree - object tree
   m_handler->RegisterMethod(QStringLiteral("qt.objects.tree"),
                             [](const QString& params) -> QString {
@@ -246,17 +161,6 @@ void NativeModeApi::registerObjectMethods() {
                               QJsonObject tree = serializeObjectTree(rootObj, maxDepth);
                               return envelopeToString(ResponseEnvelope::wrap(tree));
                             });
-
-  // qt.objects.info - basic object info
-  m_handler->RegisterMethod(
-      QStringLiteral("qt.objects.info"), [](const QString& params) -> QString {
-        auto p = parseParams(params);
-        QObject* obj = resolveObjectParam(p, QStringLiteral("qt.objects.info"));
-        QString objectId = p[QStringLiteral("objectId")].toString();
-
-        QJsonObject info = MetaInspector::objectInfo(obj);
-        return envelopeToString(ResponseEnvelope::wrap(info, objectId));
-      });
 
   // qt.objects.inspect - consolidated read-only introspection with parts selector
   m_handler->RegisterMethod(
@@ -363,60 +267,6 @@ void NativeModeApi::registerObjectMethods() {
         return envelopeToString(ResponseEnvelope::wrap(result, objectId));
       });
 
-  // qt.objects.query - rich query with className and property filters
-  m_handler->RegisterMethod(
-      QStringLiteral("qt.objects.query"), [](const QString& params) -> QString {
-        auto p = parseParams(params);
-        QString className = p[QStringLiteral("className")].toString();
-        QJsonObject propFilters = p[QStringLiteral("properties")].toObject();
-
-        QObject* rootObj = nullptr;
-        QString rootId = p[QStringLiteral("root")].toString();
-        if (!rootId.isEmpty()) {
-          rootObj = ObjectResolver::resolve(rootId);
-        }
-
-        // Get candidate objects
-        QList<QObject*> candidates;
-        if (!className.isEmpty()) {
-          candidates = ObjectRegistry::instance()->findAllByClassName(className, rootObj);
-        } else {
-          candidates = ObjectRegistry::instance()->allObjects();
-        }
-
-        // Filter by property values if specified
-        QJsonArray matches;
-        for (QObject* obj : candidates) {
-          if (!propFilters.isEmpty()) {
-            bool match = true;
-            for (auto it = propFilters.constBegin(); it != propFilters.constEnd(); ++it) {
-              try {
-                QJsonValue actual = MetaInspector::getProperty(obj, it.key());
-                if (actual != it.value()) {
-                  match = false;
-                  break;
-                }
-              } catch (...) {
-                match = false;
-                break;
-              }
-            }
-            if (!match)
-              continue;
-          }
-
-          QString objId = ObjectRegistry::instance()->objectId(obj);
-          int numId = ObjectResolver::assignNumericId(obj);
-          QJsonObject entry;
-          entry[QStringLiteral("objectId")] = objId;
-          entry[QStringLiteral("className")] = QString::fromUtf8(obj->metaObject()->className());
-          entry[QStringLiteral("numericId")] = numId;
-          matches.append(entry);
-        }
-
-        return envelopeToString(ResponseEnvelope::wrap(matches));
-      });
-
   // qt.objects.search - unified discovery: objectName / className / properties filters
   m_handler->RegisterMethod(
       QStringLiteral("qt.objects.search"), [](const QString& params) -> QString {
@@ -511,17 +361,6 @@ void NativeModeApi::registerObjectMethods() {
 // ============================================================================
 
 void NativeModeApi::registerPropertyMethods() {
-  // qt.properties.list
-  m_handler->RegisterMethod(
-      QStringLiteral("qt.properties.list"), [](const QString& params) -> QString {
-        auto p = parseParams(params);
-        QObject* obj = resolveObjectParam(p, QStringLiteral("qt.properties.list"));
-        QString objectId = p[QStringLiteral("objectId")].toString();
-
-        QJsonArray props = MetaInspector::listProperties(obj);
-        return envelopeToString(ResponseEnvelope::wrap(props, objectId));
-      });
-
   // qt.properties.get
   m_handler->RegisterMethod(
       QStringLiteral("qt.properties.get"), [](const QString& params) -> QString {
@@ -599,17 +438,6 @@ void NativeModeApi::registerPropertyMethods() {
 // ============================================================================
 
 void NativeModeApi::registerMethodMethods() {
-  // qt.methods.list
-  m_handler->RegisterMethod(
-      QStringLiteral("qt.methods.list"), [](const QString& params) -> QString {
-        auto p = parseParams(params);
-        QObject* obj = resolveObjectParam(p, QStringLiteral("qt.methods.list"));
-        QString objectId = p[QStringLiteral("objectId")].toString();
-
-        QJsonArray methods = MetaInspector::listMethods(obj);
-        return envelopeToString(ResponseEnvelope::wrap(methods, objectId));
-      });
-
   // qt.methods.invoke
   m_handler->RegisterMethod(
       QStringLiteral("qt.methods.invoke"), [](const QString& params) -> QString {
@@ -648,17 +476,6 @@ void NativeModeApi::registerMethodMethods() {
 // ============================================================================
 
 void NativeModeApi::registerSignalMethods() {
-  // qt.signals.list
-  m_handler->RegisterMethod(
-      QStringLiteral("qt.signals.list"), [](const QString& params) -> QString {
-        auto p = parseParams(params);
-        QObject* obj = resolveObjectParam(p, QStringLiteral("qt.signals.list"));
-        QString objectId = p[QStringLiteral("objectId")].toString();
-
-        QJsonArray signalList = MetaInspector::listSignals(obj);
-        return envelopeToString(ResponseEnvelope::wrap(signalList, objectId));
-      });
-
   // qt.signals.subscribe
   m_handler->RegisterMethod(
       QStringLiteral("qt.signals.subscribe"), [](const QString& params) -> QString {
@@ -1181,31 +998,7 @@ void NativeModeApi::registerNameMapMethods() {
 // ============================================================================
 
 void NativeModeApi::registerQmlMethods() {
-  // qt.qml.inspect - get QML metadata for any object
-  m_handler->RegisterMethod(QStringLiteral("qt.qml.inspect"), [](const QString& params) -> QString {
-    auto p = parseParams(params);
-    QObject* obj = resolveObjectParam(p, QStringLiteral("qt.qml.inspect"));
-    QString objectId = p[QStringLiteral("objectId")].toString();
-
-#ifndef QTPILOT_HAS_QML
-    throw JsonRpcException(
-        ErrorCode::kQmlNotAvailable,
-        QStringLiteral("QML support not compiled (Qt Quick not found)"),
-        QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.qml.inspect")}});
-#else
-            QmlItemInfo qmlInfo = inspectQmlItem(obj);
-
-            QJsonObject result;
-            result[QStringLiteral("isQmlItem")] = qmlInfo.isQmlItem;
-            if (qmlInfo.isQmlItem) {
-                result[QStringLiteral("qmlId")] = qmlInfo.qmlId;
-                result[QStringLiteral("qmlFile")] = qmlInfo.qmlFile;
-                result[QStringLiteral("qmlTypeName")] = qmlInfo.shortTypeName;
-            }
-
-            return envelopeToString(ResponseEnvelope::wrap(result, objectId));
-#endif
-  });
+  // (No QML-specific methods: qt.objects.inspect with parts=["qml"] covers qml metadata.)
 }
 
 // ============================================================================
@@ -1219,26 +1012,6 @@ void NativeModeApi::registerModelMethods() {
                               QJsonArray models = ModelNavigator::listModels();
                               return envelopeToString(ResponseEnvelope::wrap(models));
                             });
-
-  // qt.models.info - get model metadata (rows, columns, roles)
-  m_handler->RegisterMethod(QStringLiteral("qt.models.info"), [](const QString& params) -> QString {
-    auto p = parseParams(params);
-    QObject* obj = resolveObjectParam(p, QStringLiteral("qt.models.info"));
-    QString objectId = p[QStringLiteral("objectId")].toString();
-
-    QAbstractItemModel* model = ModelNavigator::resolveModel(obj);
-    if (!model) {
-      throw JsonRpcException(
-          ErrorCode::kNotAModel,
-          QStringLiteral("Object is not a model and does not have an associated model"),
-          QJsonObject{{QStringLiteral("objectId"), objectId},
-                      {QStringLiteral("hint"),
-                       QStringLiteral("Use qt.models.list to discover available models")}});
-    }
-
-    QJsonObject info = ModelNavigator::getModelInfo(model);
-    return envelopeToString(ResponseEnvelope::wrap(info, objectId));
-  });
 
   // qt.models.data - fetch model data with pagination and role filtering
   m_handler->RegisterMethod(QStringLiteral("qt.models.data"), [](const QString& params) -> QString {

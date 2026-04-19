@@ -40,14 +40,9 @@ class TestNativeModeApi : public QObject {
   // System methods
   void testPing();
   void testVersion();
-  void testModes();
 
   // Object discovery (qt.objects.*)
-  void testObjectsFind();
-  void testObjectsFindNotFound();
-  void testObjectsFindByClass();
   void testObjectsTree();
-  void testObjectsInfo();
   void testObjectsInspect();
   void testInspectDefaultInfoOnly();
   void testInspectPropertiesPart();
@@ -55,8 +50,6 @@ class TestNativeModeApi : public QObject {
   void testInspectUnknownPartError();
   void testInspectModelPartNullForNonModel();
   void testInspectGeometryPartOnWidget();
-  void testObjectsQuery();
-  void testObjectsQueryWithPropertyFilter();
   void testObjectsSearchByClassName();
   void testObjectsSearchByObjectName();
   void testObjectsSearchByProperties();
@@ -64,15 +57,12 @@ class TestNativeModeApi : public QObject {
   void testObjectsSearchLimitTruncation();
 
   // Properties (qt.properties.*)
-  void testPropertiesList();
   void testPropertiesGetSet();
 
   // Methods (qt.methods.*)
-  void testMethodsList();
   void testMethodsInvoke();
 
   // Signals (qt.signals.*)
-  void testSignalsList();
   void testSignalsSubscribeUnsubscribe();
 
   // UI (qt.ui.*)
@@ -274,62 +264,9 @@ void TestNativeModeApi::testVersion() {
   QVERIFY(hasQtpilot);
 }
 
-void TestNativeModeApi::testModes() {
-  QJsonValue result = callResult("qt.modes", QJsonObject());
-  QVERIFY(result.isArray());
-
-  QJsonArray modes = result.toArray();
-  QStringList modeStrings;
-  for (const QJsonValue& v : modes) {
-    modeStrings.append(v.toString());
-  }
-  QVERIFY(modeStrings.contains("native"));
-  QVERIFY(modeStrings.contains("computer_use"));
-  QVERIFY(modeStrings.contains("chrome"));
-}
-
 // ========================================================================
 // Object Discovery Tests
 // ========================================================================
-
-void TestNativeModeApi::testObjectsFind() {
-  QJsonValue result = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QVERIFY(result.isObject());
-
-  QJsonObject obj = result.toObject();
-  QVERIFY(!obj["objectId"].toString().isEmpty());
-  QVERIFY(obj["className"].toString().contains("QPushButton"));
-  QVERIFY(obj["numericId"].toInt() > 0);
-}
-
-void TestNativeModeApi::testObjectsFindNotFound() {
-  QJsonObject error =
-      callExpectError("qt.objects.find", QJsonObject{{"name", "nonexistent_widget_xyz"}});
-
-  QCOMPARE(error["code"].toInt(), ErrorCode::kObjectNotFound);
-  QVERIFY(!error["message"].toString().isEmpty());
-
-  // Structured error should have data with hint
-  QJsonObject data = error["data"].toObject();
-  QVERIFY(data.contains("hint"));
-}
-
-void TestNativeModeApi::testObjectsFindByClass() {
-  QJsonValue result =
-      callResult("qt.objects.findByClass", QJsonObject{{"className", "QPushButton"}});
-  QVERIFY(result.isObject());
-
-  QJsonArray objects = result.toObject()["objects"].toArray();
-  QVERIFY(objects.size() >= 2);  // testBtn + otherBtn
-
-  // Verify each entry has required fields
-  for (const QJsonValue& v : objects) {
-    QJsonObject entry = v.toObject();
-    QVERIFY(!entry["objectId"].toString().isEmpty());
-    QVERIFY(entry["className"].toString().contains("QPushButton"));
-    QVERIFY(entry["numericId"].toInt() > 0);
-  }
-}
 
 void TestNativeModeApi::testObjectsTree() {
   QJsonValue result = callResult("qt.objects.tree", QJsonObject{{"maxDepth", 2}});
@@ -340,24 +277,10 @@ void TestNativeModeApi::testObjectsTree() {
   QVERIFY(tree.contains("children") || tree.contains("className") || tree.contains("id"));
 }
 
-void TestNativeModeApi::testObjectsInfo() {
-  // First find the button to get its objectId
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
-  QVERIFY(!objectId.isEmpty());
-
-  // Now get info
-  QJsonValue result = callResult("qt.objects.info", QJsonObject{{"objectId", objectId}});
-  QVERIFY(result.isObject());
-
-  QJsonObject info = result.toObject();
-  QCOMPARE(info["className"].toString(), QString("QPushButton"));
-}
-
 void TestNativeModeApi::testObjectsInspect() {
-  // First find the button
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
+  // Get objectId directly from ObjectRegistry
+  QString objectId = ObjectRegistry::instance()->objectId(m_testButton);
+  QVERIFY(!objectId.isEmpty());
 
   // Inspect
   QJsonValue result = callResult("qt.objects.inspect", QJsonObject{{"objectId", objectId}, {"parts", "all"}});
@@ -490,38 +413,6 @@ void TestNativeModeApi::testInspectGeometryPartOnWidget() {
   QVERIFY(geom.contains(QStringLiteral("visible")));
 }
 
-void TestNativeModeApi::testObjectsQuery() {
-  // Query by className only
-  QJsonValue result = callResult("qt.objects.query", QJsonObject{{"className", "QPushButton"}});
-  QVERIFY(result.isArray());
-
-  QJsonArray matches = result.toArray();
-  QVERIFY(matches.size() >= 2);  // testBtn + otherBtn
-
-  for (const QJsonValue& v : matches) {
-    QJsonObject entry = v.toObject();
-    QVERIFY(!entry["objectId"].toString().isEmpty());
-    QVERIFY(entry["className"].toString().contains("QPushButton"));
-  }
-}
-
-void TestNativeModeApi::testObjectsQueryWithPropertyFilter() {
-  // Query with property filter: enabled=false should match only otherBtn
-  QJsonValue result = callResult(
-      "qt.objects.query",
-      QJsonObject{{"className", "QPushButton"}, {"properties", QJsonObject{{"enabled", false}}}});
-  QVERIFY(result.isArray());
-
-  QJsonArray matches = result.toArray();
-  QVERIFY(matches.size() >= 1);
-
-  // All matches should be disabled buttons
-  for (const QJsonValue& v : matches) {
-    QJsonObject entry = v.toObject();
-    QVERIFY(entry["className"].toString().contains("QPushButton"));
-  }
-}
-
 void TestNativeModeApi::testObjectsSearchByClassName() {
   auto* widget = new QPushButton(QStringLiteral("test"), m_testWindow);
   widget->setObjectName(QStringLiteral("searchTarget"));
@@ -616,32 +507,8 @@ void TestNativeModeApi::testObjectsSearchLimitTruncation() {
 // Property Tests
 // ========================================================================
 
-void TestNativeModeApi::testPropertiesList() {
-  // Find button first
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
-
-  QJsonValue result = callResult("qt.properties.list", QJsonObject{{"objectId", objectId}});
-  QVERIFY(result.isArray());
-
-  QJsonArray props = result.toArray();
-  QVERIFY(props.size() > 0);
-
-  // Should have "text" property
-  bool hasText = false;
-  for (const QJsonValue& v : props) {
-    if (v.toObject()["name"].toString() == "text") {
-      hasText = true;
-      break;
-    }
-  }
-  QVERIFY(hasText);
-}
-
 void TestNativeModeApi::testPropertiesGetSet() {
-  // Find button
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
+  QString objectId = ObjectRegistry::instance()->objectId(m_testButton);
 
   // Get text
   QJsonValue getResult =
@@ -669,30 +536,8 @@ void TestNativeModeApi::testPropertiesGetSet() {
 // Method Tests
 // ========================================================================
 
-void TestNativeModeApi::testMethodsList() {
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
-
-  QJsonValue result = callResult("qt.methods.list", QJsonObject{{"objectId", objectId}});
-  QVERIFY(result.isArray());
-
-  QJsonArray methods = result.toArray();
-  QVERIFY(methods.size() > 0);
-
-  // Should have "click" method
-  bool hasClick = false;
-  for (const QJsonValue& v : methods) {
-    if (v.toObject()["name"].toString() == "click") {
-      hasClick = true;
-      break;
-    }
-  }
-  QVERIFY(hasClick);
-}
-
 void TestNativeModeApi::testMethodsInvoke() {
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
+  QString objectId = ObjectRegistry::instance()->objectId(m_testButton);
 
   // Invoke setEnabled(false) to disable the button
   QJsonValue result = callResult(
@@ -711,30 +556,8 @@ void TestNativeModeApi::testMethodsInvoke() {
 // Signal Tests
 // ========================================================================
 
-void TestNativeModeApi::testSignalsList() {
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
-
-  QJsonValue result = callResult("qt.signals.list", QJsonObject{{"objectId", objectId}});
-  QVERIFY(result.isArray());
-
-  QJsonArray signalList = result.toArray();
-  QVERIFY(signalList.size() > 0);
-
-  // Should have "clicked" signal
-  bool hasClicked = false;
-  for (const QJsonValue& v : signalList) {
-    if (v.toObject()["name"].toString() == "clicked") {
-      hasClicked = true;
-      break;
-    }
-  }
-  QVERIFY(hasClicked);
-}
-
 void TestNativeModeApi::testSignalsSubscribeUnsubscribe() {
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
+  QString objectId = ObjectRegistry::instance()->objectId(m_testButton);
 
   // Subscribe
   QJsonValue subResult = callResult("qt.signals.subscribe",
@@ -762,8 +585,7 @@ void TestNativeModeApi::testSignalsSubscribeUnsubscribe() {
 // ========================================================================
 
 void TestNativeModeApi::testUiGeometry() {
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
+  QString objectId = ObjectRegistry::instance()->objectId(m_testButton);
 
   QJsonValue result = callResult("qt.ui.geometry", QJsonObject{{"objectId", objectId}});
   QVERIFY(result.isObject());
@@ -779,8 +601,7 @@ void TestNativeModeApi::testUiGeometry() {
 }
 
 void TestNativeModeApi::testUiScreenshot() {
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
+  QString objectId = ObjectRegistry::instance()->objectId(m_testButton);
 
   QJsonValue result = callResult("qt.ui.screenshot", QJsonObject{{"objectId", objectId}});
   QVERIFY(result.isObject());
@@ -794,8 +615,7 @@ void TestNativeModeApi::testUiScreenshot() {
 }
 
 void TestNativeModeApi::testUiClick() {
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
+  QString objectId = ObjectRegistry::instance()->objectId(m_testButton);
 
   QSignalSpy spy(m_testButton, &QPushButton::clicked);
 
@@ -808,8 +628,7 @@ void TestNativeModeApi::testUiClick() {
 }
 
 void TestNativeModeApi::testUiSendKeys() {
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testLineEdit"}});
-  QString objectId = findResult.toObject()["objectId"].toString();
+  QString objectId = ObjectRegistry::instance()->objectId(m_testLineEdit);
 
   m_testLineEdit->clear();
   m_testLineEdit->setFocus();
@@ -900,16 +719,16 @@ void TestNativeModeApi::testNamesValidate() {
 // ========================================================================
 
 void TestNativeModeApi::testNumericIdResolution() {
-  // Find the button (this assigns a numeric ID)
-  QJsonValue findResult = callResult("qt.objects.find", QJsonObject{{"name", "testBtn"}});
-  int numericId = findResult.toObject()["numericId"].toInt();
+  // Assign a numeric ID to the button via the resolver
+  int numericId = ObjectResolver::assignNumericId(m_testButton);
   QVERIFY(numericId > 0);
 
-  // Now call qt.objects.info using the numeric ID format "#N"
+  // Now call qt.objects.inspect using the numeric ID format "#N"
   QString numericRef = QString("#%1").arg(numericId);
-  QJsonValue infoResult = callResult("qt.objects.info", QJsonObject{{"objectId", numericRef}});
+  QJsonValue infoResult = callResult("qt.objects.inspect", QJsonObject{{"objectId", numericRef}});
   QVERIFY(infoResult.isObject());
-  QCOMPARE(infoResult.toObject()["className"].toString(), QString("QPushButton"));
+  QJsonObject info = infoResult.toObject()["info"].toObject();
+  QCOMPARE(info["className"].toString(), QString("QPushButton"));
 }
 
 void TestNativeModeApi::testSymbolicNameResolution() {
@@ -920,10 +739,11 @@ void TestNativeModeApi::testSymbolicNameResolution() {
   // Register a symbolic name for it
   callResult("qt.names.register", QJsonObject{{"name", "symBtn"}, {"path", hierPath}});
 
-  // Now call qt.objects.info using the symbolic name
-  QJsonValue infoResult = callResult("qt.objects.info", QJsonObject{{"objectId", "symBtn"}});
+  // Now call qt.objects.inspect using the symbolic name
+  QJsonValue infoResult = callResult("qt.objects.inspect", QJsonObject{{"objectId", "symBtn"}});
   QVERIFY(infoResult.isObject());
-  QCOMPARE(infoResult.toObject()["className"].toString(), QString("QPushButton"));
+  QJsonObject info = infoResult.toObject()["info"].toObject();
+  QCOMPARE(info["className"].toString(), QString("QPushButton"));
 }
 
 // ========================================================================
@@ -945,7 +765,7 @@ void TestNativeModeApi::testStructuredErrorMissingObjectId() {
 void TestNativeModeApi::testStructuredErrorObjectNotFound() {
   // Call with a nonexistent objectId
   QJsonObject error =
-      callExpectError("qt.objects.info", QJsonObject{{"objectId", "nonexistent/path/xyz"}});
+      callExpectError("qt.objects.inspect", QJsonObject{{"objectId", "nonexistent/path/xyz"}});
 
   QCOMPARE(error["code"].toInt(), ErrorCode::kObjectNotFound);
   QVERIFY(!error["message"].toString().isEmpty());

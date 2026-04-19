@@ -49,11 +49,11 @@ class LazyFlatModel : public QAbstractListModel {
   int m_fetched = 0;
 };
 
-/// @brief Integration tests for qt.models.* and qt.qml.inspect API methods.
+/// @brief Integration tests for qt.models.* API methods.
 ///
-/// Tests model discovery, info, data retrieval (with smart pagination),
-/// role filtering, view-to-model auto-resolution, QML inspect on non-QML
-/// objects, and error handling for all model/QML methods.
+/// Tests model discovery, data retrieval (with smart pagination), role
+/// filtering, view-to-model auto-resolution, and error handling for all
+/// model methods.
 class TestModelNavigator : public QObject {
   Q_OBJECT
 
@@ -66,11 +66,6 @@ class TestModelNavigator : public QObject {
   // qt.models.list
   void testModelsListFindsTestModel();
   void testModelsListIncludesRoleNames();
-
-  // qt.models.info
-  void testModelsInfoByModelId();
-  void testModelsInfoByViewId();
-  void testModelsInfoInvalidId();
 
   // qt.models.data
   void testModelsDataSmallModel();
@@ -91,10 +86,6 @@ class TestModelNavigator : public QObject {
   void testTextPathToIndexTwoLevel();
   void testTextPathToIndexMissingSegment();
   void testTextPathToIndexWithColumn();
-
-  // qt.qml.inspect
-  void testQmlInspectNonQmlObject();
-  void testQmlInspectInvalidId();
 
   // Response format
   void testResponseEnvelopeWrapping();
@@ -321,48 +312,6 @@ void TestModelNavigator::testModelsListIncludesRoleNames() {
 }
 
 // ========================================================================
-// qt.models.info Tests
-// ========================================================================
-
-void TestModelNavigator::testModelsInfoByModelId() {
-  QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
-  QVERIFY(!modelId.isEmpty());
-
-  QJsonValue result = callResult("qt.models.info", QJsonObject{{"objectId", modelId}});
-  QVERIFY(result.isObject());
-
-  QJsonObject info = result.toObject();
-  QCOMPARE(info["rowCount"].toInt(), 3);
-  QCOMPARE(info["columnCount"].toInt(), 2);
-  QCOMPARE(info["className"].toString(), QString("QStandardItemModel"));
-  QVERIFY(info.contains("roleNames"));
-  QVERIFY(info.contains("hasChildren"));
-}
-
-void TestModelNavigator::testModelsInfoByViewId() {
-  // Use the VIEW's objectId - should auto-resolve to its model
-  QString viewId = ObjectRegistry::instance()->objectId(m_tableView);
-  QVERIFY(!viewId.isEmpty());
-
-  QJsonValue result = callResult("qt.models.info", QJsonObject{{"objectId", viewId}});
-  QVERIFY(result.isObject());
-
-  QJsonObject info = result.toObject();
-  // Should return the same model info as calling with model ID directly
-  QCOMPARE(info["rowCount"].toInt(), 3);
-  QCOMPARE(info["columnCount"].toInt(), 2);
-  QCOMPARE(info["className"].toString(), QString("QStandardItemModel"));
-}
-
-void TestModelNavigator::testModelsInfoInvalidId() {
-  QJsonObject error =
-      callExpectError("qt.models.info", QJsonObject{{"objectId", "nonexistent/path/xyz"}});
-
-  QCOMPARE(error["code"].toInt(), ErrorCode::kObjectNotFound);
-  QVERIFY(!error["message"].toString().isEmpty());
-}
-
-// ========================================================================
 // qt.models.data Tests
 // ========================================================================
 
@@ -503,46 +452,14 @@ void TestModelNavigator::testModelsDataNotAModel() {
 }
 
 // ========================================================================
-// qt.qml.inspect Tests
-// ========================================================================
-
-void TestModelNavigator::testQmlInspectNonQmlObject() {
-  // Without QTPILOT_HAS_QML, this will throw kQmlNotAvailable.
-  // With QTPILOT_HAS_QML, it returns isQmlItem=false for a QWidget.
-  // Either way, the test verifies the method handles non-QML objects.
-  QString buttonId = ObjectRegistry::instance()->objectId(m_plainButton);
-
-  QJsonObject response = callRaw("qt.qml.inspect", QJsonObject{{"objectId", buttonId}});
-
-  if (response.contains("result")) {
-    // QML support compiled: should get isQmlItem=false
-    QJsonObject envelope = response["result"].toObject();
-    QJsonObject result = envelope["result"].toObject();
-    QCOMPARE(result["isQmlItem"].toBool(), false);
-  } else {
-    // QML not compiled: kQmlNotAvailable error
-    QJsonObject error = response["error"].toObject();
-    QCOMPARE(error["code"].toInt(), ErrorCode::kQmlNotAvailable);
-  }
-}
-
-void TestModelNavigator::testQmlInspectInvalidId() {
-  QJsonObject error =
-      callExpectError("qt.qml.inspect", QJsonObject{{"objectId", "nonexistent/path/xyz"}});
-
-  QCOMPARE(error["code"].toInt(), ErrorCode::kObjectNotFound);
-  QVERIFY(!error["message"].toString().isEmpty());
-}
-
-// ========================================================================
 // Response Envelope Tests
 // ========================================================================
 
 void TestModelNavigator::testResponseEnvelopeWrapping() {
-  // qt.models.info should return envelope with result + meta
+  // qt.models.data should return envelope with result + meta
   QString modelId = ObjectRegistry::instance()->objectId(m_smallModel);
 
-  QJsonObject envelope = callEnvelope("qt.models.info", QJsonObject{{"objectId", modelId}});
+  QJsonObject envelope = callEnvelope("qt.models.data", QJsonObject{{"objectId", modelId}});
 
   QVERIFY(envelope.contains("result"));
   QVERIFY(envelope.contains("meta"));
