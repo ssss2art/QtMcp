@@ -66,12 +66,19 @@ SIP strips `DYLD_INSERT_LIBRARIES` for binaries in protected paths:
 
 ### Screen Recording Permission
 
-On macOS 10.15+, `QWidget::grab()` requires the **Screen Recording** permission in System Settings > Privacy & Security. Without it:
-- The grab returns a corrupt/empty pixmap
-- `QImageWriter::write()` crashes with `EXC_BAD_ACCESS` in `_platform_memmove`
-- The probe should use `CGPreflightScreenCaptureAccess()` (macOS 11+) to check before attempting capture
+Screen-level captures (`captureWindow`, `captureScreen`, `captureWindowLogical`) use
+`QScreen::grabWindow()`, which requires the **Screen Recording** permission in
+System Settings > Privacy & Security. Without the permission, the underlying
+pixmap is backed by unmapped memory and encoding it would `SIGSEGV`.
 
-**Important:** The terminal app must be restarted after granting permission for it to take effect.
+The probe preflights with `CGPreflightScreenCaptureAccess()` (macOS 10.15+) before
+every screen-level grab and returns a descriptive error — `"Screen Recording
+permission required"` with remediation steps — instead of crashing. Widget-level
+captures (`captureWidget`, `captureRegion`) use `QWidget::grab()`, which renders
+offscreen and does not need the permission.
+
+**Important:** The terminal app (or whatever process launched the Qt app) must be
+restarted after granting permission for it to take effect.
 
 ### App Bundle Resolution
 
@@ -144,7 +151,7 @@ encounter Gatekeeper prompts. This is done locally — no credentials ever touch
    Download the `.p8` file (one-time download — store it outside the repo, e.g. `~/.private_keys/`).
 3. Store credentials for `notarytool`:
    ```bash
-   xcrun notarytool store-credentials "qtpilot-release" \
+   xcrun notarytool store-credentials "qtpilot-notary" \
      --key ~/.private_keys/AuthKey_XXXX.p8 \
      --key-id XXXX \
      --issuer <issuer-uuid>
@@ -169,10 +176,10 @@ zip -r qtpilot-qt6.8-macos.zip qtPilot-probe.dylib qtPilot-launcher
 
 # 4. Submit to Apple Notary Service and wait for approval
 xcrun notarytool submit qtpilot-qt6.8-macos.zip \
-  --keychain-profile "qtpilot-release" --wait
+  --keychain-profile "qtpilot-notary" --wait
 
 # 5. Verify (no stapling needed for .zip — ticket is cloud-side)
-xcrun notarytool info <submission-id> --keychain-profile "qtpilot-release"
+xcrun notarytool info <submission-id> --keychain-profile "qtpilot-notary"
 ```
 
 After notarization, downloaded files pass Gatekeeper automatically via Apple's
@@ -191,6 +198,5 @@ Tested against a large real-world Qt application (~2300 library types, custom QM
 - `getObjectInfo`, `listProperties`, `listMethods`, `listSignals` — all worked with direct objectIds
 - `getGeometry` — returned correct coordinates with devicePixelRatio=2 (Retina)
 
-**macOS-specific crashes:**
-- `screenshot` — crashes without Screen Recording permission (null pixmap not guarded)
+**Known issues:**
 - `findByClassName` — crashes due to stale pointers (not macOS-specific, but all repros were on macOS)
