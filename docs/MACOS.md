@@ -75,13 +75,15 @@ On macOS 10.15+, `QWidget::grab()` requires the **Screen Recording** permission 
 
 ### App Bundle Resolution
 
-macOS Qt apps are distributed as `.app` bundles. The launcher currently requires the bare executable path:
+macOS Qt apps are distributed as `.app` bundles. The launcher and
+`scripts/launch-with-probe.sh` wrapper both accept a `.app` path directly and
+resolve the inner executable via `Contents/Info.plist` `CFBundleExecutable`:
+
 ```
-# Must specify the inner executable, not the .app
+# Either form works — .app is preferred
+build/bin/qtPilot-launcher MyApp.app
 build/bin/qtPilot-launcher MyApp.app/Contents/MacOS/MyApp
 ```
-
-Future improvement: accept `.app` paths and resolve via `Contents/Info.plist` `CFBundleExecutable`.
 
 ### Third-Party Library Paths
 
