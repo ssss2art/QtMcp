@@ -57,8 +57,7 @@ class QTPILOT_EXPORT ModelNavigator {
   /// @param roles Role IDs; empty = Qt::DisplayRole only.
   /// @return JSON object with parent, rows, totalRows, totalColumns, offset, limit, hasMore.
   static QJsonObject getModelData(QAbstractItemModel* model, const QList<int>& parentPath,
-                                  int offset = 0, int limit = -1,
-                                  const QList<int>& roles = {});
+                                  int offset = 0, int limit = -1, const QList<int>& roles = {});
 
   /// @brief Resolve a QObject to its underlying QAbstractItemModel.
   ///
@@ -97,7 +96,8 @@ class QTPILOT_EXPORT ModelNavigator {
   /// rowCount/index calls see the full set of children.
   /// @param model The model whose children to fetch.
   /// @param parentIdx The parent index. Default (invalid) = root.
-  static void ensureFetched(QAbstractItemModel* model, const QModelIndex& parentIdx = QModelIndex());
+  static void ensureFetched(QAbstractItemModel* model,
+                            const QModelIndex& parentIdx = QModelIndex());
 
   /// @brief Walk a row path, calling ensureFetched at each level.
   ///
@@ -144,7 +144,7 @@ class QTPILOT_EXPORT ModelNavigator {
     int column = 0;
     int role = Qt::DisplayRole;
     MatchMode match = MatchMode::Contains;
-    int maxHits = 10;    // -1 = unlimited
+    int maxHits = 10;  // -1 = unlimited
     // Compiled regex lives on the options struct so the walker reuses it.
     QRegularExpression compiledRegex;
   };

@@ -20,7 +20,6 @@
 
 #include <QAbstractItemView>
 #include <QComboBox>
-#include <QTreeView>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -28,6 +27,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTreeView>
 #include <QWidget>
 
 namespace qtPilot {
@@ -137,7 +137,6 @@ void NativeModeApi::registerSystemMethods() {
 
     return envelopeToString(ResponseEnvelope::wrap(result));
   });
-
 }
 
 // ============================================================================
@@ -170,9 +169,8 @@ void NativeModeApi::registerObjectMethods() {
         QString objectId = p[QStringLiteral("objectId")].toString();
 
         static const QStringList allParts = {
-            QStringLiteral("info"),       QStringLiteral("properties"),
-            QStringLiteral("methods"),    QStringLiteral("signals"),
-            QStringLiteral("qml"),        QStringLiteral("geometry"),
+            QStringLiteral("info"),    QStringLiteral("properties"), QStringLiteral("methods"),
+            QStringLiteral("signals"), QStringLiteral("qml"),        QStringLiteral("geometry"),
             QStringLiteral("model")};
 
         QStringList requestedParts;
@@ -195,13 +193,13 @@ void NativeModeApi::registerObjectMethods() {
         for (const QString& part : requestedParts) {
           if (!allParts.contains(part)) {
             QJsonArray validArray;
-            for (const QString& v : allParts) validArray.append(v);
+            for (const QString& v : allParts)
+              validArray.append(v);
             validArray.append(QStringLiteral("all"));
-            throw JsonRpcException(
-                ErrorCode::kInvalidField,
-                QStringLiteral("Unknown part: %1").arg(part),
-                QJsonObject{{QStringLiteral("field"), part},
-                            {QStringLiteral("validFields"), validArray}});
+            throw JsonRpcException(ErrorCode::kInvalidField,
+                                   QStringLiteral("Unknown part: %1").arg(part),
+                                   QJsonObject{{QStringLiteral("field"), part},
+                                               {QStringLiteral("validFields"), validArray}});
           }
         }
 
@@ -303,8 +301,10 @@ void NativeModeApi::registerObjectMethods() {
             QList<QObject*> filtered;
             for (QObject* obj : candidates) {
               QObject* parent = obj;
-              while (parent && parent != rootObj) parent = parent->parent();
-              if (parent == rootObj) filtered.append(obj);
+              while (parent && parent != rootObj)
+                parent = parent->parent();
+              if (parent == rootObj)
+                filtered.append(obj);
             }
             candidates = filtered;
           }
@@ -330,7 +330,8 @@ void NativeModeApi::registerObjectMethods() {
                 break;
               }
             }
-            if (!ok) continue;
+            if (!ok)
+              continue;
           }
 
           if (matches.size() >= limit) {
@@ -614,220 +615,221 @@ void NativeModeApi::registerUiMethods() {
   // qt.ui.clickItem - select/click/edit an item by itemPath (string[]) or path (int[]).
   m_handler->RegisterMethod(
       QStringLiteral("qt.ui.clickItem"), [](const QString& params) -> QString {
-    auto p = parseParams(params);
-    QObject* obj = resolveObjectParam(p, QStringLiteral("qt.ui.clickItem"));
-    QString objectId = p[QStringLiteral("objectId")].toString();
+        auto p = parseParams(params);
+        QObject* obj = resolveObjectParam(p, QStringLiteral("qt.ui.clickItem"));
+        QString objectId = p[QStringLiteral("objectId")].toString();
 
-    const bool hasPath = p.contains(QStringLiteral("path"));
-    const bool hasItemPath = p.contains(QStringLiteral("itemPath"));
-    if (hasPath == hasItemPath) {
-      throw JsonRpcException(
-          JsonRpcError::kInvalidParams,
-          QStringLiteral("Exactly one of 'path' or 'itemPath' is required"),
-          QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.ui.clickItem")}});
-    }
-
-    auto* view = qobject_cast<QAbstractItemView*>(obj);
-    auto* combo = view ? nullptr : qobject_cast<QComboBox*>(obj);
-    QAbstractItemModel* model = nullptr;
-    if (view) {
-      model = view->model();
-    } else if (combo) {
-      model = combo->model();
-    }
-
-    if (!model) {
-      throw JsonRpcException(
-          ErrorCode::kNotAModel,
-          QStringLiteral("Object is not a view or combo box with a model"),
-          QJsonObject{{QStringLiteral("objectId"), objectId},
-                      {QStringLiteral("className"),
-                       QString::fromUtf8(obj->metaObject()->className())}});
-    }
-
-    const int column = p[QStringLiteral("column")].toInt(0);
-    const QString action = p[QStringLiteral("action")].toString(QStringLiteral("click"));
-
-    // Early column validation — must happen before path resolution so that
-    // e.g. combo boxes (single column) report kInvalidColumn rather than
-    // kItemNotFound when caller passes a column > 0.
-    {
-      // For top-level column count we query the root's columns. Specific
-      // parent levels may have differing columnCount() but this upper bound
-      // is what the caller expressed intent against.
-      const int rootCols = combo ? 1 : model->columnCount(QModelIndex());
-      if (column < 0 || column >= rootCols) {
-        throw JsonRpcException(
-            ErrorCode::kInvalidColumn,
-            QStringLiteral("Column %1 out of range (columnCount=%2)").arg(column).arg(rootCols),
-            QJsonObject{{QStringLiteral("column"), column},
-                        {QStringLiteral("columnCount"), rootCols}});
-      }
-    }
-
-    // Resolve the row-identity index.
-    QModelIndex rowTarget;
-    int failedSegment = -1;
-    QJsonObject notFoundDetail;
-
-    if (hasPath) {
-      QList<int> rowPath;
-      QJsonArray pathArr = p[QStringLiteral("path")].toArray();
-      for (const QJsonValue& v : pathArr) rowPath.append(v.toInt());
-      rowTarget = ModelNavigator::pathToIndex(model, rowPath, &failedSegment);
-      if (!rowTarget.isValid()) {
-        QModelIndex walk;
-        for (int i = 0; i < failedSegment; ++i) {
-          ModelNavigator::ensureFetched(model, walk);
-          walk = model->index(rowPath[i], 0, walk);
+        const bool hasPath = p.contains(QStringLiteral("path"));
+        const bool hasItemPath = p.contains(QStringLiteral("itemPath"));
+        if (hasPath == hasItemPath) {
+          throw JsonRpcException(
+              JsonRpcError::kInvalidParams,
+              QStringLiteral("Exactly one of 'path' or 'itemPath' is required"),
+              QJsonObject{{QStringLiteral("method"), QStringLiteral("qt.ui.clickItem")}});
         }
-        ModelNavigator::ensureFetched(model, walk);
-        QJsonArray partial;
-        for (int i = 0; i < failedSegment; ++i) partial.append(rowPath[i]);
-        notFoundDetail = QJsonObject{{QStringLiteral("mode"), QStringLiteral("row")},
-                                     {QStringLiteral("failedSegment"), failedSegment},
-                                     {QStringLiteral("requestedRow"), rowPath.value(failedSegment, -1)},
-                                     {QStringLiteral("availableRows"), model->rowCount(walk)},
-                                     {QStringLiteral("partialPath"), partial}};
-      }
-    } else {
-      QStringList itemPath;
-      QJsonArray ipArr = p[QStringLiteral("itemPath")].toArray();
-      for (const QJsonValue& v : ipArr) itemPath.append(v.toString());
-      rowTarget = ModelNavigator::textPathToIndex(model, itemPath, column, &failedSegment);
-      if (!rowTarget.isValid()) {
-        QJsonArray partial;
-        QModelIndex walk;
-        for (int i = 0; i < failedSegment; ++i) {
-          ModelNavigator::ensureFetched(model, walk);
-          const int rows = model->rowCount(walk);
-          for (int r = 0; r < rows; ++r) {
-            const QModelIndex cell = model->index(r, column, walk);
-            if (model->data(cell, Qt::DisplayRole).toString() == itemPath[i]) {
-              partial.append(r);
-              walk = model->index(r, 0, walk);
-              break;
+
+        auto* view = qobject_cast<QAbstractItemView*>(obj);
+        auto* combo = view ? nullptr : qobject_cast<QComboBox*>(obj);
+        QAbstractItemModel* model = nullptr;
+        if (view) {
+          model = view->model();
+        } else if (combo) {
+          model = combo->model();
+        }
+
+        if (!model) {
+          throw JsonRpcException(ErrorCode::kNotAModel,
+                                 QStringLiteral("Object is not a view or combo box with a model"),
+                                 QJsonObject{{QStringLiteral("objectId"), objectId},
+                                             {QStringLiteral("className"),
+                                              QString::fromUtf8(obj->metaObject()->className())}});
+        }
+
+        const int column = p[QStringLiteral("column")].toInt(0);
+        const QString action = p[QStringLiteral("action")].toString(QStringLiteral("click"));
+
+        // Early column validation — must happen before path resolution so that
+        // e.g. combo boxes (single column) report kInvalidColumn rather than
+        // kItemNotFound when caller passes a column > 0.
+        {
+          // For top-level column count we query the root's columns. Specific
+          // parent levels may have differing columnCount() but this upper bound
+          // is what the caller expressed intent against.
+          const int rootCols = combo ? 1 : model->columnCount(QModelIndex());
+          if (column < 0 || column >= rootCols) {
+            throw JsonRpcException(
+                ErrorCode::kInvalidColumn,
+                QStringLiteral("Column %1 out of range (columnCount=%2)").arg(column).arg(rootCols),
+                QJsonObject{{QStringLiteral("column"), column},
+                            {QStringLiteral("columnCount"), rootCols}});
+          }
+        }
+
+        // Resolve the row-identity index.
+        QModelIndex rowTarget;
+        int failedSegment = -1;
+        QJsonObject notFoundDetail;
+
+        if (hasPath) {
+          QList<int> rowPath;
+          QJsonArray pathArr = p[QStringLiteral("path")].toArray();
+          for (const QJsonValue& v : pathArr)
+            rowPath.append(v.toInt());
+          rowTarget = ModelNavigator::pathToIndex(model, rowPath, &failedSegment);
+          if (!rowTarget.isValid()) {
+            QModelIndex walk;
+            for (int i = 0; i < failedSegment; ++i) {
+              ModelNavigator::ensureFetched(model, walk);
+              walk = model->index(rowPath[i], 0, walk);
             }
+            ModelNavigator::ensureFetched(model, walk);
+            QJsonArray partial;
+            for (int i = 0; i < failedSegment; ++i)
+              partial.append(rowPath[i]);
+            notFoundDetail =
+                QJsonObject{{QStringLiteral("mode"), QStringLiteral("row")},
+                            {QStringLiteral("failedSegment"), failedSegment},
+                            {QStringLiteral("requestedRow"), rowPath.value(failedSegment, -1)},
+                            {QStringLiteral("availableRows"), model->rowCount(walk)},
+                            {QStringLiteral("partialPath"), partial}};
+          }
+        } else {
+          QStringList itemPath;
+          QJsonArray ipArr = p[QStringLiteral("itemPath")].toArray();
+          for (const QJsonValue& v : ipArr)
+            itemPath.append(v.toString());
+          rowTarget = ModelNavigator::textPathToIndex(model, itemPath, column, &failedSegment);
+          if (!rowTarget.isValid()) {
+            QJsonArray partial;
+            QModelIndex walk;
+            for (int i = 0; i < failedSegment; ++i) {
+              ModelNavigator::ensureFetched(model, walk);
+              const int rows = model->rowCount(walk);
+              for (int r = 0; r < rows; ++r) {
+                const QModelIndex cell = model->index(r, column, walk);
+                if (model->data(cell, Qt::DisplayRole).toString() == itemPath[i]) {
+                  partial.append(r);
+                  walk = model->index(r, 0, walk);
+                  break;
+                }
+              }
+            }
+            notFoundDetail =
+                QJsonObject{{QStringLiteral("mode"), QStringLiteral("text")},
+                            {QStringLiteral("failedSegment"), failedSegment},
+                            {QStringLiteral("segmentText"), itemPath.value(failedSegment)},
+                            {QStringLiteral("partialPath"), partial}};
           }
         }
-        notFoundDetail = QJsonObject{{QStringLiteral("mode"), QStringLiteral("text")},
-                                     {QStringLiteral("failedSegment"), failedSegment},
-                                     {QStringLiteral("segmentText"), itemPath.value(failedSegment)},
-                                     {QStringLiteral("partialPath"), partial}};
-      }
-    }
 
-    if (!rowTarget.isValid()) {
-      throw JsonRpcException(ErrorCode::kItemNotFound, QStringLiteral("Item not found"),
-                             notFoundDetail);
-    }
-
-    // Validate action column. QComboBox is single-column.
-    const int colCount = combo ? 1 : model->columnCount(rowTarget.parent());
-    if (column < 0 || column >= colCount) {
-      throw JsonRpcException(
-          ErrorCode::kInvalidColumn,
-          QStringLiteral("Column %1 out of range (columnCount=%2)").arg(column).arg(colCount),
-          QJsonObject{{QStringLiteral("column"), column},
-                      {QStringLiteral("columnCount"), colCount}});
-    }
-
-    if (combo) {
-      // Combo boxes: length-1 paths only; actions collapse to setCurrentIndex.
-      if (action == QStringLiteral("edit")) {
-        QJsonArray pathOut;
-        pathOut.append(rowTarget.row());
-        throw JsonRpcException(
-            ErrorCode::kNotEditable,
-            QStringLiteral("QComboBox cells are not inline-editable"),
-            QJsonObject{{QStringLiteral("path"), pathOut},
-                        {QStringLiteral("editColumn"), column}});
-      }
-      if (action == QStringLiteral("select") || action == QStringLiteral("click")
-          || action == QStringLiteral("doubleClick")) {
-        combo->setCurrentIndex(rowTarget.row());
-      } else {
-        throw JsonRpcException(
-            JsonRpcError::kInvalidParams,
-            QStringLiteral("Unknown action: %1").arg(action),
-            QJsonObject{{QStringLiteral("action"), action},
-                        {QStringLiteral("validActions"),
-                         QJsonArray{QStringLiteral("select"), QStringLiteral("click"),
-                                    QStringLiteral("doubleClick")}}});
-      }
-    } else {
-      const QModelIndex actionTarget =
-          model->index(rowTarget.row(), column, rowTarget.parent());
-
-      const bool wantExpand = p.contains(QStringLiteral("expand"))
-                                  ? p[QStringLiteral("expand")].toBool()
-                                  : true;
-      const bool wantScroll = p.contains(QStringLiteral("scroll"))
-                                  ? p[QStringLiteral("scroll")].toBool()
-                                  : true;
-      if (wantExpand) {
-        if (auto* treeView = qobject_cast<QTreeView*>(view)) {
-          for (QModelIndex anc = actionTarget.parent(); anc.isValid(); anc = anc.parent()) {
-            treeView->expand(anc);
-          }
+        if (!rowTarget.isValid()) {
+          throw JsonRpcException(ErrorCode::kItemNotFound, QStringLiteral("Item not found"),
+                                 notFoundDetail);
         }
-      }
-      if (wantScroll) view->scrollTo(actionTarget);
 
-      if (action == QStringLiteral("select")) {
-        view->setCurrentIndex(actionTarget);
-      } else if (action == QStringLiteral("click")) {
-        view->setCurrentIndex(actionTarget);
-        const QRect rect = view->visualRect(actionTarget);
-        InputSimulator::mouseClick(view->viewport(), InputSimulator::MouseButton::Left,
-                                   rect.center());
-      } else if (action == QStringLiteral("doubleClick")) {
-        view->setCurrentIndex(actionTarget);
-        const QRect rect = view->visualRect(actionTarget);
-        InputSimulator::mouseDoubleClick(view->viewport(), InputSimulator::MouseButton::Left,
-                                         rect.center());
-      } else if (action == QStringLiteral("edit")) {
-        const int editColumn = p.contains(QStringLiteral("editColumn"))
-                                   ? p[QStringLiteral("editColumn")].toInt()
-                                   : column;
-        if (editColumn < 0 || editColumn >= colCount) {
+        // Validate action column. QComboBox is single-column.
+        const int colCount = combo ? 1 : model->columnCount(rowTarget.parent());
+        if (column < 0 || column >= colCount) {
           throw JsonRpcException(
               ErrorCode::kInvalidColumn,
-              QStringLiteral("editColumn %1 out of range (columnCount=%2)")
-                  .arg(editColumn).arg(colCount),
-              QJsonObject{{QStringLiteral("editColumn"), editColumn},
+              QStringLiteral("Column %1 out of range (columnCount=%2)").arg(column).arg(colCount),
+              QJsonObject{{QStringLiteral("column"), column},
                           {QStringLiteral("columnCount"), colCount}});
         }
-        const QModelIndex editIdx =
-            model->index(rowTarget.row(), editColumn, rowTarget.parent());
-        if (!(model->flags(editIdx) & Qt::ItemIsEditable)) {
-          QJsonArray pathOut;
-          for (QModelIndex w = editIdx; w.isValid(); w = w.parent())
-            pathOut.prepend(w.row());
-          throw JsonRpcException(
-              ErrorCode::kNotEditable, QStringLiteral("Cell is not editable"),
-              QJsonObject{{QStringLiteral("path"), pathOut},
-                          {QStringLiteral("editColumn"), editColumn}});
-        }
-        view->setCurrentIndex(editIdx);
-        view->edit(editIdx);
-      } else {
-        throw JsonRpcException(
-            JsonRpcError::kInvalidParams,
-            QStringLiteral("Unknown action: %1").arg(action),
-            QJsonObject{{QStringLiteral("action"), action},
-                        {QStringLiteral("validActions"),
-                         QJsonArray{QStringLiteral("select"), QStringLiteral("click"),
-                                    QStringLiteral("doubleClick"), QStringLiteral("edit")}}});
-      }
-    }
 
-    QJsonObject result = ModelNavigator::indexToRowData(model, rowTarget, {Qt::DisplayRole});
-    result[QStringLiteral("found")] = true;
-    result[QStringLiteral("action")] = action;
-    if (hasItemPath) result[QStringLiteral("itemPath")] = p[QStringLiteral("itemPath")];
-    return envelopeToString(ResponseEnvelope::wrap(result, objectId));
-  });
+        if (combo) {
+          // Combo boxes: length-1 paths only; actions collapse to setCurrentIndex.
+          if (action == QStringLiteral("edit")) {
+            QJsonArray pathOut;
+            pathOut.append(rowTarget.row());
+            throw JsonRpcException(ErrorCode::kNotEditable,
+                                   QStringLiteral("QComboBox cells are not inline-editable"),
+                                   QJsonObject{{QStringLiteral("path"), pathOut},
+                                               {QStringLiteral("editColumn"), column}});
+          }
+          if (action == QStringLiteral("select") || action == QStringLiteral("click") ||
+              action == QStringLiteral("doubleClick")) {
+            combo->setCurrentIndex(rowTarget.row());
+          } else {
+            throw JsonRpcException(
+                JsonRpcError::kInvalidParams, QStringLiteral("Unknown action: %1").arg(action),
+                QJsonObject{{QStringLiteral("action"), action},
+                            {QStringLiteral("validActions"),
+                             QJsonArray{QStringLiteral("select"), QStringLiteral("click"),
+                                        QStringLiteral("doubleClick")}}});
+          }
+        } else {
+          const QModelIndex actionTarget =
+              model->index(rowTarget.row(), column, rowTarget.parent());
+
+          const bool wantExpand =
+              p.contains(QStringLiteral("expand")) ? p[QStringLiteral("expand")].toBool() : true;
+          const bool wantScroll =
+              p.contains(QStringLiteral("scroll")) ? p[QStringLiteral("scroll")].toBool() : true;
+          if (wantExpand) {
+            if (auto* treeView = qobject_cast<QTreeView*>(view)) {
+              for (QModelIndex anc = actionTarget.parent(); anc.isValid(); anc = anc.parent()) {
+                treeView->expand(anc);
+              }
+            }
+          }
+          if (wantScroll)
+            view->scrollTo(actionTarget);
+
+          if (action == QStringLiteral("select")) {
+            view->setCurrentIndex(actionTarget);
+          } else if (action == QStringLiteral("click")) {
+            view->setCurrentIndex(actionTarget);
+            const QRect rect = view->visualRect(actionTarget);
+            InputSimulator::mouseClick(view->viewport(), InputSimulator::MouseButton::Left,
+                                       rect.center());
+          } else if (action == QStringLiteral("doubleClick")) {
+            view->setCurrentIndex(actionTarget);
+            const QRect rect = view->visualRect(actionTarget);
+            InputSimulator::mouseDoubleClick(view->viewport(), InputSimulator::MouseButton::Left,
+                                             rect.center());
+          } else if (action == QStringLiteral("edit")) {
+            const int editColumn = p.contains(QStringLiteral("editColumn"))
+                                       ? p[QStringLiteral("editColumn")].toInt()
+                                       : column;
+            if (editColumn < 0 || editColumn >= colCount) {
+              throw JsonRpcException(ErrorCode::kInvalidColumn,
+                                     QStringLiteral("editColumn %1 out of range (columnCount=%2)")
+                                         .arg(editColumn)
+                                         .arg(colCount),
+                                     QJsonObject{{QStringLiteral("editColumn"), editColumn},
+                                                 {QStringLiteral("columnCount"), colCount}});
+            }
+            const QModelIndex editIdx =
+                model->index(rowTarget.row(), editColumn, rowTarget.parent());
+            if (!(model->flags(editIdx) & Qt::ItemIsEditable)) {
+              QJsonArray pathOut;
+              for (QModelIndex w = editIdx; w.isValid(); w = w.parent())
+                pathOut.prepend(w.row());
+              throw JsonRpcException(ErrorCode::kNotEditable,
+                                     QStringLiteral("Cell is not editable"),
+                                     QJsonObject{{QStringLiteral("path"), pathOut},
+                                                 {QStringLiteral("editColumn"), editColumn}});
+            }
+            view->setCurrentIndex(editIdx);
+            view->edit(editIdx);
+          } else {
+            throw JsonRpcException(
+                JsonRpcError::kInvalidParams, QStringLiteral("Unknown action: %1").arg(action),
+                QJsonObject{{QStringLiteral("action"), action},
+                            {QStringLiteral("validActions"),
+                             QJsonArray{QStringLiteral("select"), QStringLiteral("click"),
+                                        QStringLiteral("doubleClick"), QStringLiteral("edit")}}});
+          }
+        }
+
+        QJsonObject result = ModelNavigator::indexToRowData(model, rowTarget, {Qt::DisplayRole});
+        result[QStringLiteral("found")] = true;
+        result[QStringLiteral("action")] = action;
+        if (hasItemPath)
+          result[QStringLiteral("itemPath")] = p[QStringLiteral("itemPath")];
+        return envelopeToString(ResponseEnvelope::wrap(result, objectId));
+      });
 
   // qt.ui.screenshot
   m_handler->RegisterMethod(
@@ -1032,7 +1034,8 @@ void NativeModeApi::registerModelMethods() {
     // Resolve parent path.
     QList<int> parentPath;
     QJsonArray parentArr = p[QStringLiteral("parent")].toArray();
-    for (const QJsonValue& v : parentArr) parentPath.append(v.toInt());
+    for (const QJsonValue& v : parentArr)
+      parentPath.append(v.toInt());
 
     if (!parentPath.isEmpty()) {
       int failed = -1;
@@ -1082,89 +1085,95 @@ void NativeModeApi::registerModelMethods() {
   });
 
   // qt.models.search - recursive value search with match modes (lazy-aware)
-  m_handler->RegisterMethod(QStringLiteral("qt.models.search"), [](const QString& params) -> QString {
-    auto p = parseParams(params);
-    QObject* obj = resolveObjectParam(p, QStringLiteral("qt.models.search"));
-    QString objectId = p[QStringLiteral("objectId")].toString();
+  m_handler->RegisterMethod(
+      QStringLiteral("qt.models.search"), [](const QString& params) -> QString {
+        auto p = parseParams(params);
+        QObject* obj = resolveObjectParam(p, QStringLiteral("qt.models.search"));
+        QString objectId = p[QStringLiteral("objectId")].toString();
 
-    QAbstractItemModel* model = ModelNavigator::resolveModel(obj);
-    if (!model) {
-      throw JsonRpcException(
-          ErrorCode::kNotAModel,
-          QStringLiteral("Object is not a model and does not have an associated model"),
-          QJsonObject{{QStringLiteral("objectId"), objectId}});
-    }
+        QAbstractItemModel* model = ModelNavigator::resolveModel(obj);
+        if (!model) {
+          throw JsonRpcException(
+              ErrorCode::kNotAModel,
+              QStringLiteral("Object is not a model and does not have an associated model"),
+              QJsonObject{{QStringLiteral("objectId"), objectId}});
+        }
 
-    // parent
-    QList<int> parentPath;
-    QJsonArray parentArr = p[QStringLiteral("parent")].toArray();
-    for (const QJsonValue& v : parentArr) parentPath.append(v.toInt());
+        // parent
+        QList<int> parentPath;
+        QJsonArray parentArr = p[QStringLiteral("parent")].toArray();
+        for (const QJsonValue& v : parentArr)
+          parentPath.append(v.toInt());
 
-    QModelIndex parentIdx;
-    if (!parentPath.isEmpty()) {
-      int failed = -1;
-      parentIdx = ModelNavigator::pathToIndex(model, parentPath, &failed);
-      if (!parentIdx.isValid()) {
-        throw JsonRpcException(
-            ErrorCode::kInvalidParentPath,
-            QStringLiteral("Parent path invalid at segment %1").arg(failed),
-            QJsonObject{{QStringLiteral("path"), parentArr},
-                        {QStringLiteral("failedSegment"), failed}});
-      }
-    }
+        QModelIndex parentIdx;
+        if (!parentPath.isEmpty()) {
+          int failed = -1;
+          parentIdx = ModelNavigator::pathToIndex(model, parentPath, &failed);
+          if (!parentIdx.isValid()) {
+            throw JsonRpcException(ErrorCode::kInvalidParentPath,
+                                   QStringLiteral("Parent path invalid at segment %1").arg(failed),
+                                   QJsonObject{{QStringLiteral("path"), parentArr},
+                                               {QStringLiteral("failedSegment"), failed}});
+          }
+        }
 
-    // opts
-    ModelNavigator::FindOptions opts;
-    opts.value = p[QStringLiteral("value")].toString();
-    opts.column = p[QStringLiteral("column")].toInt(0);
+        // opts
+        ModelNavigator::FindOptions opts;
+        opts.value = p[QStringLiteral("value")].toString();
+        opts.column = p[QStringLiteral("column")].toInt(0);
 
-    QJsonValue roleVal = p[QStringLiteral("role")];
-    if (roleVal.isDouble()) {
-      opts.role = roleVal.toInt();
-    } else {
-      QString roleName = roleVal.toString(QStringLiteral("display"));
-      int roleId = ModelNavigator::resolveRoleName(model, roleName);
-      if (roleId < 0) {
-        throw JsonRpcException(
-            ErrorCode::kModelRoleNotFound, QStringLiteral("Role not found: %1").arg(roleName),
-            QJsonObject{{QStringLiteral("roleName"), roleName},
-                        {QStringLiteral("availableRoles"), ModelNavigator::getRoleNames(model)}});
-      }
-      opts.role = roleId;
-    }
+        QJsonValue roleVal = p[QStringLiteral("role")];
+        if (roleVal.isDouble()) {
+          opts.role = roleVal.toInt();
+        } else {
+          QString roleName = roleVal.toString(QStringLiteral("display"));
+          int roleId = ModelNavigator::resolveRoleName(model, roleName);
+          if (roleId < 0) {
+            throw JsonRpcException(
+                ErrorCode::kModelRoleNotFound, QStringLiteral("Role not found: %1").arg(roleName),
+                QJsonObject{
+                    {QStringLiteral("roleName"), roleName},
+                    {QStringLiteral("availableRoles"), ModelNavigator::getRoleNames(model)}});
+          }
+          opts.role = roleId;
+        }
 
-    QString matchMode = p[QStringLiteral("match")].toString(QStringLiteral("contains"));
-    if      (matchMode == QStringLiteral("exact"))      opts.match = ModelNavigator::MatchMode::Exact;
-    else if (matchMode == QStringLiteral("contains"))   opts.match = ModelNavigator::MatchMode::Contains;
-    else if (matchMode == QStringLiteral("startsWith")) opts.match = ModelNavigator::MatchMode::StartsWith;
-    else if (matchMode == QStringLiteral("endsWith"))   opts.match = ModelNavigator::MatchMode::EndsWith;
-    else if (matchMode == QStringLiteral("regex"))      opts.match = ModelNavigator::MatchMode::Regex;
-    else {
-      throw JsonRpcException(
-          JsonRpcError::kInvalidParams,
-          QStringLiteral("Unknown match mode: %1").arg(matchMode),
-          QJsonObject{{QStringLiteral("match"), matchMode}});
-    }
-    opts.maxHits = p[QStringLiteral("maxHits")].toInt(10);
+        QString matchMode = p[QStringLiteral("match")].toString(QStringLiteral("contains"));
+        if (matchMode == QStringLiteral("exact"))
+          opts.match = ModelNavigator::MatchMode::Exact;
+        else if (matchMode == QStringLiteral("contains"))
+          opts.match = ModelNavigator::MatchMode::Contains;
+        else if (matchMode == QStringLiteral("startsWith"))
+          opts.match = ModelNavigator::MatchMode::StartsWith;
+        else if (matchMode == QStringLiteral("endsWith"))
+          opts.match = ModelNavigator::MatchMode::EndsWith;
+        else if (matchMode == QStringLiteral("regex"))
+          opts.match = ModelNavigator::MatchMode::Regex;
+        else {
+          throw JsonRpcException(JsonRpcError::kInvalidParams,
+                                 QStringLiteral("Unknown match mode: %1").arg(matchMode),
+                                 QJsonObject{{QStringLiteral("match"), matchMode}});
+        }
+        opts.maxHits = p[QStringLiteral("maxHits")].toInt(10);
 
-    // Compile regex if needed.
-    QString regexError;
-    if (!ModelNavigator::compileFindOptions(opts, &regexError)) {
-      throw JsonRpcException(
-          ErrorCode::kInvalidRegex, QStringLiteral("Invalid regex: %1").arg(regexError),
-          QJsonObject{{QStringLiteral("pattern"), opts.value},
-                      {QStringLiteral("error"), regexError}});
-    }
+        // Compile regex if needed.
+        QString regexError;
+        if (!ModelNavigator::compileFindOptions(opts, &regexError)) {
+          throw JsonRpcException(ErrorCode::kInvalidRegex,
+                                 QStringLiteral("Invalid regex: %1").arg(regexError),
+                                 QJsonObject{{QStringLiteral("pattern"), opts.value},
+                                             {QStringLiteral("error"), regexError}});
+        }
 
-    QJsonArray matches;
-    bool truncated = ModelNavigator::findRecursive(model, parentIdx, opts, matches);
+        QJsonArray matches;
+        bool truncated = ModelNavigator::findRecursive(model, parentIdx, opts, matches);
 
-    QJsonObject result;
-    result[QStringLiteral("matches")] = matches;
-    result[QStringLiteral("count")] = matches.size();
-    result[QStringLiteral("truncated")] = truncated;
-    return envelopeToString(ResponseEnvelope::wrap(result, objectId));
-  });
+        QJsonObject result;
+        result[QStringLiteral("matches")] = matches;
+        result[QStringLiteral("count")] = matches.size();
+        result[QStringLiteral("truncated")] = truncated;
+        return envelopeToString(ResponseEnvelope::wrap(result, objectId));
+      });
 }
 
 }  // namespace qtPilot

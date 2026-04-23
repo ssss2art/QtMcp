@@ -10,7 +10,8 @@ namespace ErrorCode {
 constexpr int kObjectNotFound = -32001;
 constexpr int kObjectStale = -32002;
 constexpr int kObjectNotWidget = -32003;
-constexpr int kInvalidField = -32004;  // Unknown value for a `parts` / `fields` / similar enum param
+constexpr int kInvalidField =
+    -32004;  // Unknown value for a `parts` / `fields` / similar enum param
 
 // Property errors (-32010 to -32019)
 constexpr int kPropertyNotFound = -32010;
