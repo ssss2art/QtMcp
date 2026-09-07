@@ -17,11 +17,14 @@ recording, or against itself in a unit test.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
+
+from qtpilot.connection import ProbeError
 
 # Calls that change the application. These are what a replay re-drives.
 MUTATING_METHODS: frozenset[str] = frozenset({
@@ -325,3 +328,115 @@ def diff_steps(expected: list[Step], actual: list[Step]) -> list[Divergence]:
         divergences.extend(_diff_notifications(want, got))
 
     return divergences
+
+
+@dataclass
+class ReplayResult:
+    """The outcome of driving a scenario against a running application."""
+
+    scenario: Scenario
+    steps: list[Step]
+    divergences: list[Divergence]
+    aborted_at: int | None = None
+    abort_reason: str | None = None
+
+    @property
+    def passed(self) -> bool:
+        """Whether the application still behaves as recorded."""
+        return not self.divergences and self.aborted_at is None
+
+    def summary(self) -> str:
+        """One line fit for a test runner."""
+        if self.aborted_at is not None:
+            return f"{self.scenario.source}: aborted at step {self.aborted_at}: {self.abort_reason}"
+        if self.divergences:
+            return f"{self.scenario.source}: {len(self.divergences)} divergence(s)"
+        driven = sum(1 for step in self.scenario.steps if step.action)
+        return f"{self.scenario.source}: {driven} action(s) replayed, no divergence"
+
+
+async def run_scenario(
+    scenario: Scenario,
+    probe: Any,
+    *,
+    settle: float = 0.1,
+    timeout: float | None = None,
+) -> ReplayResult:
+    """Drive a recorded scenario against a probe and compare what comes back.
+
+    :param scenario: The recording to replay.
+    :param probe: Anything offering ``call``, ``add_notification_handler`` and
+        ``remove_notification_handler`` -- a :class:`~qtpilot.connection.ProbeConnection` in
+        practice.
+    :param settle: Seconds to wait after each action for signals to arrive. Signals are
+        delivered asynchronously, so asserting the instant a call returns reports races as
+        divergences.
+    :param timeout: Per-call timeout, passed through to the probe.
+    :return: The observed run and how it differed from the recording.
+    :raises ValueError: If the scenario has nothing to drive.
+
+    .. note:: An error on an *observation* is recorded and the run continues -- an object that
+       no longer exists is a finding worth reporting alongside the rest. An error on an *action*
+       aborts: every later step assumes the earlier ones happened, so carrying on would report a
+       cascade of differences that are all the same failure.
+    """
+    if not scenario.is_replayable:
+        raise ValueError(
+            f"{scenario.source}: nothing to replay -- no mutating calls found. "
+            "A level-1 log records tool names but no wire traffic; record at level 2 or above."
+        )
+
+    collected: list[tuple[str, dict]] = []
+
+    def collect(method: str, params: dict) -> None:
+        collected.append((method, normalise(params, top_level=False)))
+
+    probe.add_notification_handler(collect)
+    observed: list[Step] = []
+    aborted_at: int | None = None
+    abort_reason: str | None = None
+
+    try:
+        for recorded in scenario.steps:
+            step = Step(index=recorded.index, action=recorded.action)
+            collected.clear()
+
+            if recorded.action is not None:
+                try:
+                    await probe.call(recorded.action.method, recorded.action.params, timeout)
+                except ProbeError as exc:
+                    aborted_at = recorded.index
+                    abort_reason = f"{recorded.action.method}: {exc}"
+                    observed.append(step)
+                    break
+
+            if settle:
+                await asyncio.sleep(settle)
+
+            for want in recorded.observations:
+                try:
+                    result = await probe.call(want.method, want.params, timeout)
+                    step.observations.append(
+                        Observation(method=want.method, params=want.params, result=normalise(result, top_level=False))
+                    )
+                except ProbeError as exc:
+                    step.observations.append(
+                        Observation(method=want.method, params=want.params, result=None, error=str(exc))
+                    )
+
+            step.notifications = list(collected)
+            observed.append(step)
+    finally:
+        # Detached on every path: a handler left behind keeps feeding a dead run's collector for
+        # the rest of the session.
+        probe.remove_notification_handler(collect)
+
+    divergences = [] if aborted_at is not None else diff_steps(scenario.steps, observed)
+
+    return ReplayResult(
+        scenario=scenario,
+        steps=observed,
+        divergences=divergences,
+        aborted_at=aborted_at,
+        abort_reason=abort_reason,
+    )
