@@ -282,3 +282,16 @@ def test_a_watch_list_naming_a_mutating_method_is_refused(tmp_path, capsys):
 
     assert code == EXIT_USAGE
     assert "qt.ui.click" in capsys.readouterr().err
+
+
+def test_replay_quietens_the_transport_loggers(tmp_path, probe_factory):
+    # main() turns DEBUG on for everything, which buries the report under a line per websocket
+    # frame. This command's output is meant to be read by CI.
+    import logging
+
+    logging.getLogger("websockets.client").setLevel(logging.DEBUG)
+    probe_factory("clicked")
+
+    cmd_replay(args_for(write_log(tmp_path, CLICK_SESSION)))
+
+    assert logging.getLogger("websockets.client").level == logging.WARNING

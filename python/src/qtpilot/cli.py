@@ -187,11 +187,18 @@ def _print_report(result, as_json: bool) -> None:
 def cmd_replay(args: argparse.Namespace) -> int:
     """Replay a recorded session against a running application.
 
+    Quietens the transport loggers first. main() turns on DEBUG for everything, which is useful
+    when serving but buries a replay report under a line per websocket frame -- and this command
+    exists to be read by CI.
+
     Returns REPLAY_EXIT_USAGE for a fixture that cannot be replayed at all and
     REPLAY_EXIT_DIVERGED for one that ran and disagreed, so a CI step can tell a real behaviour
     change from a broken recording rather than seeing one red for both.
     """
     import asyncio
+
+    for noisy in ("websockets", "websockets.client", "qtpilot.connection", "asyncio"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     from qtpilot.replay import load_scenario, load_watch_list, run_scenario
 
