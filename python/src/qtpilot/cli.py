@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -148,6 +149,113 @@ def cmd_download_tools(args: argparse.Namespace) -> int:
         return 1
 
     return 0
+
+
+# Exit codes, so a CI step can tell a behaviour change from a broken fixture.
+REPLAY_EXIT_OK = 0
+REPLAY_EXIT_DIVERGED = 1
+REPLAY_EXIT_USAGE = 2
+
+
+def _print_report(result, as_json: bool) -> None:
+    """Write a replay report to stdout, for a person or for a machine."""
+    if as_json:
+        print(json.dumps({
+            "source": result.scenario.source,
+            "passed": result.passed,
+            "summary": result.summary(),
+            "aborted_at": result.aborted_at,
+            "abort_reason": result.abort_reason,
+            "divergences": [
+                {
+                    "step": d.step,
+                    "kind": d.kind,
+                    "method": d.method,
+                    "expected": d.expected,
+                    "actual": d.actual,
+                }
+                for d in result.divergences
+            ],
+        }, indent=2))
+        return
+
+    print(result.summary())
+    for divergence in result.divergences:
+        print(f"  {divergence}")
+
+
+def cmd_replay(args: argparse.Namespace) -> int:
+    """Replay a recorded session against a running application.
+
+    Returns REPLAY_EXIT_USAGE for a fixture that cannot be replayed at all and
+    REPLAY_EXIT_DIVERGED for one that ran and disagreed, so a CI step can tell a real behaviour
+    change from a broken recording rather than seeing one red for both.
+    """
+    import asyncio
+
+    from qtpilot.replay import load_scenario, run_scenario
+
+    try:
+        scenario = load_scenario(args.path)
+    except (OSError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return REPLAY_EXIT_USAGE
+
+    if not scenario.is_replayable:
+        print(
+            f"error: {scenario.source}: nothing to replay -- no mutating calls found. "
+            "Record at level 2 or above (qtpilot_log_start(level=2)).",
+            file=sys.stderr,
+        )
+        return REPLAY_EXIT_USAGE
+
+    if args.inspect:
+        actions = [s.action.method for s in scenario.steps if s.action]
+        observations = sum(len(s.observations) for s in scenario.steps)
+        notifications = sum(len(s.notifications) for s in scenario.steps)
+        if args.json:
+            print(json.dumps({
+                "source": scenario.source,
+                "replayable": True,
+                "steps": len(scenario.steps),
+                "actions": actions,
+                "observations": observations,
+                "notifications": notifications,
+            }, indent=2))
+        else:
+            print(f"{scenario.source}: {len(scenario.steps)} step(s), {observations} observation(s), {notifications} notification(s)")
+            for action in actions:
+                print(f"  drives {action}")
+        return REPLAY_EXIT_OK
+
+    from qtpilot.connection import ProbeConnection, ProbeError
+
+    async def go() -> int:
+        probe = ProbeConnection(args.ws_url)
+
+        # Reaching the application is a precondition, not part of the comparison. An app that is
+        # not running has not behaved differently, and reporting it as a divergence would send
+        # someone hunting a regression that does not exist.
+        try:
+            await probe.connect()
+        except (OSError, ProbeError) as exc:
+            print(
+                f"error: cannot connect to a probe at {args.ws_url}: {exc}\n"
+                "Start the application with the qtPilot probe before replaying.",
+                file=sys.stderr,
+            )
+            return REPLAY_EXIT_USAGE
+
+        try:
+            await probe.handshake()
+            result = await run_scenario(scenario, probe, settle=args.settle)
+        finally:
+            await probe.disconnect()
+
+        _print_report(result, args.json)
+        return REPLAY_EXIT_OK if result.passed else REPLAY_EXIT_DIVERGED
+
+    return asyncio.run(go())
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -327,6 +435,57 @@ def create_parser() -> argparse.ArgumentParser:
         help="Target architecture (default: x64). Must match target app bitness.",
     )
     download_parser.set_defaults(func=cmd_download_tools)
+
+    # --- replay subcommand ---
+    replay_parser = subparsers.add_parser(
+        "replay",
+        help="Re-drive a recorded session and report what changed",
+        description=(
+            "Replay a .jsonl message log against a running application.\n\n"
+            "Re-issues the recorded actions in order, re-issues the recorded observations after\n"
+            "each one, and compares. Timings, request ids and generated object handles are\n"
+            "ignored, so a difference means the application behaved differently.\n\n"
+            "The application must already be in the state the recording started from -- replay\n"
+            "drives input, it does not reset anything.\n\n"
+            "Exit codes: 0 no divergence, 1 diverged or aborted, 2 the log cannot be replayed.\n\n"
+            "Example:\n"
+            "  qtpilot replay scenarios/place-device.jsonl\n"
+            "  qtpilot replay scenarios/place-device.jsonl --inspect\n"
+            "  qtpilot replay scenarios/place-device.jsonl --settle 0.25 --json"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    replay_parser.add_argument(
+        "path",
+        metavar="LOG",
+        help="Path to a .jsonl message log recorded at level 2 or above",
+    )
+    replay_parser.add_argument(
+        "--ws-url",
+        default=os.environ.get("QTPILOT_WS_URL", "ws://localhost:9222"),
+        help="WebSocket URL of the qtPilot probe (default: ws://localhost:9222)",
+    )
+    replay_parser.add_argument(
+        "--settle",
+        type=float,
+        default=0.1,
+        help=(
+            "Seconds to wait after each action for signals to arrive (default: 0.1). "
+            "Raise it for an application that updates asynchronously; too short reports a race "
+            "as a divergence."
+        ),
+    )
+    replay_parser.add_argument(
+        "--inspect",
+        action="store_true",
+        help="Summarise the log without connecting to anything. Safe against a live application.",
+    )
+    replay_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the report as JSON",
+    )
+    replay_parser.set_defaults(func=cmd_replay)
 
     return parser
 
