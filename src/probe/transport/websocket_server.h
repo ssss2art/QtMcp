@@ -110,6 +110,14 @@ class QTPILOT_EXPORT WebSocketServer : public QObject {
   void onClientDisconnected();
 
  private:
+  /// @brief Detach the active client and its queue, returning the socket.
+  ///
+  /// The single place that clears m_activeClient/m_notificationQueue, so every
+  /// teardown path drops its state before running anything that can re-enter.
+  /// @return The former active client, or nullptr if there was none. The caller
+  ///         owns finishing with it (close/deleteLater).
+  QWebSocket* takeActiveClient();
+
   QWebSocketServer* m_server = nullptr;
   QWebSocket* m_activeClient = nullptr;
   JsonRpcHandler* m_rpcHandler = nullptr;

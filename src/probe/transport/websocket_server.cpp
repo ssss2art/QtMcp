@@ -75,19 +75,48 @@ bool WebSocketServer::start() {
 }
 
 void WebSocketServer::stop() {
-  // Close active client connection if any
-  if (m_activeClient) {
-    delete m_notificationQueue;
-    m_notificationQueue = nullptr;
-    m_activeClient->close();
-    m_activeClient->deleteLater();
-    m_activeClient = nullptr;
+  // Detach the client state BEFORE anything that can re-enter.
+  //
+  // QWebSocket::close() may emit disconnected() synchronously -- whether it does
+  // depends on the socket's state and on the Qt version. That re-enters
+  // onClientDisconnected(), which nulls m_activeClient; the old code then
+  // continued into `m_activeClient->deleteLater()` on a null pointer. It
+  // SEGFAULTed on Qt 6.8/6.9 and survived on 5.15/6.5/6.10/6.11, which is
+  // exactly what a timing-dependent re-entrancy hole looks like.
+  //
+  // Taking a local reference and clearing the members first makes the order
+  // independent of when Qt chooses to emit: a re-entrant call sees no client and
+  // does nothing, and this function still owns the pointer it is finishing with.
+  if (QWebSocket* client = takeActiveClient()) {
+    client->close();
+    client->deleteLater();
   }
 
   // Close the server
   if (m_server->isListening()) {
     m_server->close();
   }
+}
+
+QWebSocket* WebSocketServer::takeActiveClient() {
+  QWebSocket* client = m_activeClient;
+  if (client == nullptr) {
+    return nullptr;
+  }
+
+  // Cleared first so a re-entrant stop()/onClientDisconnected() is a no-op.
+  m_activeClient = nullptr;
+
+  // The queue holds a raw pointer to the socket and is owned by this server, so
+  // it goes before the socket does.
+  delete m_notificationQueue;
+  m_notificationQueue = nullptr;
+
+  // No further signals from a socket whose bookkeeping is already gone. Safe to
+  // call while one of those signals is being emitted.
+  client->disconnect(this);
+
+  return client;
 }
 
 bool WebSocketServer::isListening() const {
@@ -181,14 +210,19 @@ void WebSocketServer::onTextMessage(const QString& message) {
 }
 
 void WebSocketServer::onClientDisconnected() {
-  if (m_activeClient) {
-    qInfo() << "[qtPilot] Client disconnected";
-    delete m_notificationQueue;
-    m_notificationQueue = nullptr;
-    m_activeClient->deleteLater();
-    m_activeClient = nullptr;
-    emit clientDisconnected();
+  QWebSocket* client = takeActiveClient();
+  if (client == nullptr) {
+    return;
   }
+
+  qInfo() << "[qtPilot] Client disconnected";
+  client->deleteLater();
+
+  // Emitted last, and after the state is already consistent: a handler is free
+  // to call stop() or accept a new client without observing a half-torn-down
+  // server.
+  emit clientDisconnected();
+
   // Server keeps listening for new connections - do NOT stop!
 }
 
