@@ -26,7 +26,7 @@ would fail runs for reasons a reader cannot act on.
 ## Recording a scenario
 
 ```
-qtpilot_log_start(path="scenarios/place-device.jsonl", level=2)
+qtpilot_log_start(path="scenarios/submit-form.jsonl", level=2)
   ... drive the application ...
 qtpilot_log_stop()
 ```
@@ -52,7 +52,7 @@ them once in a watch list and let replay query them after every action:
 {
   "watch": [
     {"method": "qt.properties.get", "params": {"objectId": "statusBar.label", "name": "text"}},
-    {"method": "qt.objects.inspect", "params": {"objectId": "planView"}}
+    {"method": "qt.objects.inspect", "params": {"objectId": "resultsView"}}
   ]
 }
 ```
@@ -73,10 +73,10 @@ scenario cannot change what its baseline means.
 ## Running one
 
 ```
-qtpilot replay scenarios/place-device.jsonl                 # against ws://localhost:9222
-qtpilot replay scenarios/place-device.jsonl --inspect       # summarise, connect to nothing
-qtpilot replay scenarios/place-device.jsonl --settle 0.25   # slower async updates
-qtpilot replay scenarios/place-device.jsonl --json          # machine-readable report
+qtpilot replay scenarios/submit-form.jsonl                 # against ws://localhost:9222
+qtpilot replay scenarios/submit-form.jsonl --inspect       # summarise, connect to nothing
+qtpilot replay scenarios/submit-form.jsonl --settle 0.25   # slower async updates
+qtpilot replay scenarios/submit-form.jsonl --json          # machine-readable report
 ```
 
 The application must already be in the state the recording started from. **Replay drives input;
@@ -123,8 +123,8 @@ on would report a cascade of differences that are all the same failure.
 ordinary tests:
 
 ```cmake
-add_test(NAME Replay.PlaceDevice
-         COMMAND qtpilot replay ${CMAKE_CURRENT_SOURCE_DIR}/scenarios/place-device.jsonl)
+add_test(NAME Replay.SubmitForm
+         COMMAND qtpilot replay ${CMAKE_CURRENT_SOURCE_DIR}/scenarios/submit-form.jsonl)
 ```
 
 This complements unit tests and a full GUI-automation suite rather than replacing either. Unit

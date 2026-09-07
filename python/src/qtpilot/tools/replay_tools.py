@@ -70,7 +70,7 @@ def register_replay_tools(mcp: FastMCP) -> None:
                 application that updates asynchronously; a too-short window reports a race as a
                 divergence.
 
-        Example: qtpilot_replay_run(path="scenarios/place-device.jsonl", settle=0.25)
+        Example: qtpilot_replay_run(path="scenarios/submit-form.jsonl", settle=0.25)
         """
         from qtpilot.replay import load_scenario, run_scenario
         from qtpilot.server import get_probe

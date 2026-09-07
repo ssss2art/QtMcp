@@ -474,9 +474,9 @@ def create_parser() -> argparse.ArgumentParser:
             "drives input, it does not reset anything.\n\n"
             "Exit codes: 0 no divergence, 1 diverged or aborted, 2 the log cannot be replayed.\n\n"
             "Example:\n"
-            "  qtpilot replay scenarios/place-device.jsonl\n"
-            "  qtpilot replay scenarios/place-device.jsonl --inspect\n"
-            "  qtpilot replay scenarios/place-device.jsonl --settle 0.25 --json"
+            "  qtpilot replay scenarios/submit-form.jsonl\n"
+            "  qtpilot replay scenarios/submit-form.jsonl --inspect\n"
+            "  qtpilot replay scenarios/submit-form.jsonl --settle 0.25 --json"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
