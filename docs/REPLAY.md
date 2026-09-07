@@ -41,9 +41,34 @@ and the counter follows the order objects happened to be constructed in. Replay 
 apart. `qt.names.register` / `qt.names.load` give a recording a stable identity, and are what
 makes a scenario survive a refactor.
 
-**Observe deliberately.** A replay can only assert on what the recording looked at. A session of
-nothing but clicks replays as a sequence of clicks that cannot fail. Inspect the things whose
-state is the point of the scenario.
+**Observe deliberately, or use a watch list.** A replay can only assert on what the recording
+looked at, and an operator driving an application clicks far more readily than they inspect. A
+session of nothing but clicks replays as a sequence of clicks that cannot fail.
+
+Either inspect the things whose state is the point of the scenario while recording, or declare
+them once in a watch list and let replay query them after every action:
+
+```json
+{
+  "watch": [
+    {"method": "qt.properties.get", "params": {"objectId": "statusBar.label", "name": "text"}},
+    {"method": "qt.objects.inspect", "params": {"objectId": "planView"}}
+  ]
+}
+```
+
+```
+qtpilot replay session.jsonl --watch watch.json --record -o golden.jsonl   # capture a baseline
+qtpilot replay golden.jsonl                                               # check against it
+```
+
+A watch list may only name observing methods. It runs after every action, so letting it drive
+input would silently rewrite the scenario it is supposed to be measuring.
+
+A watch list is a **recording-time** input. Once captured, those observations are part of the
+baseline, so replaying does not take `--watch` again -- passing it would query everything twice.
+Recorded observations also keep their original positions, so adding a watch list to an existing
+scenario cannot change what its baseline means.
 
 ## Running one
 

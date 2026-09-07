@@ -40,6 +40,9 @@ def args_for(path: str, **overrides) -> argparse.Namespace:
         "settle": 0.0,
         "inspect": False,
         "json": False,
+        "watch": None,
+        "record": False,
+        "output": None,
     }
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -233,3 +236,49 @@ def test_a_probe_that_is_not_there_is_a_usage_error_not_a_divergence(tmp_path, m
 
     assert code == EXIT_USAGE
     assert "connect" in capsys.readouterr().err.lower()
+
+
+def test_record_without_a_watch_list_is_refused(tmp_path, capsys):
+    # Re-recording exactly what the log already observes produces the same file and teaches
+    # nobody anything; the useful form is --record with a watch list.
+    code = cmd_replay(args_for(write_log(tmp_path, CLICK_SESSION), record=True))
+
+    assert code == EXIT_USAGE
+    assert "--watch" in capsys.readouterr().err
+
+
+def test_record_with_a_watch_list_writes_a_baseline(tmp_path, probe_factory, capsys):
+    probe_factory("clicked")
+    watch = tmp_path / "watch.json"
+    watch.write_text(json.dumps({
+        "watch": [{"method": "qt.properties.get", "params": {"objectId": "l", "name": "text"}}]
+    }))
+    out = tmp_path / "golden.jsonl"
+
+    code = cmd_replay(
+        args_for(write_log(tmp_path, CLICK_SESSION), record=True, watch=str(watch), output=str(out))
+    )
+
+    assert code == EXIT_OK
+    assert out.exists()
+    assert "recorded" in capsys.readouterr().out
+
+    from qtpilot.replay import load_scenario
+
+    reloaded = load_scenario(out)
+    assert reloaded.is_replayable
+    # One recorded observation plus one watched one on the click step, and the watched one on
+    # the baseline step.
+    assert sum(len(s.observations) for s in reloaded.steps) == 3
+
+
+def test_a_watch_list_naming_a_mutating_method_is_refused(tmp_path, capsys):
+    watch = tmp_path / "watch.json"
+    watch.write_text(json.dumps({"watch": [{"method": "qt.ui.click", "params": {}}]}))
+
+    code = cmd_replay(
+        args_for(write_log(tmp_path, CLICK_SESSION), record=True, watch=str(watch))
+    )
+
+    assert code == EXIT_USAGE
+    assert "qt.ui.click" in capsys.readouterr().err

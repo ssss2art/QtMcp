@@ -175,6 +175,70 @@ class Scenario:
 
 
 @dataclass(frozen=True)
+class WatchTarget:
+    """One observing call issued after every action."""
+
+    method: str
+    params: dict
+
+
+@dataclass
+class WatchList:
+    """Observations a scenario carries, rather than ones it happened to record.
+
+    .. note:: Exists because a replay can only assert on what the recording looked at, and an
+       operator driving an application clicks far more readily than they inspect. A session of
+       nothing but clicks replays as a sequence of clicks that cannot fail. A watch list is
+       queried after every action, so the assertions are a property of the scenario instead of
+       of whoever recorded it.
+    """
+
+    targets: list[WatchTarget] = field(default_factory=list)
+
+    @classmethod
+    def from_targets(cls, targets: Iterable[tuple[str, dict]]) -> WatchList:
+        """Build from ``(method, params)`` pairs."""
+        return cls([WatchTarget(method=m, params=p) for m, p in targets])
+
+
+def load_watch_list(path: str | Path) -> WatchList:
+    """Read a watch list.
+
+    :param path: A JSON file of the form ``{"watch": [{"method": ..., "params": {...}}]}``.
+    :return: The parsed list.
+    :raises ValueError: If the file is malformed, or names a method that is not an observing one.
+
+    .. note:: Only observing methods are allowed. A watch list runs after every action, so
+       letting it drive input would silently rewrite the scenario it is supposed to be measuring.
+    """
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path}: not valid JSON: {exc}") from exc
+
+    entries = raw.get("watch") if isinstance(raw, dict) else None
+    if not isinstance(entries, list):
+        raise ValueError(f'{path}: expected an object with a "watch" list')
+
+    targets: list[WatchTarget] = []
+    for index, item in enumerate(entries):
+        if not isinstance(item, dict) or "method" not in item:
+            raise ValueError(f"{path}: watch[{index}] needs a \"method\"")
+
+        method = item["method"]
+        if method not in OBSERVING_METHODS:
+            raise ValueError(
+                f"{path}: watch[{index}] names {method}, which is not an observing method. "
+                f"A watch list runs after every action and must not change the application. "
+                f"Allowed: {', '.join(sorted(OBSERVING_METHODS))}"
+            )
+
+        targets.append(WatchTarget(method=method, params=item.get("params", {})))
+
+    return WatchList(targets)
+
+
+@dataclass(frozen=True)
 class Divergence:
     """One way a replay differed from what was recorded."""
 
@@ -345,6 +409,42 @@ class ReplayResult:
         """Whether the application still behaves as recorded."""
         return not self.divergences and self.aborted_at is None
 
+    def as_scenario(self) -> Scenario:
+        """Treat this run as the recording to compare future runs against.
+
+        .. note:: What a record run produces. The observations came from the watch list rather
+           than from the log it was driven from, so the result -- not the input -- is the golden.
+        """
+        return Scenario(steps=self.steps, source=self.scenario.source)
+
+    def write_log(self, path: str | Path) -> None:
+        """Write this run out as a message log that load_scenario can read back.
+
+        :param path: Destination .jsonl file.
+
+        .. note:: Emitted as req/res pairs rather than as a bespoke format, so a recorded
+           baseline and a hand-captured session are the same kind of file and one tool reads
+           both.
+        """
+        lines: list[str] = []
+        request_id = 0
+
+        for step in self.steps:
+            if step.action is not None:
+                request_id += 1
+                lines.append(json.dumps({"dir": "req", "id": request_id, "method": step.action.method, "params": step.action.params}))
+                lines.append(json.dumps({"dir": "res", "id": request_id, "method": step.action.method, "result": {"ok": True}}))
+
+            for observation in step.observations:
+                request_id += 1
+                lines.append(json.dumps({"dir": "req", "id": request_id, "method": observation.method, "params": observation.params}))
+                lines.append(json.dumps({"dir": "res", "id": request_id, "method": observation.method, "result": observation.result}))
+
+            for method, params in step.notifications:
+                lines.append(json.dumps({"dir": "ntf", "method": method, "params": params}))
+
+        Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     def summary(self) -> str:
         """One line fit for a test runner."""
         if self.aborted_at is not None:
@@ -361,6 +461,8 @@ async def run_scenario(
     *,
     settle: float = 0.1,
     timeout: float | None = None,
+    watch: WatchList | None = None,
+    record: bool = False,
 ) -> ReplayResult:
     """Drive a recorded scenario against a probe and compare what comes back.
 
@@ -372,6 +474,12 @@ async def run_scenario(
         delivered asynchronously, so asserting the instant a call returns reports races as
         divergences.
     :param timeout: Per-call timeout, passed through to the probe.
+    :param watch: Observing calls to issue after every action, in addition to whatever the
+        recording observed. Recorded observations keep their positions, so adding a watch list
+        cannot change what an existing baseline means.
+    :param record: Capture a new baseline instead of comparing against the input. Nothing is
+        diffed; use :meth:`ReplayResult.as_scenario` or :meth:`ReplayResult.write_log` to keep
+        the result.
     :return: The observed run and how it differed from the recording.
     :raises ValueError: If the scenario has nothing to drive.
 
@@ -413,15 +521,22 @@ async def run_scenario(
             if settle:
                 await asyncio.sleep(settle)
 
-            for want in recorded.observations:
+            # Recorded observations first, then the watch list. Keeping the recorded ones in
+            # their original positions is what lets a watch list be added to an existing
+            # scenario without changing what its baseline means.
+            wanted: list[tuple[str, dict]] = [(o.method, o.params) for o in recorded.observations]
+            if watch is not None:
+                wanted.extend((t.method, t.params) for t in watch.targets)
+
+            for method, params in wanted:
                 try:
-                    result = await probe.call(want.method, want.params, timeout)
+                    result = await probe.call(method, params, timeout)
                     step.observations.append(
-                        Observation(method=want.method, params=want.params, result=normalise(result, top_level=False))
+                        Observation(method=method, params=params, result=normalise(result, top_level=False))
                     )
                 except ProbeError as exc:
                     step.observations.append(
-                        Observation(method=want.method, params=want.params, result=None, error=str(exc))
+                        Observation(method=method, params=params, result=None, error=str(exc))
                     )
 
             step.notifications = list(collected)
@@ -431,7 +546,11 @@ async def run_scenario(
         # the rest of the session.
         probe.remove_notification_handler(collect)
 
-    divergences = [] if aborted_at is not None else diff_steps(scenario.steps, observed)
+    # A record run is producing the golden, so there is nothing to compare against yet.
+    if record or aborted_at is not None:
+        divergences: list[Divergence] = []
+    else:
+        divergences = diff_steps(scenario.steps, observed)
 
     return ReplayResult(
         scenario=scenario,

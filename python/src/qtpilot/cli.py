@@ -193,12 +193,21 @@ def cmd_replay(args: argparse.Namespace) -> int:
     """
     import asyncio
 
-    from qtpilot.replay import load_scenario, run_scenario
+    from qtpilot.replay import load_scenario, load_watch_list, run_scenario
 
     try:
         scenario = load_scenario(args.path)
+        watch = load_watch_list(args.watch) if args.watch else None
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return REPLAY_EXIT_USAGE
+
+    if args.record and not args.watch:
+        print(
+            "error: --record without --watch would re-record exactly what the log already "
+            "observes. Give it a watch list, or record a fresh session with qtpilot_log_start.",
+            file=sys.stderr,
+        )
         return REPLAY_EXIT_USAGE
 
     if not scenario.is_replayable:
@@ -248,9 +257,18 @@ def cmd_replay(args: argparse.Namespace) -> int:
 
         try:
             await probe.handshake()
-            result = await run_scenario(scenario, probe, settle=args.settle)
+            result = await run_scenario(
+                scenario, probe, settle=args.settle, watch=watch, record=args.record
+            )
         finally:
             await probe.disconnect()
+
+        if args.record:
+            destination = args.output or args.path
+            result.write_log(destination)
+            observations = sum(len(step.observations) for step in result.steps)
+            print(f"recorded {len(result.steps)} step(s), {observations} observation(s) -> {destination}")
+            return REPLAY_EXIT_OK
 
         _print_report(result, args.json)
         return REPLAY_EXIT_OK if result.passed else REPLAY_EXIT_DIVERGED
@@ -479,6 +497,31 @@ def create_parser() -> argparse.ArgumentParser:
         "--inspect",
         action="store_true",
         help="Summarise the log without connecting to anything. Safe against a live application.",
+    )
+    replay_parser.add_argument(
+        "--watch",
+        metavar="FILE",
+        default=None,
+        help=(
+            "JSON watch list queried after every action. Use with --record to give a scenario "
+            "assertions it did not happen to record: a session of nothing but clicks otherwise "
+            "replays as a sequence of clicks that cannot fail."
+        ),
+    )
+    replay_parser.add_argument(
+        "--record",
+        action="store_true",
+        help=(
+            "Capture a new baseline instead of comparing against one. Requires --watch. "
+            "Writes over the log unless --output names somewhere else."
+        ),
+    )
+    replay_parser.add_argument(
+        "--output",
+        "-o",
+        metavar="FILE",
+        default=None,
+        help="Where --record writes the baseline (default: over the input log)",
     )
     replay_parser.add_argument(
         "--json",
