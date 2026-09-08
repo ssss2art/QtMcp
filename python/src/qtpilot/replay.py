@@ -54,10 +54,33 @@ OBSERVING_METHODS: frozenset[str] = frozenset({
     "qt.ui.hitTest",
 })
 
+# Calls that set up the SESSION rather than drive or describe the application: signal
+# subscriptions, event capture, and the symbolic name map. They are re-issued on replay because
+# what follows depends on them, but their results are never compared -- a subscription id or a
+# "registered 12 names" count says nothing about the application.
+#
+# Without this, a level-3 recording failed against a correct application 100% of the time: the
+# subscription was never re-established, so no notification arrived during replay while the
+# recording held one per emission, and every one was reported as missing. docs/REPLAY.md
+# recommends level 3 for exactly the case that could not work.
+SETUP_METHODS: frozenset[str] = frozenset({
+    "qt.signals.subscribe",
+    "qt.signals.unsubscribe",
+    "qt.signals.setLifecycle",
+    "qt.events.start",
+    "qt.events.stop",
+    "qt.names.register",
+    "qt.names.load",
+    "qt.names.unregister",
+})
+
 # Timing, present at every depth and different in every run. "timestamp" is the probe's own
 # epoch-millisecond stamp inside a result's meta block, and is every bit as volatile as the
 # entry's ts -- it only shows up once a scenario is run against a real log rather than a fixture.
-VOLATILE_KEYS: frozenset[str] = frozenset({"ts", "dur_ms", "timestamp"})
+# "subscriptionId" is the probe's own per-run counter (signal_monitor.cpp mints sub_1, sub_2 ...
+# from a monotonic int). It rides on every notification, so leaving it in meant the recorded and
+# replayed notifications could never compare equal even once subscriptions were re-established.
+VOLATILE_KEYS: frozenset[str] = frozenset({"ts", "dur_ms", "timestamp", "subscriptionId"})
 
 # The JSON-RPC request id. Stripped only from the top level of an entry: nested "id" keys are
 # object identifiers -- the single most meaningful thing a result carries -- and removing those
@@ -178,6 +201,9 @@ class Step:
 
     index: int
     action: Action | None = None
+    # Session setup recorded during this step (subscriptions, name-map loads). Re-issued on
+    # replay so what follows behaves the same, never asserted on -- see SETUP_METHODS.
+    setups: list[Action] = field(default_factory=list)
     observations: list[Observation] = field(default_factory=list)
     notifications: list[tuple[str, dict]] = field(default_factory=list)
 
@@ -286,16 +312,29 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
     """
     steps: list[Step] = [Step(index=0)]
     pending: dict[Any, dict] = {}
+    # Notifications that arrived while a mutating call was in flight. In the log the order is
+    # req(click) ... ntf ... res(click), but the step an action owns is only created on its res,
+    # so appending to steps[-1] filed every signal an action caused under the PREVIOUS step. On
+    # replay the same signal is collected after the action and attributed to the current one, so
+    # recorded and replayed attribution differed by one for every action that emitted anything.
+    in_flight: list[tuple[str, dict]] = []
+    mutating_in_flight = 0
 
     for raw in entries:
         direction = raw.get("dir")
 
         if direction == "req":
             pending[raw.get("id")] = raw
+            if raw.get("method", "") in MUTATING_METHODS:
+                mutating_in_flight += 1
             continue
 
         if direction == "ntf":
-            steps[-1].notifications.append((raw.get("method", ""), normalise(raw.get("params", {}))))
+            entry = (raw.get("method", ""), normalise(raw.get("params", {})))
+            if mutating_in_flight:
+                in_flight.append(entry)
+            else:
+                steps[-1].notifications.append(entry)
             continue
 
         if direction not in ("res", "err"):
@@ -309,7 +348,19 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
         if method in MUTATING_METHODS:
             # The action's own result is not an observation: re-driving it produces a fresh one,
             # and asserting on it would assert that the driver worked, not that the app behaved.
-            steps.append(Step(index=len(steps), action=Action(method=method, params=params)))
+            mutating_in_flight = max(0, mutating_in_flight - 1)
+            step = Step(index=len(steps), action=Action(method=method, params=params))
+            # Whatever this action emitted belongs to the step it creates, not the one before it.
+            step.notifications.extend(in_flight)
+            in_flight.clear()
+            steps.append(step)
+            continue
+
+        if method in SETUP_METHODS:
+            # Only successful setup is worth re-issuing; a subscription that failed during
+            # recording produced no notifications to reproduce either.
+            if direction == "res":
+                steps[-1].setups.append(Action(method=method, params=params))
             continue
 
         if method in OBSERVING_METHODS:
@@ -322,6 +373,7 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
                 )
             )
 
+    steps[-1].notifications.extend(in_flight)
     return Scenario(steps=steps)
 
 
@@ -521,6 +573,13 @@ async def run_scenario(
             "A level-1 log records tool names but no wire traffic; record at level 2 or above."
         )
 
+    # None means "inherit the connection's default deadline", NOT "wait forever".
+    # ProbeConnection.call uses a sentinel for its default; passing None explicitly selects its
+    # unbounded branch, so a replay against an application that wedges on a modal dialog would
+    # hang until the CI runner's global kill rather than failing. Omitting the argument is the
+    # only way to say "use the default".
+    call_kwargs: dict[str, Any] = {} if timeout is None else {"timeout": timeout}
+
     collected: list[tuple[str, dict]] = []
 
     def collect(method: str, params: dict) -> None:
@@ -538,12 +597,27 @@ async def run_scenario(
 
             if recorded.action is not None:
                 try:
-                    await probe.call(recorded.action.method, recorded.action.params, timeout)
+                    await probe.call(recorded.action.method, recorded.action.params, **call_kwargs)
                 except ProbeError as exc:
                     aborted_at = recorded.index
                     abort_reason = f"{recorded.action.method}: {exc}"
                     observed.append(step)
                     break
+
+            # Re-establish session state before observing. A failure here is not an
+            # application divergence -- it means the replay could not be set up -- so it aborts
+            # with a reason that says so rather than being reported as a behaviour change.
+            for setup in recorded.setups:
+                try:
+                    await probe.call(setup.method, setup.params, **call_kwargs)
+                except ProbeError as exc:
+                    aborted_at = recorded.index
+                    abort_reason = f"setup failed -- {setup.method}: {exc}"
+                    observed.append(step)
+                    break
+            if aborted_at is not None:
+                break
+            step.setups = list(recorded.setups)
 
             if settle:
                 await asyncio.sleep(settle)
@@ -557,7 +631,7 @@ async def run_scenario(
 
             for method, params in wanted:
                 try:
-                    result = await probe.call(method, params, timeout)
+                    result = await probe.call(method, params, **call_kwargs)
                     step.observations.append(
                         Observation(method=method, params=params, result=normalise(result, top_level=False))
                     )
