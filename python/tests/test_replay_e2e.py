@@ -384,3 +384,58 @@ def test_level3_recording_replays_without_spurious_divergence(live_app, tmp_path
         "a level-3 recording diverged against an unchanged application: "
         + "; ".join(f"{d.kind} step {d.step}" for d in result.divergences)
     )
+
+
+def test_the_same_scenario_replays_clean_repeatedly(live_app, tmp_path):
+    """One clean run can be luck. "Deterministic" means it holds every time.
+
+    Five consecutive replays of one recording against one application, each from
+    the same reset state. A single divergence in any of them is a flake, and a
+    flake here is worse than a failure -- it teaches people to re-run until green.
+    """
+    log_path = tmp_path / "session.jsonl"
+    asyncio.run(_record_form_session(live_app, log_path))
+    scenario = parse_entries(_entries(log_path))
+
+    async def go():
+        outcomes = []
+        async with _connected(live_app) as conn:
+            for _ in range(5):
+                await _reset(conn)
+                result = await run_scenario(scenario, conn, settle=0.4)
+                outcomes.append((len(result.divergences), result.aborted_at))
+        return outcomes
+
+    outcomes = asyncio.run(go())
+
+    assert outcomes == [(0, None)] * 5, f"replay was not stable across runs: {outcomes}"
+
+
+def test_a_log_holding_two_appended_sessions_keeps_them_distinct(live_app, tmp_path):
+    """MessageLogger opens its file in append mode and request ids restart per
+    session, so one path can hold two sessions both numbering from 1. The parser
+    must not pair session two's response with session one's abandoned request --
+    that would replay the wrong input and blame the application for the result.
+    """
+    log_path = tmp_path / "two.jsonl"
+
+    async def record(text: str):
+        logger = MessageLogger()
+        async with _connected(live_app) as conn:
+            await _reset(conn)
+            logger.start(path=str(log_path), level=2)
+            logger.attach(conn)
+            try:
+                await conn.call("qt.ui.sendKeys", {"objectId": NAME_EDIT, "text": text})
+                await asyncio.sleep(0.2)
+            finally:
+                logger.detach(conn)
+                logger.stop()
+
+    asyncio.run(record("Ada"))
+    asyncio.run(record("Grace"))
+
+    scenario = parse_entries(_entries(log_path))
+    typed = [s.action.params.get("text") for s in scenario.steps if s.action]
+
+    assert typed == ["Ada", "Grace"], f"appended sessions were spliced wrongly: {typed}"

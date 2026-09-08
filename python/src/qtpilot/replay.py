@@ -80,6 +80,25 @@ SETUP_METHODS: frozenset[str] = frozenset({
 # "subscriptionId" is the probe's own per-run counter (signal_monitor.cpp mints sub_1, sub_2 ...
 # from a monotonic int). It rides on every notification, so leaving it in meant the recorded and
 # replayed notifications could never compare equal even once subscriptions were re-established.
+# The scenario format this build writes and understands.
+#
+# A scenario IS a message log -- the same shape MessageLogger produces -- which is deliberate:
+# a hand-captured session and a recorded baseline are one kind of file and one tool reads both.
+# The cost is that the log's shape became a compatibility surface the moment replay could read
+# it, and nothing said which shape a given file was.
+#
+# A baseline written by --record now carries a header line. A log captured by MessageLogger does
+# NOT, because the logger is a pre-existing contract this work does not change -- so an absent
+# header means "unversioned", is accepted, and is not an error. What is an error is a header
+# claiming a format this build does not know how to read: better to refuse than to diff a file
+# whose meaning has moved.
+SCENARIO_FORMAT = 1
+
+# The marker line. "dir" keeps it inside the log's existing entry shape, so a reader that
+# predates versioning skips it as an unrecognised direction rather than choking on it -- which
+# is why this is a new `dir` value and not a new top-level key.
+FORMAT_DIR = "meta"
+
 VOLATILE_KEYS: frozenset[str] = frozenset({"ts", "dur_ms", "timestamp", "subscriptionId"})
 
 # The JSON-RPC request id. Stripped only from the top level of an entry: nested "id" keys are
@@ -221,6 +240,8 @@ class Scenario:
     # none of the cu.* input, and reported the resulting state differences as application
     # divergences.
     unsupported: dict[str, int] = field(default_factory=dict)
+    # The format declared by the file's header, or 0 for an unversioned capture.
+    format_version: int = 0
 
     @property
     def is_replayable(self) -> bool:
@@ -327,9 +348,28 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
     in_flight: list[tuple[str, dict]] = []
     mutating_in_flight = 0
     unsupported: dict[str, int] = {}
+    # 0 means "no header" -- a log captured by MessageLogger, which does not write one.
+    fmt = 0
 
     for raw in entries:
         direction = raw.get("dir")
+
+        if direction == FORMAT_DIR:
+            declared = raw.get("format")
+            # `isinstance(True, int)` is True in Python, so a header of {"format": true}
+            # would otherwise be read as format 1 -- a corrupt file silently claiming to be
+            # the current version is the one outcome the header exists to prevent.
+            if isinstance(declared, bool) or not isinstance(declared, int):
+                raise ValueError(
+                    f"scenario header declares format {declared!r}, which is not a version number"
+                )
+            if declared > SCENARIO_FORMAT:
+                raise ValueError(
+                    f"scenario was written in format {declared}, but this build understands "
+                    f"up to {SCENARIO_FORMAT}. Upgrade qtpilot, or re-record the scenario."
+                )
+            fmt = declared
+            continue
 
         if direction == "req":
             pending[raw.get("id")] = raw
@@ -350,8 +390,19 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
 
         method = raw.get("method", "")
         request = pending.pop(raw.get("id"), {})
+
+        # A recorded call whose params are not an object cannot be reconstructed: replay would
+        # hand probe.call() a float or a list where the wire format requires a JSON object.
+        # Counted so it is visible rather than driven or silently dropped. Only reachable
+        # through a corrupted or hand-edited log, which is exactly when a parser should refuse
+        # to invent something plausible.
+        raw_params = request.get("params", {})
+        if raw_params is not None and not isinstance(raw_params, dict):
+            if method:
+                unsupported[method] = unsupported.get(method, 0) + 1
+            continue
         # mask_handles=False: these params are re-sent to the probe verbatim on replay.
-        params = normalise(request.get("params", {}), mask_handles=False)
+        params = normalise(raw_params if raw_params is not None else {}, mask_handles=False)
 
         if method in MUTATING_METHODS:
             # The action's own result is not an observation: re-driving it produces a fresh one,
@@ -390,7 +441,7 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
             unsupported[method] = unsupported.get(method, 0) + 1
 
     steps[-1].notifications.extend(in_flight)
-    return Scenario(steps=steps, unsupported=unsupported)
+    return Scenario(steps=steps, unsupported=unsupported, format_version=fmt)
 
 
 def load_scenario(path: str | Path) -> Scenario:
@@ -521,7 +572,11 @@ class ReplayResult:
            baseline and a hand-captured session are the same kind of file and one tool reads
            both.
         """
-        lines: list[str] = []
+        # Stamped so a baseline states its own shape. A future reader can then refuse a file
+        # it does not understand instead of silently diffing against changed semantics.
+        lines: list[str] = [
+            json.dumps({"dir": FORMAT_DIR, "format": SCENARIO_FORMAT, "source": self.scenario.source})
+        ]
         request_id = 0
 
         for step in self.steps:
