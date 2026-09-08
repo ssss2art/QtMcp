@@ -253,3 +253,71 @@ async def test_settle_gives_notifications_time_to_arrive():
 
     assert (await run_scenario(scenario, LateProbe(), settle=0.05)).passed
     assert not (await run_scenario(scenario, LateProbe(), settle=0)).passed
+
+
+# --- the request deadline --------------------------------------------------
+
+
+class TimeoutRecordingProbe:
+    """Records exactly how the driver passed (or did not pass) a timeout.
+
+    ProbeConnection.call distinguishes three things: an explicit float, an
+    explicit None ("wait forever"), and the argument being absent ("use the
+    default deadline"). A fake with ``timeout=None`` in its signature cannot tell
+    the last two apart, which is how the driver came to disable the only timeout
+    the transport has.
+    """
+
+    def __init__(self) -> None:
+        self.timeout_args: list = []
+        self.handlers: list = []
+
+    async def call(self, method, params=None, *args, **kwargs):
+        if args:
+            self.timeout_args.append(("positional", args[0]))
+        elif "timeout" in kwargs:
+            self.timeout_args.append(("keyword", kwargs["timeout"]))
+        else:
+            self.timeout_args.append(("absent", None))
+        return {}
+
+    def add_notification_handler(self, handler):
+        self.handlers.append(handler)
+
+    def remove_notification_handler(self, handler):
+        self.handlers.remove(handler)
+
+
+CLICK = [
+    {"dir": "req", "id": 1, "method": "qt.ui.click", "params": {"objectId": "b"}},
+    {"dir": "res", "id": 1, "method": "qt.ui.click", "result": {"ok": True}},
+    {"dir": "req", "id": 2, "method": "qt.properties.get", "params": {"objectId": "l"}},
+    {"dir": "res", "id": 2, "method": "qt.properties.get", "result": {"value": "x"}},
+]
+
+
+@pytest.mark.asyncio
+async def test_no_timeout_means_inherit_the_default_not_wait_forever():
+    """The driver must not hand ProbeConnection an explicit None.
+
+    ProbeConnection.call's default is a sentinel; None selects its unbounded
+    branch. Passing None meant a replay against an application that wedged hung
+    until CI's global kill rather than failing -- reopening the hazard the
+    request-timeout work closed.
+    """
+    probe = TimeoutRecordingProbe()
+    await run_scenario(parse_entries(CLICK), probe, settle=0)
+
+    assert probe.timeout_args, "the driver made no calls"
+    assert all(
+        kind == "absent" for kind, _ in probe.timeout_args
+    ), f"driver supplied a timeout it was never given: {probe.timeout_args}"
+
+
+@pytest.mark.asyncio
+async def test_an_explicit_timeout_is_passed_through():
+    probe = TimeoutRecordingProbe()
+    await run_scenario(parse_entries(CLICK), probe, settle=0, timeout=2.5)
+
+    assert probe.timeout_args
+    assert all(value == 2.5 for _, value in probe.timeout_args), probe.timeout_args
