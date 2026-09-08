@@ -67,14 +67,23 @@ REQUEST_ID_KEY = "id"
 # What MessageLogger._truncate leaves behind when a value was too large to log.
 _TRUNCATED = re.compile(r"\.\.\.<truncated \d+c>$|^<image:\d+b>$")
 
-# The fallback identity the probe gives an object with no registered name: a class name and a
-# creation counter. The counter depends on the order objects happened to be constructed, so it is
-# not stable between runs and asserting on it would fail every replay.
+# Keys whose string values are object identifiers. The probe emits "id" on tree nodes
+# (object_id.cpp:579) and "objectId" on search/inspect/property entries
+# (native_mode_api.cpp:361). Masking is confined to these because it used to run over every
+# string at every depth, which meant an ordinary label or model cell reading "user~1" was
+# rewritten too -- silently equal on both sides, so a real difference could pass.
+ID_KEYS: frozenset[str] = frozenset({"id", "objectId", "objectIds", "parentId"})
+
+# The collision suffix the registry appends when two objects would otherwise generate the same
+# id (object_registry.cpp allocateUniqueIdLocked). The counter is monotonic and depends on the
+# order objects were constructed, so it is not stable between runs.
 #
-# Masking it keeps the shape of a result comparable while giving up on telling two unnamed
-# objects apart. A recording that needs that distinction should register names for them first
-# (qt.names.register / qt.names.load), which is the stable identity replay is designed around.
-_GENERATED_HANDLE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)~\d+$")
+# It is appended to a WHOLE id, and a real id is a "/"-joined path whose segments may carry a
+# "#N" sibling index -- "MainWindow/centralWidget/formTab/QLabel~2", not a bare class name. The
+# previous pattern was anchored to `^Class~N$`, so it never matched anything the probe emits for
+# a nested object, and the one case it did match it corrupted. Hence [^~]+ across the whole
+# string rather than an identifier at the start.
+_GENERATED_HANDLE = re.compile(r"^(?P<base>[^~]+)~\d+$")
 
 
 def _is_truncated(value: Any) -> bool:
@@ -82,26 +91,43 @@ def _is_truncated(value: Any) -> bool:
     return isinstance(value, str) and _TRUNCATED.search(value) is not None
 
 
-def normalise(value: Any, *, top_level: bool = True) -> Any:
+def normalise(
+    value: Any, *, top_level: bool = True, mask_handles: bool = True, key: str | None = None
+) -> Any:
     """Strip the fields that differ between two runs of the same session.
 
     :param value: A log entry, or any value nested inside one.
     :param top_level: False for values already inside an entry.
+    :param mask_handles: Whether to blank the registry's ``~N`` collision suffix. Must be False
+        for anything that will be sent back to the probe -- see the note below.
+    :param key: The dict key ``value`` was found under, used to confine masking to identifiers.
     :return: A copy without timing, and without the request id at the outermost level.
 
     .. note:: Timing is stripped at every depth, because a diff that reported a nested
        ``dur_ms`` would be reporting the clock. The request id is stripped only at the top:
        deeper down, ``id`` names an object rather than a call.
+
+    .. warning:: ``mask_handles`` exists because this function is applied to request params as
+       well as results, and request params are re-driven verbatim. Masking them meant replay
+       asked the probe for an objectId containing a literal ``~*`` (which cannot resolve) and
+       typed ``~*`` into the application in place of recorded text. Masking is a comparison
+       concern; it must never reach the drive path.
     """
     if isinstance(value, dict):
         drop = set(VOLATILE_KEYS)
         if top_level:
             drop.add(REQUEST_ID_KEY)
-        return {k: normalise(v, top_level=False) for k, v in value.items() if k not in drop}
+        return {
+            k: normalise(v, top_level=False, mask_handles=mask_handles, key=k)
+            for k, v in value.items()
+            if k not in drop
+        }
     if isinstance(value, list):
-        return [normalise(item, top_level=False) for item in value]
-    if isinstance(value, str):
-        return _GENERATED_HANDLE.sub(r"\1~*", value)
+        return [
+            normalise(item, top_level=False, mask_handles=mask_handles, key=key) for item in value
+        ]
+    if isinstance(value, str) and mask_handles and key in ID_KEYS:
+        return _GENERATED_HANDLE.sub(r"\g<base>~*", value)
     return value
 
 
@@ -277,7 +303,8 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
 
         method = raw.get("method", "")
         request = pending.pop(raw.get("id"), {})
-        params = normalise(request.get("params", {}))
+        # mask_handles=False: these params are re-sent to the probe verbatim on replay.
+        params = normalise(request.get("params", {}), mask_handles=False)
 
         if method in MUTATING_METHODS:
             # The action's own result is not an observation: re-driving it produces a fresh one,
