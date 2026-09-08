@@ -155,6 +155,10 @@ def cmd_download_tools(args: argparse.Namespace) -> int:
 REPLAY_EXIT_OK = 0
 REPLAY_EXIT_DIVERGED = 1
 REPLAY_EXIT_USAGE = 2
+# A replay that could not complete: an action errored partway, so the run proves nothing either
+# way. Kept distinct from DIVERGED because "the application changed" and "the replay fell over"
+# call for different responses, and conflating them means CI cannot tell them apart.
+REPLAY_EXIT_ABORTED = 3
 
 
 def _print_report(result, as_json: bool) -> None:
@@ -209,6 +213,15 @@ def cmd_replay(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return REPLAY_EXIT_USAGE
 
+    if scenario.unsupported:
+        listed = ", ".join(f"{n} x{c}" for n, c in sorted(scenario.unsupported.items()))
+        print(
+            f"warning: {scenario.source}: {sum(scenario.unsupported.values())} recorded call(s) "
+            f"will not be re-driven ({listed}). Differences they would have caused are reported "
+            "as application divergences.",
+            file=sys.stderr,
+        )
+
     if args.record and not args.watch:
         print(
             "error: --record without --watch would re-record exactly what the log already "
@@ -217,12 +230,36 @@ def cmd_replay(args: argparse.Namespace) -> int:
         )
         return REPLAY_EXIT_USAGE
 
-    if not scenario.is_replayable:
+    if args.record and not args.output:
+        # --output used to default to the input path, so --record wrote its baseline over the
+        # recording it had just read. Destructive-by-default is close to impossible to walk back
+        # once scripts depend on it, so the destination is now explicit.
         print(
-            f"error: {scenario.source}: nothing to replay -- no mutating calls found. "
-            "Record at level 2 or above (qtpilot_log_start(level=2)).",
+            "error: --record requires --output. Writing the baseline over the input log would "
+            "destroy the recording it was produced from.",
             file=sys.stderr,
         )
+        return REPLAY_EXIT_USAGE
+
+    if not scenario.is_replayable:
+        # Distinguish "the log has no wire traffic" from "the log is full of calls replay
+        # cannot reproduce". Telling someone to re-record at level 2 when they already did --
+        # because every call was a cu.* one -- sends them round the same loop again.
+        if scenario.unsupported:
+            listed = ", ".join(
+                f"{name} x{count}" for name, count in sorted(scenario.unsupported.items())
+            )
+            print(
+                f"error: {scenario.source}: nothing replayable -- every recorded call is one "
+                f"replay cannot reproduce ({listed}).",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"error: {scenario.source}: nothing to replay -- no mutating calls found. "
+                "Record at level 2 or above (qtpilot_log_start(level=2)).",
+                file=sys.stderr,
+            )
         return REPLAY_EXIT_USAGE
 
     if args.inspect:
@@ -271,13 +308,28 @@ def cmd_replay(args: argparse.Namespace) -> int:
             await probe.disconnect()
 
         if args.record:
-            destination = args.output or args.path
-            result.write_log(destination)
+            # Never write a partial scenario. An aborted run stopped partway, so its steps are a
+            # truncation of the recording rather than a baseline -- and since --output used to
+            # default to the input path, writing here replaced the user's only copy of a 40-step
+            # recording with the 6 steps that ran, printed a success line, and exited 0.
+            if result.aborted_at is not None:
+                print(
+                    f"error: replay aborted at step {result.aborted_at} "
+                    f"({result.abort_reason}); refusing to write a partial baseline.",
+                    file=sys.stderr,
+                )
+                return REPLAY_EXIT_ABORTED
+            result.write_log(args.output)
             observations = sum(len(step.observations) for step in result.steps)
-            print(f"recorded {len(result.steps)} step(s), {observations} observation(s) -> {destination}")
+            print(
+                f"recorded {len(result.steps)} step(s), {observations} observation(s) "
+                f"-> {args.output}"
+            )
             return REPLAY_EXIT_OK
 
         _print_report(result, args.json)
+        if result.aborted_at is not None:
+            return REPLAY_EXIT_ABORTED
         return REPLAY_EXIT_OK if result.passed else REPLAY_EXIT_DIVERGED
 
     return asyncio.run(go())
@@ -519,8 +571,8 @@ def create_parser() -> argparse.ArgumentParser:
         "--record",
         action="store_true",
         help=(
-            "Capture a new baseline instead of comparing against one. Requires --watch. "
-            "Writes over the log unless --output names somewhere else."
+            "Capture a new baseline instead of comparing against one. Requires --watch "
+            "and --output."
         ),
     )
     replay_parser.add_argument(
@@ -528,7 +580,10 @@ def create_parser() -> argparse.ArgumentParser:
         "-o",
         metavar="FILE",
         default=None,
-        help="Where --record writes the baseline (default: over the input log)",
+        help=(
+            "Where --record writes the baseline. Required with --record: it used to default "
+            "to the input log, so a --record run replaced the recording it was reading."
+        ),
     )
     replay_parser.add_argument(
         "--json",

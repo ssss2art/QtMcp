@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pathlib
 
 import pytest
 
@@ -13,6 +14,7 @@ from qtpilot.replay import Divergence, ReplayResult, parse_entries
 EXIT_OK = 0
 EXIT_DIVERGED = 1
 EXIT_USAGE = 2
+EXIT_ABORTED = 3
 
 
 def write_log(tmp_path, entries: list[dict]) -> str:
@@ -295,3 +297,76 @@ def test_replay_quietens_the_transport_loggers(tmp_path, probe_factory):
     cmd_replay(args_for(write_log(tmp_path, CLICK_SESSION)))
 
     assert logging.getLogger("websockets.client").level == logging.WARNING
+
+
+# --- guards on the destructive --record path ------------------------------
+
+
+def test_record_requires_an_explicit_output(tmp_path, capsys):
+    """--output used to default to the input log, so --record wrote its baseline
+    over the recording it had just read. The destination must be deliberate."""
+    log = write_log(tmp_path, CLICK_SESSION)
+    watch = tmp_path / "watch.json"
+    watch.write_text(json.dumps({"watch": [{"method": "qt.properties.get", "params": {}}]}))
+
+    code = cmd_replay(args_for(log, record=True, watch=str(watch)))
+
+    assert code == EXIT_USAGE
+    assert "--output" in capsys.readouterr().err
+    # The input survived.
+    assert pathlib.Path(log).read_text().strip(), "the input log was modified by a refused --record"
+
+
+def test_record_refuses_to_write_a_partial_baseline_after_an_abort(
+    tmp_path, probe_factory, capsys, monkeypatch
+):
+    """An aborted run stopped partway, so its steps are a truncation rather than
+    a baseline. Writing it out replaced a long recording with the few steps that
+    ran, printed a success line and exited 0."""
+    probe_factory("clicked")
+    watch = tmp_path / "watch.json"
+    watch.write_text(json.dumps({"watch": [{"method": "qt.properties.get", "params": {}}]}))
+    out = tmp_path / "golden.jsonl"
+
+    async def aborted(scenario, probe, **kwargs):
+        return ReplayResult(
+            scenario=scenario,
+            steps=scenario.steps[:1],
+            divergences=[],
+            aborted_at=1,
+            abort_reason="qt.ui.click: Object not found",
+        )
+
+    monkeypatch.setattr("qtpilot.replay.run_scenario", aborted)
+
+    code = cmd_replay(
+        args_for(write_log(tmp_path, CLICK_SESSION), record=True, watch=str(watch), output=str(out))
+    )
+
+    assert code == EXIT_ABORTED
+    assert not out.exists(), "a partial baseline was written after an abort"
+    assert "aborted" in capsys.readouterr().err
+
+
+def test_an_aborted_comparison_run_is_not_reported_as_a_divergence(
+    tmp_path, probe_factory, capsys, monkeypatch
+):
+    """"the application changed" and "the replay fell over" need different
+    responses, so they need different exit codes."""
+    probe_factory("clicked")
+
+    async def aborted(scenario, probe, **kwargs):
+        return ReplayResult(
+            scenario=scenario,
+            steps=scenario.steps[:1],
+            divergences=[],
+            aborted_at=1,
+            abort_reason="qt.ui.click: Object not found",
+        )
+
+    monkeypatch.setattr("qtpilot.replay.run_scenario", aborted)
+
+    code = cmd_replay(args_for(write_log(tmp_path, CLICK_SESSION)))
+
+    assert code == EXIT_ABORTED
+    assert code != EXIT_DIVERGED
