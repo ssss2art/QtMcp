@@ -214,6 +214,13 @@ class Scenario:
 
     steps: list[Step]
     source: str = "<memory>"
+    # Wire calls the parser could not classify, as {method: count}. Previously these fell off
+    # the end of parse_entries' if-chain and vanished, so a session recorded in computer_use
+    # mode (every cu.* call) parsed to zero actions and reported "record at level 2 or above"
+    # about a log that already was level 2 -- and a MIXED session was worse: it replayed, drove
+    # none of the cu.* input, and reported the resulting state differences as application
+    # divergences.
+    unsupported: dict[str, int] = field(default_factory=dict)
 
     @property
     def is_replayable(self) -> bool:
@@ -319,6 +326,7 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
     # recorded and replayed attribution differed by one for every action that emitted anything.
     in_flight: list[tuple[str, dict]] = []
     mutating_in_flight = 0
+    unsupported: dict[str, int] = {}
 
     for raw in entries:
         direction = raw.get("dir")
@@ -372,9 +380,17 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
                     error=raw.get("error") if direction == "err" else None,
                 )
             )
+            continue
+
+        # Anything left is a call replay does not know how to reproduce -- the cu.* and chr.*
+        # families, or a qt.* method added to the probe since this list was written. Counted
+        # rather than dropped, so --inspect can say what will not be re-driven instead of a
+        # scenario quietly meaning less than it appears to.
+        if method:
+            unsupported[method] = unsupported.get(method, 0) + 1
 
     steps[-1].notifications.extend(in_flight)
-    return Scenario(steps=steps)
+    return Scenario(steps=steps, unsupported=unsupported)
 
 
 def load_scenario(path: str | Path) -> Scenario:

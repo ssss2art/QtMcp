@@ -369,3 +369,86 @@ def test_a_shorter_run_reports_the_step_that_never_happened():
     assert len(divergences) == 1
     assert divergences[0].kind == "missing_step"
     assert divergences[0].step == 2
+
+
+# --- calls replay cannot reproduce ----------------------------------------
+
+
+def test_unsupported_calls_are_counted_rather_than_dropped():
+    """cu.* and chr.* were silently discarded, so a scenario could mean far less
+    than it appeared to with nothing saying so."""
+    scenario = parse_entries([
+        {"dir": "req", "id": 1, "method": "cu.click", "params": {"x": 1, "y": 2}},
+        {"dir": "res", "id": 1, "method": "cu.click", "result": {"ok": True}},
+        {"dir": "req", "id": 2, "method": "cu.type", "params": {"text": "hi"}},
+        {"dir": "res", "id": 2, "method": "cu.type", "result": {"ok": True}},
+        {"dir": "req", "id": 3, "method": "cu.click", "params": {"x": 3, "y": 4}},
+        {"dir": "res", "id": 3, "method": "cu.click", "result": {"ok": True}},
+    ])
+
+    assert scenario.unsupported == {"cu.click": 2, "cu.type": 1}
+    assert not scenario.is_replayable
+
+
+def test_a_mixed_session_reports_what_it_will_not_drive():
+    """The dangerous case: replayable, so it runs, but silently drives only part
+    of the recorded input and blames the app for the difference."""
+    scenario = parse_entries([
+        {"dir": "req", "id": 1, "method": "qt.ui.click", "params": {"objectId": "b"}},
+        {"dir": "res", "id": 1, "method": "qt.ui.click", "result": {"ok": True}},
+        {"dir": "req", "id": 2, "method": "cu.type", "params": {"text": "hi"}},
+        {"dir": "res", "id": 2, "method": "cu.type", "result": {"ok": True}},
+    ])
+
+    assert scenario.is_replayable
+    assert scenario.unsupported == {"cu.type": 1}
+
+
+def test_a_fully_supported_session_reports_nothing_unsupported():
+    scenario = parse_entries([
+        {"dir": "req", "id": 1, "method": "qt.ui.click", "params": {"objectId": "b"}},
+        {"dir": "res", "id": 1, "method": "qt.ui.click", "result": {"ok": True}},
+    ])
+
+    assert scenario.unsupported == {}
+
+
+def test_setup_calls_are_captured_for_re_issue():
+    """Subscriptions are session setup: re-issued so what follows behaves the
+    same, never asserted on."""
+    scenario = parse_entries([
+        {"dir": "req", "id": 1, "method": "qt.signals.subscribe",
+         "params": {"objectId": "e", "signal": "textChanged"}},
+        {"dir": "res", "id": 1, "method": "qt.signals.subscribe",
+         "result": {"subscriptionId": "sub_1"}},
+    ])
+
+    setups = [a.method for step in scenario.steps for a in step.setups]
+    assert setups == ["qt.signals.subscribe"]
+    assert scenario.unsupported == {}
+
+
+def test_notifications_belong_to_the_step_whose_action_caused_them():
+    """In the log a signal arrives between an action's req and its res, but the
+    step is only created on the res -- so they used to be filed one step early."""
+    scenario = parse_entries([
+        {"dir": "req", "id": 1, "method": "qt.ui.click", "params": {"objectId": "b"}},
+        {"dir": "ntf", "method": "qtpilot.signalEmitted", "params": {"signal": "clicked"}},
+        {"dir": "res", "id": 1, "method": "qt.ui.click", "result": {"ok": True}},
+    ])
+
+    assert scenario.steps[0].notifications == []
+    assert [m for m, _ in scenario.steps[1].notifications] == ["qtpilot.signalEmitted"]
+
+
+def test_subscription_ids_are_stripped_as_volatile():
+    """sub_1, sub_2 ... come from a per-run counter, so leaving them in meant
+    notifications could never compare equal between runs."""
+    scenario = parse_entries([
+        {"dir": "ntf", "method": "qtpilot.signalEmitted",
+         "params": {"signal": "clicked", "subscriptionId": "sub_1"}},
+    ])
+
+    _, params = scenario.steps[0].notifications[0]
+    assert "subscriptionId" not in params
+    assert params["signal"] == "clicked"

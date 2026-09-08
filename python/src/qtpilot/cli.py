@@ -213,6 +213,15 @@ def cmd_replay(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return REPLAY_EXIT_USAGE
 
+    if scenario.unsupported:
+        listed = ", ".join(f"{n} x{c}" for n, c in sorted(scenario.unsupported.items()))
+        print(
+            f"warning: {scenario.source}: {sum(scenario.unsupported.values())} recorded call(s) "
+            f"will not be re-driven ({listed}). Differences they would have caused are reported "
+            "as application divergences.",
+            file=sys.stderr,
+        )
+
     if args.record and not args.watch:
         print(
             "error: --record without --watch would re-record exactly what the log already "
@@ -233,11 +242,24 @@ def cmd_replay(args: argparse.Namespace) -> int:
         return REPLAY_EXIT_USAGE
 
     if not scenario.is_replayable:
-        print(
-            f"error: {scenario.source}: nothing to replay -- no mutating calls found. "
-            "Record at level 2 or above (qtpilot_log_start(level=2)).",
-            file=sys.stderr,
-        )
+        # Distinguish "the log has no wire traffic" from "the log is full of calls replay
+        # cannot reproduce". Telling someone to re-record at level 2 when they already did --
+        # because every call was a cu.* one -- sends them round the same loop again.
+        if scenario.unsupported:
+            listed = ", ".join(
+                f"{name} x{count}" for name, count in sorted(scenario.unsupported.items())
+            )
+            print(
+                f"error: {scenario.source}: nothing replayable -- every recorded call is one "
+                f"replay cannot reproduce ({listed}).",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"error: {scenario.source}: nothing to replay -- no mutating calls found. "
+                "Record at level 2 or above (qtpilot_log_start(level=2)).",
+                file=sys.stderr,
+            )
         return REPLAY_EXIT_USAGE
 
     if args.inspect:
