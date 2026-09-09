@@ -170,6 +170,53 @@ def test_observation_results_survive_the_round_trip(tmp_path):
     assert got.result == {"value": "hello", "nested": {"n": 1, "list": [1, 2, 3]}}
 
 
+def test_a_written_baseline_preserves_setup_calls(tmp_path):
+    scenario = Scenario(
+        steps=[
+            Step(
+                index=0,
+                setups=[
+                    Action(
+                        method="qt.signals.subscribe",
+                        params={"objectId": "main", "signal": "widthChanged"},
+                    )
+                ],
+            ),
+            Step(index=1, action=Action(method="qt.ui.click", params={"objectId": "button"})),
+        ]
+    )
+    out = tmp_path / "setup.jsonl"
+
+    ReplayResult(scenario=scenario, steps=scenario.steps, divergences=[]).write_log(out)
+
+    assert load_scenario(out).steps[0].setups == scenario.steps[0].setups
+
+
+def test_a_written_baseline_preserves_observation_errors(tmp_path):
+    scenario = Scenario(
+        steps=[
+            Step(index=0),
+            Step(
+                index=1,
+                action=Action(method="qt.ui.click", params={"objectId": "button"}),
+                observations=[
+                    Observation(
+                        method="qt.properties.get",
+                        params={"objectId": "missing", "name": "visible"},
+                        result=None,
+                        error="Object not found",
+                    )
+                ],
+            ),
+        ]
+    )
+    out = tmp_path / "errors.jsonl"
+
+    ReplayResult(scenario=scenario, steps=scenario.steps, divergences=[]).write_log(out)
+
+    assert load_scenario(out).steps[1].observations[0].error == "Object not found"
+
+
 # --- malformed and hostile input ------------------------------------------
 
 
@@ -202,20 +249,39 @@ def test_blank_lines_are_ignored(tmp_path):
     assert load_scenario(path).is_replayable
 
 
+def test_a_non_object_jsonl_line_is_reported_as_malformed(tmp_path):
+    path = tmp_path / "non-object.jsonl"
+    path.write_text("[]\n")
+
+    with pytest.raises(ValueError, match="line 1.*object"):
+        load_scenario(path)
+
+
+def test_an_orphaned_response_is_rejected_instead_of_becoming_an_action():
+    with pytest.raises(ValueError, match="matching request"):
+        parse_entries([{"dir": "res", "id": 1, "method": "qt.ui.click", "result": {"ok": True}}])
+
+
+def test_a_request_response_method_mismatch_is_rejected():
+    with pytest.raises(ValueError, match="does not match"):
+        parse_entries(
+            [
+                {"dir": "req", "id": 1, "method": "qt.properties.get", "params": {}},
+                {"dir": "res", "id": 1, "method": "qt.ui.click", "result": {"ok": True}},
+            ]
+        )
+
+
 @pytest.mark.parametrize(
     "entries",
     [
-        pytest.param([{"dir": "res", "id": 9, "method": "qt.ui.click", "result": {}}], id="res-without-req"),
         pytest.param([{"dir": "req", "id": 1, "method": "qt.ui.click", "params": {}}], id="req-without-res"),
-        pytest.param([{"dir": "res", "id": 1, "method": "qt.ui.click"}], id="res-without-result"),
         pytest.param([{"dir": "req", "id": 1, "method": "qt.ui.click"}, {"dir": "res", "id": 1, "method": "qt.ui.click", "result": {}}], id="req-without-params"),
         pytest.param([{"dir": "ntf"}], id="notification-without-method"),
-        pytest.param([{"dir": "res", "id": 1, "result": {}}], id="res-without-method"),
         pytest.param([{"dir": "wat", "id": 1}], id="unknown-direction"),
         pytest.param([{"id": 1, "method": "qt.ui.click"}], id="no-direction"),
         pytest.param([{}], id="empty-entry"),
         pytest.param([{"dir": "req", "method": "qt.ui.click", "params": {}}], id="req-without-id"),
-        pytest.param([{"dir": "err", "id": 1, "method": "qt.properties.get", "error": "boom"}], id="err-without-req"),
         pytest.param([{"dir": "req", "id": None, "method": "qt.ui.click", "params": None}], id="null-id-and-params"),
     ],
 )

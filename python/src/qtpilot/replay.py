@@ -352,6 +352,8 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
     fmt = 0
 
     for raw in entries:
+        if not isinstance(raw, dict):
+            raise ValueError("scenario entry must be a JSON object")
         direction = raw.get("dir")
 
         if direction == FORMAT_DIR:
@@ -389,7 +391,16 @@ def parse_entries(entries: Iterable[dict]) -> Scenario:
             continue
 
         method = raw.get("method", "")
-        request = pending.pop(raw.get("id"), {})
+        request_id = raw.get("id")
+        if request_id not in pending:
+            raise ValueError(f"response id {request_id!r} has no matching request")
+        request = pending.pop(request_id)
+        request_method = request.get("method", "")
+        if method != request_method:
+            raise ValueError(
+                f"response method {method!r} does not match request method {request_method!r} "
+                f"for id {request_id!r}"
+            )
 
         # A recorded call whose params are not an object cannot be reconstructed: replay would
         # hand probe.call() a float or a list where the wire format requires a JSON object.
@@ -458,9 +469,12 @@ def load_scenario(path: str | Path) -> Scenario:
         if not line.strip():
             continue
         try:
-            entries.append(json.loads(line))
+            entry = json.loads(line)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{path}: line {number} is not valid JSON: {exc}") from exc
+        if not isinstance(entry, dict):
+            raise ValueError(f"{path}: line {number} must be a JSON object")
+        entries.append(entry)
 
     scenario = parse_entries(entries)
     scenario.source = str(path)
@@ -585,10 +599,18 @@ class ReplayResult:
                 lines.append(json.dumps({"dir": "req", "id": request_id, "method": step.action.method, "params": step.action.params}))
                 lines.append(json.dumps({"dir": "res", "id": request_id, "method": step.action.method, "result": {"ok": True}}))
 
+            for setup in step.setups:
+                request_id += 1
+                lines.append(json.dumps({"dir": "req", "id": request_id, "method": setup.method, "params": setup.params}))
+                lines.append(json.dumps({"dir": "res", "id": request_id, "method": setup.method, "result": {"ok": True}}))
+
             for observation in step.observations:
                 request_id += 1
                 lines.append(json.dumps({"dir": "req", "id": request_id, "method": observation.method, "params": observation.params}))
-                lines.append(json.dumps({"dir": "res", "id": request_id, "method": observation.method, "result": observation.result}))
+                if observation.error is not None:
+                    lines.append(json.dumps({"dir": "err", "id": request_id, "method": observation.method, "error": observation.error}))
+                else:
+                    lines.append(json.dumps({"dir": "res", "id": request_id, "method": observation.method, "result": observation.result}))
 
             for method, params in step.notifications:
                 lines.append(json.dumps({"dir": "ntf", "method": method, "params": params}))

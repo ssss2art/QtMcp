@@ -93,6 +93,11 @@ it does not reset anything.**
 The split matters in CI. A probe that is not there has not "behaved differently", and reporting
 it as a divergence sends someone hunting a regression that does not exist.
 
+Before a scenario can drive the application, each JSONL line must be an object
+and every `res` or `err` entry must match both the request ID and method of an
+earlier `req`. A truncated or corrupt transcript is rejected instead of being
+reinterpreted as fresh UI input.
+
 ## What is ignored, and why
 
 Five things differ between two runs of the same session and would otherwise fail every replay:
